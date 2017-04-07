@@ -6,7 +6,7 @@
 'use strict';
 
 import { scm, Uri, Disposable, SourceControl, SourceControlResourceGroup, Event, workspace, commands } from 'vscode';
-import { Model, State } from './model';
+import { Model, State, StagingGroup } from "./model";
 import { StatusBarCommands } from './statusbar';
 import { CommandCenter } from './commands';
 import { mapEvent } from './util';
@@ -39,10 +39,11 @@ export class MercurialSCMProvider {
 
 		switch (countBadge) {
 			case 'off': return 0;
-			case 'tracked': return this.model.workingTreeGroup.resources.length;
+			case 'tracked': return this.model.workingDirectoryGroup.resources.length;
 			default:
 				return this.model.mergeGroup.resources.length
-					+ this.model.workingTreeGroup.resources.length;
+					+ this.model.stagingGroup.resources.length
+					+ this.model.workingDirectoryGroup.resources.length;
 		}
 	}
 
@@ -53,7 +54,7 @@ export class MercurialSCMProvider {
 	}
 
 	private mergeGroup: SourceControlResourceGroup;
-	private indexGroup: SourceControlResourceGroup;
+	private stagingGroup: SourceControlResourceGroup;
 	private workingTreeGroup: SourceControlResourceGroup;
 
 	constructor(
@@ -71,15 +72,16 @@ export class MercurialSCMProvider {
 		this.onDidStatusBarCommandsChange();
 
 		this.mergeGroup = this._sourceControl.createResourceGroup(model.mergeGroup.id, model.mergeGroup.label);
-		// this.indexGroup = this._sourceControl.createResourceGroup(model.workingTreeGroup.id, model.workingTreeGroup.label);
-		this.workingTreeGroup = this._sourceControl.createResourceGroup(model.workingTreeGroup.id, model.workingTreeGroup.label);
+		this.stagingGroup = this._sourceControl.createResourceGroup(model.stagingGroup.id, model.stagingGroup.label);
+		this.workingTreeGroup = this._sourceControl.createResourceGroup(model.workingDirectoryGroup.id, model.workingDirectoryGroup.label);
 
 		this.mergeGroup.hideWhenEmpty = true;
 		this.workingTreeGroup.hideWhenEmpty = true;
+		this.stagingGroup.hideWhenEmpty = true;
 
 		this.disposables.push(this.mergeGroup);
-		this.disposables.push(this.indexGroup);
 		this.disposables.push(this.workingTreeGroup);
+		this.disposables.push(this.stagingGroup);
 
 		model.onDidChange(this.onDidModelChange, this, this.disposables);
 		this.updateCommitTemplate();
@@ -105,8 +107,8 @@ export class MercurialSCMProvider {
 
 	private onDidModelChange(): void {
 		this.mergeGroup.resourceStates = this.model.mergeGroup.resources;
-		this.workingTreeGroup.resourceStates = this.model.workingTreeGroup.resources;
-		this.workingTreeGroup.resourceStates = this.model.workingTreeGroup.resources;
+		this.workingTreeGroup.resourceStates = this.model.workingDirectoryGroup.resources;
+		this.stagingGroup.resourceStates = this.model.stagingGroup.resources;
 		this._sourceControl.count = this.count;
 		commands.executeCommand('setContext', 'hgState', this.stateContextKey);
 	}

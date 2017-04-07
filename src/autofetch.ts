@@ -10,7 +10,7 @@ import { HgErrorCodes } from './hg';
 import { Model } from './model';
 import { throttle } from './decorators';
 
-export class AutoFetcher {
+export class AutoIncoming {
 
 	private static Period = 3 * 60 * 1000 /* three minutes */;
 	private disposables: Disposable[] = [];
@@ -24,7 +24,7 @@ export class AutoFetcher {
 	private onConfiguration(): void {
 		const hgConfig = workspace.getConfiguration('hg');
 
-		if (hgConfig.get<boolean>('autofetch') === false) {
+		if (hgConfig.get<boolean>('autoincoming') === false) {
 			this.disable();
 		} else {
 			this.enable();
@@ -36,8 +36,8 @@ export class AutoFetcher {
 			return;
 		}
 
-		this.fetch();
-		this.timer = setInterval(() => this.fetch(), AutoFetcher.Period);
+		this.incoming();
+		this.timer = setInterval(() => this.incoming(), AutoIncoming.Period);
 	}
 
 	disable(): void {
@@ -45,9 +45,9 @@ export class AutoFetcher {
 	}
 
 	@throttle
-	private async fetch(): Promise<void> {
+	private async incoming(): Promise<void> {
 		try {
-			await this.model.fetch();
+			await this.model.incoming();
 		} catch (err) {
 			if (err.hgErrorCode === HgErrorCodes.AuthenticationFailed) {
 				this.disable();

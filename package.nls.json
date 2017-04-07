@@ -23,7 +23,7 @@
 	"config.enabled": "Whether mercurial is enabled",
 	"config.path": "Path to the mercurial executable",
 	"config.autorefresh": "Whether auto refreshing is enabled",
-	"config.autofetch": "Whether auto fetching is enabled",
+	"config.autoincoming": "Whether auto-incoming is enabled",
 	"config.enableLongCommitWarning": "Whether long commit messages should be warned about",
 	"config.countBadge": "Controls the mercurial badge counter",
 	"config.checkoutType": "Controls what type of branches are listed"

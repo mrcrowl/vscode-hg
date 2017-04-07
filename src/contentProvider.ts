@@ -68,7 +68,7 @@ export class HgContentProvider {
 		if (ref === '~') {
 			const fileUri = uri.with({ scheme: 'file', query: '' });
 			const uriString = fileUri.toString();
-			const [indexStatus] = this.model.workingTreeGroup.resources.filter(r => r.original.toString() === uriString);
+			const [indexStatus] = this.model.workingDirectoryGroup.resources.filter(r => r.original.toString() === uriString);
 			ref = indexStatus ? '' : 'HEAD';
 		}
 

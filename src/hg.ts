@@ -654,13 +654,13 @@ export class Repository {
 		}
 	}
 
-	async fetch(): Promise<void> {
+	async incoming(): Promise<void> {
 		try {
-			await this.run(['fetch']);
+			await this.run(['incoming']);
 		} catch (err) {
-			if (/No remote repository specified\./.test(err.stderr || '')) {
+			if (/repository default not found\./.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.NoRemoteRepositorySpecified;
-			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
+			} else if (/abort/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
 
@@ -668,12 +668,8 @@ export class Repository {
 		}
 	}
 
-	async pull(rebase?: boolean): Promise<void> {
+	async pull(): Promise<void> {
 		const args = ['pull'];
-
-		if (rebase) {
-			args.push('-r');
-		}
 
 		try {
 			await this.run(args);
@@ -692,15 +688,15 @@ export class Repository {
 		}
 	}
 
-	async push(remote?: string, name?: string, options?: PushOptions): Promise<void> {
+	async push(path?: string, name?: string, options?: PushOptions): Promise<void> {
 		const args = ['push'];
 
 		if (options && options.setUpstream) {
 			args.push('-u');
 		}
 
-		if (remote) {
-			args.push(remote);
+		if (path) {
+			args.push(path);
 		}
 
 		if (name) {

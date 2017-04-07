@@ -146,21 +146,21 @@ export class MergeGroup extends ResourceGroup {
 	}
 }
 
-export class IndexGroup extends ResourceGroup {
+export class StagingGroup extends ResourceGroup {
 
-	static readonly ID = 'index';
+	static readonly ID = 'stage';
 
 	constructor(resources: Resource[] = []) {
-		super(IndexGroup.ID, localize('staged changes', "Staged Changes"), resources);
+		super(StagingGroup.ID, localize('staged changes', "Staged Changes"), resources);
 	}
 }
 
-export class WorkingFolderGroup extends ResourceGroup {
+export class WorkingDirectoryGroup extends ResourceGroup {
 
-	static readonly ID = 'workingTree';
+	static readonly ID = 'working';
 
 	constructor(resources: Resource[] = []) {
-		super(WorkingFolderGroup.ID, localize('changes', "Changes"), resources);
+		super(WorkingDirectoryGroup.ID, localize('changes', "Changes"), resources);
 	}
 }
 
@@ -173,7 +173,7 @@ export enum Operation {
 	Branch = 1 << 5,
 	Checkout = 1 << 6,
 	Reset = 1 << 7,
-	Fetch = 1 << 8,
+	Incoming = 1 << 8,
 	Pull = 1 << 9,
 	Push = 1 << 10,
 	Sync = 1 << 11,
@@ -279,23 +279,20 @@ export class Model implements Disposable {
 	private _mergeGroup = new MergeGroup([]);
 	get mergeGroup(): MergeGroup { return this._mergeGroup; }
 
-	private _workingTreeGroup = new WorkingFolderGroup([]);
-	get workingTreeGroup(): WorkingFolderGroup { return this._workingTreeGroup; }
+	private _stagingGroup = new StagingGroup([]);
+	get stagingGroup(): StagingGroup { return this._stagingGroup; }
 
-	private _workingDirParent: Branch | undefined;
-	get workingDirectoryParent(): Branch | undefined {
-		return this._workingDirParent;
-	}
+	private _workingDirectory = new WorkingDirectoryGroup([]);
+	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._workingDirectory; }
+
+	private _parent: Branch | undefined;
+	get parent(): Branch | undefined { return this._parent; }
 
 	private _refs: Ref[] = [];
-	get refs(): Ref[] {
-		return this._refs;
-	}
+	get refs(): Ref[] { return this._refs; }
 
 	private _paths: Path[] = [];
-	get paths(): Path[] {
-		return this._paths;
-	}
+	get paths(): Path[] { return this._paths; }
 
 	private _operations = new OperationsImpl();
 	get operations(): Operations { return this._operations; }
@@ -308,11 +305,11 @@ export class Model implements Disposable {
 		this._state = state;
 		this._onDidChangeState.fire(state);
 
-		this._workingDirParent = undefined;
+		this._parent = undefined;
 		this._refs = [];
 		this._mergeGroup = new MergeGroup();
-		// this._indexGroup = new IndexGroup();
-		this._workingTreeGroup = new WorkingFolderGroup();
+		this._stagingGroup = new StagingGroup();
+		this._workingDirectory = new WorkingDirectoryGroup();
 		this._onDidChangeResources.fire();
 	}
 
@@ -373,9 +370,12 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async stage(uri: Uri, contents: string): Promise<void> {
-		const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-		await this.run(Operation.Stage, () => this.repository.stage(relativePath, contents));
+	async stage(resources: Resource[]): Promise<void> {
+		resources = resources.map(r => new Resource(this._stagingGroup, r.resourceUri, r.type))
+		this._stagingGroup = new StagingGroup([...this._stagingGroup.resources, ...resources]);
+		// const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
+		// await this.run(Operation.Stage, () => this.repository.stage(relativePath, contents));
+		return this.refresh();
 	}
 
 	@throttle
@@ -448,31 +448,18 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async fetch(): Promise<void> {
-		await this.run(Operation.Fetch, () => this.repository.fetch());
+	async incoming(): Promise<void> {
+		await this.run(Operation.Incoming, () => this.repository.incoming());
 	}
 
 	@throttle
-	async pull(rebase?: boolean): Promise<void> {
-		await this.run(Operation.Pull, () => this.repository.pull(rebase));
+	async pull(): Promise<void> {
+		await this.run(Operation.Pull, () => this.repository.pull());
 	}
 
 	@throttle
-	async push(remote?: string, name?: string, options?: PushOptions): Promise<void> {
-		await this.run(Operation.Push, () => this.repository.push(remote, name, options));
-	}
-
-	@throttle
-	async sync(): Promise<void> {
-		await this.run(Operation.Sync, async () => {
-			await this.repository.pull();
-
-			const shouldPush = this.workingDirectoryParent && this.workingDirectoryParent.ahead ? this.workingDirectoryParent.ahead > 0 : true;
-
-			if (shouldPush) {
-				await this.repository.push();
-			}
-		});
+	async push(path?: string, name?: string, options?: PushOptions): Promise<void> {
+		await this.run(Operation.Push, () => this.repository.push(path, name, options));
 	}
 
 	async show(ref: string, uri: Uri): Promise<string> {
@@ -575,34 +562,42 @@ export class Model implements Disposable {
 			// noop
 		}
 
-		this._workingDirParent = branch;
+		this._parent = branch;
 		this._refs = await this.repository.getRefs();;
 
-		const workingTree: Resource[] = [];
+		const workingDirectory: Resource[] = [];
+		const staging: Resource[] = [];
 		const merge: Resource[] = [];
 
 		status.forEach(raw => {
 			const uri = Uri.file(path.join(this.repository.root, raw.path));
+			const uriString = uri.toString();
 			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
 
 			switch (raw.status) {
-				case '?': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.UNTRACKED));
-				case '!': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MISSING));
-				case 'M': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED));
-				case 'A': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.ADDED));
-				case 'R': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED));
-				case 'C': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.CONFLICT));
-				case 'I': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.IGNORED));
-
-				// case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
-				// case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
-				// case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
-				// case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
-				// case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
-				// case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
-				// case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
-				// case 'R': index.push(new Resource(this.indexGroup, uri, Status.RENAMED, renameUri)); break;
+				case '?': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.UNTRACKED));
+				case '!': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.MISSING));
+				case 'I': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.IGNORED));
 			}
+
+			const isStaged = this._stagingGroup.resources.some(resource => resource.resourceUri.toString() === uriString);
+			const targetResources: Resource[] = isStaged ? staging : workingDirectory;
+			const targetGroup: ResourceGroup = isStaged ? this.stagingGroup : this.workingDirectoryGroup;
+
+			switch (raw.status) {
+				case 'M': return targetResources.push(new Resource(targetGroup, uri, Status.MODIFIED));
+				case 'A': return targetResources.push(new Resource(targetGroup, uri, Status.ADDED));
+				case 'R': return targetResources.push(new Resource(targetGroup, uri, Status.DELETED));
+				case 'C': return targetResources.push(new Resource(targetGroup, uri, Status.CONFLICT));
+			}
+			// case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
+			// case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
+			// case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
+			// case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
+			// case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
+			// case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
+			// case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
+			// case 'R': index.push(new Resource(this.indexGroup, uri, Status.RENAMED, renameUri)); break;
 
 			// switch (raw.y) {
 			// 	case 'M': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri)); break;
@@ -611,7 +606,8 @@ export class Model implements Disposable {
 		});
 
 		this._mergeGroup = new MergeGroup(merge);
-		this._workingTreeGroup = new WorkingFolderGroup(workingTree);
+		this._stagingGroup = new StagingGroup(staging);
+		this._workingDirectory = new WorkingDirectoryGroup(workingDirectory);
 		this._onDidChangeResources.fire();
 	}
 

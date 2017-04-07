@@ -24,7 +24,7 @@ class CheckoutStatusBar {
 	}
 
 	get command(): Command | undefined {
-		const HEAD = this.model.workingDirectoryParent;
+		const HEAD = this.model.parent;
 
 		if (!HEAD) {
 			return undefined;
@@ -35,7 +35,7 @@ class CheckoutStatusBar {
 		const head = HEAD.name || tagName || (HEAD.commit || '').substr(0, 8);
 		const title = '$(hg-branch) '
 			+ head
-			+ (this.model.workingTreeGroup.resources.length > 0 ? '*' : '')
+			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '*' : '')
 			// + (this.model.indexGroup.resources.length > 0 ? '+' : '')
 			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
@@ -93,7 +93,7 @@ class SyncStatusBar {
 		this.state = {
 			...this.state,
 			hasPaths: this.model.paths.length > 0,
-			HEAD: this.model.workingDirectoryParent
+			HEAD: this.model.parent
 		};
 	}
 

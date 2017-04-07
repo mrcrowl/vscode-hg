@@ -7,7 +7,7 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState } from 'vscode';
 import { Ref, RefType, Hg } from './hg';
-import { Model, Resource, Status, CommitOptions, WorkingFolderGroup, IndexGroup, MergeGroup } from './model';
+import { Model, Resource, Status, CommitOptions, WorkingDirectoryGroup, StagingGroup, MergeGroup } from './model';
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
@@ -157,7 +157,7 @@ export class CommandCenter {
 			case Status.UNTRACKED:
 			case Status.IGNORED:
 				const uriString = resource.resourceUri.toString();
-				const [indexStatus] = this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString);
+				const [indexStatus] = this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString);
 
 				if (indexStatus && indexStatus.renameResourceUri) {
 					return indexStatus.renameResourceUri;
@@ -290,13 +290,13 @@ export class CommandCenter {
 		}
 
 		const resources = resourceStates
-			.filter(s => s instanceof Resource && (s.resourceGroup instanceof WorkingFolderGroup || s.resourceGroup instanceof MergeGroup)) as Resource[];
+			.filter(s => s instanceof Resource && (s.resourceGroup instanceof WorkingDirectoryGroup || s.resourceGroup instanceof MergeGroup)) as Resource[];
 
 		if (!resources.length) {
 			return;
 		}
 
-		return await this.model.add(...resources);
+		return await this.model.stage(resources);
 	}
 
 	@command('hg.stageAll')
@@ -317,7 +317,7 @@ export class CommandCenter {
 		}
 
 		const resources = resourceStates
-			.filter(s => s instanceof Resource && s.resourceGroup instanceof IndexGroup) as Resource[];
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof StagingGroup) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -344,7 +344,7 @@ export class CommandCenter {
 		}
 
 		const resources = resourceStates
-			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingFolderGroup) as Resource[];
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -374,7 +374,7 @@ export class CommandCenter {
 			return;
 		}
 
-		await this.model.clean(...this.model.workingTreeGroup.resources);
+		await this.model.clean(...this.model.workingDirectoryGroup.resources);
 	}
 
 	private async smartCommit(
@@ -382,14 +382,14 @@ export class CommandCenter {
 		opts?: CommitOptions
 	): Promise<boolean> {
 		if (!opts) {
-			opts = { all: this.model.workingTreeGroup.resources.length === 0 };
+			opts = { all: this.model.workingDirectoryGroup.resources.length === 0 };
 		}
 
 		if (
 			// no changes
-			(this.model.workingTreeGroup.resources.length === 0 && this.model.workingTreeGroup.resources.length === 0)
+			(this.model.workingDirectoryGroup.resources.length === 0 && this.model.workingDirectoryGroup.resources.length === 0)
 			// or no staged changes and not `all`
-			|| (!opts.all && this.model.workingTreeGroup.resources.length === 0)
+			|| (!opts.all && this.model.workingDirectoryGroup.resources.length === 0)
 		) {
 			window.showInformationMessage(localize('no changes', "There are no changes to commit."));
 			return false;
@@ -447,24 +447,14 @@ export class CommandCenter {
 		await this.commitWithAnyInput({ all: false });
 	}
 
-	@command('hg.commitStagedSigned')
-	async commitStagedSigned(): Promise<void> {
-		await this.commitWithAnyInput({ all: false, signoff: true });
-	}
-
 	@command('hg.commitAll')
 	async commitAll(): Promise<void> {
 		await this.commitWithAnyInput({ all: true });
 	}
 
-	@command('hg.commitAllSigned')
-	async commitAllSigned(): Promise<void> {
-		await this.commitWithAnyInput({ all: true, signoff: true });
-	}
-
 	@command('hg.undoCommit')
 	async undoCommit(): Promise<void> {
-		const HEAD = this.model.workingDirectoryParent;
+		const HEAD = this.model.parent;
 
 		if (!HEAD || !HEAD.commit) {
 			return;
@@ -476,7 +466,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.update')
-	async checkout(): Promise<void> {
+	async update(): Promise<void> {
 		const config = workspace.getConfiguration('hg');
 		const checkoutType = config.get<string>('updateType') || 'all';
 		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
@@ -631,8 +621,8 @@ export class CommandCenter {
 		if (uri.scheme === 'file') {
 			const uriString = uri.toString();
 
-			return this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0]
-				|| this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+			return this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0]
+				|| this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
 		}
 	}
 

@@ -380,22 +380,22 @@
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
         }
       ],
@@ -432,32 +432,32 @@
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "navigation"
         },
         {
           "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "navigation"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == workingTree",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
         }
       ],

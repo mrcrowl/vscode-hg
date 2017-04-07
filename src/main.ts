@@ -12,7 +12,7 @@ import { MercurialSCMProvider } from './scmProvider';
 import { CommandCenter } from './commands';
 import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
-import { AutoFetcher } from './autofetch';
+import { AutoIncoming } from './autofetch';
 import { MergeDecorator } from './merge';
 import { Askpass } from './askpass';
 import TelemetryReporter from 'vscode-extension-telemetry';
@@ -53,7 +53,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const statusBarCommands = new StatusBarCommands(model);
 	const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
 	const contentProvider = new HgContentProvider(model);
-	const autoFetcher = new AutoFetcher(model);
+	const autoFetcher = new AutoIncoming(model);
 	const mergeDecorator = new MergeDecorator(model);
 
 	disposables.push(
