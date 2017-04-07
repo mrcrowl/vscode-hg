@@ -496,9 +496,9 @@
           "description": "%config.autorefresh%",
           "default": true
         },
-        "hg.autofetch": {
+        "hg.autoincoming": {
           "type": "boolean",
-          "description": "%config.autofetch%",
+          "description": "%config.autoincoming%",
           "default": true
         },
         "hg.confirmSync": {
