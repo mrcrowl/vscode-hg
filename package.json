@@ -370,12 +370,12 @@
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "inline"
         },
         {
@@ -412,22 +412,22 @@
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "navigation"
         },
         {
           "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "navigation"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == index",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "inline"
         },
         {

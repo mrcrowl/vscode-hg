@@ -8,6 +8,8 @@
 import { workspace, Uri, Disposable, Event, EventEmitter, window } from 'vscode';
 import { debounce, throttle } from './decorators';
 import { Model } from './model';
+import { readFile } from 'fs';
+import * as vscode from "vscode";
 
 interface CacheRow {
 	uri: Uri;
@@ -48,8 +50,7 @@ export class HgContentProvider {
 	private async fireChangeEvents(): Promise<void> {
 		await this.model.whenIdle();
 
-		Object.keys(this.cache)
-			.forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
+		Object.keys(this.cache).forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
 	}
 
 	async provideTextDocumentContent(uri: Uri): Promise<string> {
@@ -63,14 +64,28 @@ export class HgContentProvider {
 			uri = new Uri().with({ scheme: 'hg', path: uri.query });
 		}
 
-		let ref = uri.query;
+		let ref = uri.query; 
 
-		if (ref === '~') {
-			const fileUri = uri.with({ scheme: 'file', query: '' });
-			const uriString = fileUri.toString();
-			const [indexStatus] = this.model.workingDirectoryGroup.resources.filter(r => r.original.toString() === uriString);
-			ref = indexStatus ? '' : 'HEAD';
-		}
+		// if (ref === '~') {
+		// 	const fileUri = uri.with({ scheme: 'file', query: '' });
+		// 	const isStaged = this.model.stagingGroup.includesUri(fileUri);
+		// }
+
+		if (ref == '')
+		{
+			return new Promise<string>((c, e) => {
+				readFile(uri.fsPath, (err, data) => {
+					if (!err)
+					{
+						console.log(this.model);
+						const contents = data.toString('utf-8');
+						return c(contents);
+					}
+
+					e(err);
+				})
+			});
+		}	
 
 		try {
 			const result = await this.model.show(ref, uri);

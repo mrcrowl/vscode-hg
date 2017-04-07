@@ -61,7 +61,7 @@ export class Resource implements SourceControlResourceState {
 	}
 
 	get resourceGroup(): ResourceGroup { return this._resourceGroup; }
-	get type(): Status { return this._type; }
+	get status(): Status { return this._type; }
 	get original(): Uri { return this._resourceUri; }
 	get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
 
@@ -89,7 +89,7 @@ export class Resource implements SourceControlResourceState {
 	};
 
 	private getIconPath(theme: string): Uri | undefined {
-		switch (this.type) {
+		switch (this.status) {
 			case Status.MODIFIED: return Resource.Icons[theme].Modified;
 			case Status.ADDED: return Resource.Icons[theme].Added;
 			case Status.DELETED: return Resource.Icons[theme].Deleted;
@@ -102,7 +102,7 @@ export class Resource implements SourceControlResourceState {
 	}
 
 	private get strikeThrough(): boolean {
-		switch (this.type) {
+		switch (this.status) {
 			case Status.DELETED:
 				return true;
 			default:
@@ -132,8 +132,39 @@ export abstract class ResourceGroup {
 	get label(): string { return this._label; }
 	get resources(): Resource[] { return this._resources; }
 
-	constructor(private _id: string, private _label: string, private _resources: Resource[]) {
+	private _resourceUriIndex: Map<string, boolean>;
 
+	constructor(
+		private _id: string,
+		private _label: string,
+		private _resources: Resource[]) {
+		this._resourceUriIndex = ResourceGroup.indexResources(_resources);
+	}
+
+	private static indexResources(resources: Resource[]): Map<string, boolean> {
+		const index = new Map<string, boolean>();
+		resources.forEach(r => index.set(r.resourceUri.toString(), true));
+		return index;
+	}
+
+	includes(resource: Resource): boolean {
+		return this.includesUri(resource.resourceUri);
+	}
+
+	includesUri(uri: Uri): boolean {
+		return this._resourceUriIndex.has(uri.toString());
+	}
+
+	intersect(resources: Resource[]): StagingGroup {
+		const newUniqueResources = resources.filter(r => !this.includes(r)).map(r => new Resource(this, r.resourceUri, r.status));
+		const intersectionResources: Resource[] = [...this.resources, ...newUniqueResources];
+		return new StagingGroup(intersectionResources);
+	}
+
+	except(resources: Resource[]): StagingGroup {
+		const excludeIndex = StagingGroup.indexResources(resources);
+		const remainingResources = this.resources.filter(r => !excludeIndex.has(r.resourceUri.toString()));
+		return new StagingGroup(remainingResources);
 	}
 }
 
@@ -148,7 +179,7 @@ export class MergeGroup extends ResourceGroup {
 
 export class StagingGroup extends ResourceGroup {
 
-	static readonly ID = 'stage';
+	static readonly ID = 'staging';
 
 	constructor(resources: Resource[] = []) {
 		super(StagingGroup.ID, localize('staged changes', "Staged Changes"), resources);
@@ -370,17 +401,25 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async stage(resources: Resource[]): Promise<void> {
-		resources = resources.map(r => new Resource(this._stagingGroup, r.resourceUri, r.type))
-		this._stagingGroup = new StagingGroup([...this._stagingGroup.resources, ...resources]);
-		// const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-		// await this.run(Operation.Stage, () => this.repository.stage(relativePath, contents));
-		return this.refresh();
+	async stage(...resources: Resource[]): Promise<void> {
+		if (resources.length === 0)
+		{
+			resources = this._workingDirectory.resources;
+		}	
+		this._stagingGroup = this._stagingGroup.intersect(resources);
+		this._workingDirectory = this._workingDirectory.except(resources);
+		this._onDidChangeResources.fire();
 	}
 
 	@throttle
-	async revertFiles(...resources: Resource[]): Promise<void> {
-		await this.run(Operation.RevertFiles, () => this.repository.revertFiles('HEAD', resources.map(r => r.resourceUri.fsPath)));
+	async unstage(...resources: Resource[]): Promise<void> {
+		if (resources.length === 0)
+		{
+			resources = this._stagingGroup.resources;
+		}	
+		this._stagingGroup = this._stagingGroup.except(resources);
+		this._workingDirectory = this._workingDirectory.intersect(resources);
+		this._onDidChangeResources.fire();
 	}
 
 	@throttle
@@ -401,7 +440,7 @@ export class Model implements Disposable {
 			const toCheckout: string[] = [];
 
 			resources.forEach(r => {
-				switch (r.type) {
+				switch (r.status) {
 					case Status.UNTRACKED:
 					case Status.IGNORED:
 						toClean.push(r.resourceUri.fsPath);
@@ -468,7 +507,7 @@ export class Model implements Disposable {
 
 		return await this.run(Operation.Show, async () => {
 			const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-			const result = await this.repository.hg.exec(this.repository.root, ['show', `${ref}:${relativePath}`]);
+			const result = await this.repository.hg.exec(this.repository.root, ['cat', relativePath, '-r', ref]);
 
 			if (result.exitCode !== 0) {
 				throw new HgError({
@@ -556,14 +595,14 @@ export class Model implements Disposable {
 		const status = await this.repository.getStatus();
 		let branch: Branch | undefined;
 
-		try {
-			branch = await this.repository.getParent();
-		} catch (err) {
-			// noop
-		}
+		// try {
+		// 	branch = await this.repository.getParent();
+		// } catch (err) {
+		// 	// noop
+		// }
 
-		this._parent = branch;
-		this._refs = await this.repository.getRefs();;
+		// this._parent = branch;
+		// this._refs = await this.repository.getRefs();;
 
 		const workingDirectory: Resource[] = [];
 		const staging: Resource[] = [];

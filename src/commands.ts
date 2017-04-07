@@ -129,51 +129,34 @@ export class CommandCenter {
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
-		switch (resource.type) {
-			case Status.MODIFIED:
-			// case Status.INDEX_RENAMED:
-				return resource.original.with({ scheme: 'hg', query: 'HEAD' });
+		switch (resource.status) {
+			case Status.ADDED:
+			case Status.UNTRACKED:
+			case Status.IGNORED:
+				return undefined;
 
-			case Status.MODIFIED:
-				return resource.resourceUri.with({ scheme: 'hg', query: '~' });
+			default:
+				return resource.original.with({ scheme: 'hg', query: '.' });
 		}
 	}
 
 	private getRightResource(resource: Resource): Uri | undefined {
-		switch (resource.type) {
-			case Status.MODIFIED:
-			case Status.ADDED:
-			// case Status.INDEX_COPIED:
-				return resource.resourceUri.with({ scheme: 'hg' });
-
-			// case Status.INDEX_RENAMED:
-				// return resource.resourceUri.with({ scheme: 'hg' });
-
-			// case Status.INDEX_DELETED:
+		switch (resource.status) {
 			case Status.DELETED:
-				return resource.resourceUri.with({ scheme: 'hg', query: 'HEAD' });
+				return resource.resourceUri.with({ scheme: 'hg', query: '.' });
 
 			case Status.MODIFIED:
 			case Status.UNTRACKED:
 			case Status.IGNORED:
-				const uriString = resource.resourceUri.toString();
-				const [indexStatus] = this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString);
-
-				if (indexStatus && indexStatus.renameResourceUri) {
-					return indexStatus.renameResourceUri;
-				}
-
+			case Status.ADDED:	
 				return resource.resourceUri;
-
-			// case Status.BOTH_MODIFIED:
-				// return resource.resourceUri;
 		}
 	}
 
 	private getTitle(resource: Resource): string {
 		const basename = path.basename(resource.resourceUri.fsPath);
 
-		switch (resource.type) {
+		switch (resource.status) {
 			// case Status.INDEX_MODIFIED:
 			// case Status.INDEX_RENAMED:
 			// 	return `${basename} (Index)`;
@@ -296,12 +279,12 @@ export class CommandCenter {
 			return;
 		}
 
-		return await this.model.stage(resources);
+		return await this.model.stage(...resources);
 	}
 
 	@command('hg.stageAll')
 	async stageAll(): Promise<void> {
-		return await this.model.add();
+		return await this.model.stage();
 	}
 
 	@command('hg.unstage')
@@ -316,19 +299,18 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates
-			.filter(s => s instanceof Resource && s.resourceGroup instanceof StagingGroup) as Resource[];
+		const resources = resourceStates.filter(s => s instanceof Resource && s.resourceGroup instanceof StagingGroup) as Resource[];
 
 		if (!resources.length) {
 			return;
 		}
 
-		return await this.model.revertFiles(...resources);
+		return await this.model.unstage(...resources);
 	}
 
 	@command('hg.unstageAll')
 	async unstageAll(): Promise<void> {
-		return await this.model.revertFiles();
+		return await this.model.unstage();
 	}
 
 	@command('hg.clean')
