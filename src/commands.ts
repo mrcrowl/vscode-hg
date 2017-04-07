@@ -157,10 +157,6 @@ export class CommandCenter {
 		const basename = path.basename(resource.resourceUri.fsPath);
 
 		switch (resource.status) {
-			// case Status.INDEX_MODIFIED:
-			// case Status.INDEX_RENAMED:
-			// 	return `${basename} (Index)`;
-
 			case Status.MODIFIED:
 				return `${basename} (Working Folder)`;
 		}

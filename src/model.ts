@@ -18,7 +18,7 @@ const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
 
 const localize = nls.loadMessageBundle();
-const iconsRootPath = path.join(path.dirname(__dirname), 'resources', 'icons');
+const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
 
 function getIconUri(iconName: string, theme: string): Uri {
 	return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
@@ -155,16 +155,21 @@ export abstract class ResourceGroup {
 		return this._resourceUriIndex.has(uri.toString());
 	}
 
-	intersect(resources: Resource[]): StagingGroup {
+	intersect(resources: Resource[]): this {
 		const newUniqueResources = resources.filter(r => !this.includes(r)).map(r => new Resource(this, r.resourceUri, r.status));
 		const intersectionResources: Resource[] = [...this.resources, ...newUniqueResources];
-		return new StagingGroup(intersectionResources);
+		return this.newResourceGroup(intersectionResources);
 	}
 
-	except(resources: Resource[]): StagingGroup {
+	except(resources: Resource[]): this {
 		const excludeIndex = StagingGroup.indexResources(resources);
 		const remainingResources = this.resources.filter(r => !excludeIndex.has(r.resourceUri.toString()));
-		return new StagingGroup(remainingResources);
+		return this.newResourceGroup(remainingResources);
+	}
+
+	private newResourceGroup(resources: Resource[]): this {
+		const SubClassConstructor = Object.getPrototypeOf(this).constructor;
+		return new SubClassConstructor(resources);
 	}
 }
 
@@ -402,10 +407,9 @@ export class Model implements Disposable {
 
 	@throttle
 	async stage(...resources: Resource[]): Promise<void> {
-		if (resources.length === 0)
-		{
+		if (resources.length === 0) {
 			resources = this._workingDirectory.resources;
-		}	
+		}
 		this._stagingGroup = this._stagingGroup.intersect(resources);
 		this._workingDirectory = this._workingDirectory.except(resources);
 		this._onDidChangeResources.fire();
@@ -413,10 +417,9 @@ export class Model implements Disposable {
 
 	@throttle
 	async unstage(...resources: Resource[]): Promise<void> {
-		if (resources.length === 0)
-		{
+		if (resources.length === 0) {
 			resources = this._stagingGroup.resources;
-		}	
+		}
 		this._stagingGroup = this._stagingGroup.except(resources);
 		this._workingDirectory = this._workingDirectory.intersect(resources);
 		this._onDidChangeResources.fire();
@@ -614,9 +617,8 @@ export class Model implements Disposable {
 			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
 
 			switch (raw.status) {
-				case '?': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.UNTRACKED));
-				case '!': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.MISSING));
 				case 'I': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.IGNORED));
+				case '!': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.MISSING));
 			}
 
 			const isStaged = this._stagingGroup.resources.some(resource => resource.resourceUri.toString() === uriString);
@@ -624,6 +626,7 @@ export class Model implements Disposable {
 			const targetGroup: ResourceGroup = isStaged ? this.stagingGroup : this.workingDirectoryGroup;
 
 			switch (raw.status) {
+				case '?': return targetResources.push(new Resource(targetGroup, uri, Status.UNTRACKED));
 				case 'M': return targetResources.push(new Resource(targetGroup, uri, Status.MODIFIED));
 				case 'A': return targetResources.push(new Resource(targetGroup, uri, Status.ADDED));
 				case 'R': return targetResources.push(new Resource(targetGroup, uri, Status.DELETED));
