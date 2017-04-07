@@ -41,22 +41,13 @@ var State;
 })(State = exports.State || (exports.State = {}));
 var Status;
 (function (Status) {
-    Status[Status["INDEX_MODIFIED"] = 0] = "INDEX_MODIFIED";
-    Status[Status["INDEX_ADDED"] = 1] = "INDEX_ADDED";
-    Status[Status["INDEX_DELETED"] = 2] = "INDEX_DELETED";
-    Status[Status["INDEX_RENAMED"] = 3] = "INDEX_RENAMED";
-    Status[Status["INDEX_COPIED"] = 4] = "INDEX_COPIED";
-    Status[Status["MODIFIED"] = 5] = "MODIFIED";
-    Status[Status["DELETED"] = 6] = "DELETED";
-    Status[Status["UNTRACKED"] = 7] = "UNTRACKED";
-    Status[Status["IGNORED"] = 8] = "IGNORED";
-    Status[Status["ADDED_BY_US"] = 9] = "ADDED_BY_US";
-    Status[Status["ADDED_BY_THEM"] = 10] = "ADDED_BY_THEM";
-    Status[Status["DELETED_BY_US"] = 11] = "DELETED_BY_US";
-    Status[Status["DELETED_BY_THEM"] = 12] = "DELETED_BY_THEM";
-    Status[Status["BOTH_ADDED"] = 13] = "BOTH_ADDED";
-    Status[Status["BOTH_DELETED"] = 14] = "BOTH_DELETED";
-    Status[Status["BOTH_MODIFIED"] = 15] = "BOTH_MODIFIED";
+    Status[Status["MODIFIED"] = 0] = "MODIFIED";
+    Status[Status["ADDED"] = 1] = "ADDED";
+    Status[Status["DELETED"] = 2] = "DELETED";
+    Status[Status["UNTRACKED"] = 3] = "UNTRACKED";
+    Status[Status["IGNORED"] = 4] = "IGNORED";
+    Status[Status["MISSING"] = 5] = "MISSING";
+    Status[Status["CONFLICT"] = 6] = "CONFLICT";
 })(Status = exports.Status || (exports.Status = {}));
 class Resource {
     constructor(_resourceGroup, _resourceUri, _type, _renameResourceUri) {
@@ -66,7 +57,7 @@ class Resource {
         this._renameResourceUri = _renameResourceUri;
     }
     get resourceUri() {
-        if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED || this._type === Status.INDEX_RENAMED)) {
+        if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED)) {
             return this.renameResourceUri;
         }
         return this._resourceUri;
@@ -84,31 +75,19 @@ class Resource {
     get renameResourceUri() { return this._renameResourceUri; }
     getIconPath(theme) {
         switch (this.type) {
-            case Status.INDEX_MODIFIED: return Resource.Icons[theme].Modified;
             case Status.MODIFIED: return Resource.Icons[theme].Modified;
-            case Status.INDEX_ADDED: return Resource.Icons[theme].Added;
-            case Status.INDEX_DELETED: return Resource.Icons[theme].Deleted;
+            case Status.ADDED: return Resource.Icons[theme].Added;
             case Status.DELETED: return Resource.Icons[theme].Deleted;
-            case Status.INDEX_RENAMED: return Resource.Icons[theme].Renamed;
-            case Status.INDEX_COPIED: return Resource.Icons[theme].Copied;
+            // case Status.RENAMED: return Resource.Icons[theme].Renamed;
             case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
             case Status.IGNORED: return Resource.Icons[theme].Ignored;
-            case Status.BOTH_DELETED: return Resource.Icons[theme].Conflict;
-            case Status.ADDED_BY_US: return Resource.Icons[theme].Conflict;
-            case Status.DELETED_BY_THEM: return Resource.Icons[theme].Conflict;
-            case Status.ADDED_BY_THEM: return Resource.Icons[theme].Conflict;
-            case Status.DELETED_BY_US: return Resource.Icons[theme].Conflict;
-            case Status.BOTH_ADDED: return Resource.Icons[theme].Conflict;
-            case Status.BOTH_MODIFIED: return Resource.Icons[theme].Conflict;
+            case Status.CONFLICT: return Resource.Icons[theme].Conflict;
             default: return void 0;
         }
     }
     get strikeThrough() {
         switch (this.type) {
             case Status.DELETED:
-            case Status.BOTH_DELETED:
-            case Status.DELETED_BY_THEM:
-            case Status.DELETED_BY_US:
                 return true;
             default:
                 return false;
@@ -175,13 +154,13 @@ class IndexGroup extends ResourceGroup {
 }
 IndexGroup.ID = 'index';
 exports.IndexGroup = IndexGroup;
-class WorkingTreeGroup extends ResourceGroup {
+class WorkingFolderGroup extends ResourceGroup {
     constructor(resources = []) {
-        super(WorkingTreeGroup.ID, localize('changes', "Changes"), resources);
+        super(WorkingFolderGroup.ID, localize('changes', "Changes"), resources);
     }
 }
-WorkingTreeGroup.ID = 'workingTree';
-exports.WorkingTreeGroup = WorkingTreeGroup;
+WorkingFolderGroup.ID = 'workingTree';
+exports.WorkingFolderGroup = WorkingFolderGroup;
 var Operation;
 (function (Operation) {
     Operation[Operation["Status"] = 1] = "Status";
@@ -264,10 +243,9 @@ class Model {
         this._onDidRunOperation = new vscode_1.EventEmitter();
         this.onDidRunOperation = this._onDidRunOperation.event;
         this._mergeGroup = new MergeGroup([]);
-        this._indexGroup = new IndexGroup([]);
-        this._workingTreeGroup = new WorkingTreeGroup([]);
+        this._workingTreeGroup = new WorkingFolderGroup([]);
         this._refs = [];
-        this._remotes = [];
+        this._paths = [];
         this._operations = new OperationsImpl();
         this._state = State.Uninitialized;
         this.repositoryDisposable = util_1.EmptyDisposable;
@@ -284,28 +262,26 @@ class Model {
         return util_1.anyEvent(this.onRunOperation, this.onDidRunOperation);
     }
     get mergeGroup() { return this._mergeGroup; }
-    get indexGroup() { return this._indexGroup; }
     get workingTreeGroup() { return this._workingTreeGroup; }
-    get HEAD() {
-        return this._HEAD;
+    get workingDirectoryParent() {
+        return this._workingDirParent;
     }
     get refs() {
         return this._refs;
     }
-    get remotes() {
-        return this._remotes;
+    get paths() {
+        return this._paths;
     }
     get operations() { return this._operations; }
     get state() { return this._state; }
     set state(state) {
         this._state = state;
         this._onDidChangeState.fire(state);
-        this._HEAD = undefined;
+        this._workingDirParent = undefined;
         this._refs = [];
-        this._remotes = [];
         this._mergeGroup = new MergeGroup();
-        this._indexGroup = new IndexGroup();
-        this._workingTreeGroup = new WorkingTreeGroup();
+        // this._indexGroup = new IndexGroup();
+        this._workingTreeGroup = new WorkingFolderGroup();
         this._onDidChangeResources.fire();
     }
     whenIdle() {
@@ -436,7 +412,7 @@ class Model {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.run(Operation.Sync, () => __awaiter(this, void 0, void 0, function* () {
                 yield this.repository.pull();
-                const shouldPush = this.HEAD && this.HEAD.ahead ? this.HEAD.ahead > 0 : true;
+                const shouldPush = this.workingDirectoryParent && this.workingDirectoryParent.ahead ? this.workingDirectoryParent.ahead > 0 : true;
                 if (shouldPush) {
                     yield this.repository.push();
                 }
@@ -475,12 +451,12 @@ class Model {
                     yield this.whenUnlocked();
                     const result = yield runOperation();
                     if (!isReadOnly(operation)) {
-                        yield this.update();
+                        yield this.refresh();
                     }
                     return result;
                 }
                 catch (err) {
-                    if (err.hgErrorCode === hg_1.HgErrorCodes.NotAnHgRepository) {
+                    if (err.hgErrorCode === hg_1.HgErrorCodes.NoRespositoryFound) {
                         this.repositoryDisposable.dispose();
                         const disposables = [];
                         this.onWorkspaceChange(this.onFSChange, this, disposables);
@@ -523,76 +499,40 @@ class Model {
             this.state = State.Idle;
         });
     }
-    update() {
+    refresh() {
         return __awaiter(this, void 0, void 0, function* () {
             const status = yield this.repository.getStatus();
-            let HEAD;
+            let branch;
             try {
-                HEAD = yield this.repository.getHEAD();
-                if (HEAD.name) {
-                    try {
-                        HEAD = yield this.repository.getBranch(HEAD.name);
-                    }
-                    catch (err) {
-                        // noop
-                    }
-                }
+                branch = yield this.repository.getParent();
             }
             catch (err) {
                 // noop
             }
-            const [refs, remotes] = yield Promise.all([this.repository.getRefs(), this.repository.getRemotes()]);
-            this._HEAD = HEAD;
-            this._refs = refs;
-            this._remotes = remotes;
-            const index = [];
+            this._workingDirParent = branch;
+            this._refs = yield this.repository.getRefs();
+            ;
             const workingTree = [];
             const merge = [];
             status.forEach(raw => {
                 const uri = vscode_1.Uri.file(path.join(this.repository.root, raw.path));
                 const renameUri = raw.rename ? vscode_1.Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
-                switch (raw.x + raw.y) {
-                    case '??': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.UNTRACKED));
-                    case '!!': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.IGNORED));
-                    case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
-                    case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
-                    case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
-                    case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
-                    case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
-                    case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
-                    case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
+                switch (raw.status) {
+                    case '?': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.UNTRACKED));
+                    case '!': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MISSING));
+                    case 'M': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED));
+                    case 'A': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.ADDED));
+                    case 'R': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED));
+                    case 'C': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.CONFLICT));
+                    case 'I': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.IGNORED));
                 }
-                let isModifiedInIndex = false;
-                switch (raw.x) {
-                    case 'M':
-                        index.push(new Resource(this.indexGroup, uri, Status.INDEX_MODIFIED));
-                        isModifiedInIndex = true;
-                        break;
-                    case 'A':
-                        index.push(new Resource(this.indexGroup, uri, Status.INDEX_ADDED));
-                        break;
-                    case 'D':
-                        index.push(new Resource(this.indexGroup, uri, Status.INDEX_DELETED));
-                        break;
-                    case 'R':
-                        index.push(new Resource(this.indexGroup, uri, Status.INDEX_RENAMED, renameUri));
-                        break;
-                    case 'C':
-                        index.push(new Resource(this.indexGroup, uri, Status.INDEX_COPIED));
-                        break;
-                }
-                switch (raw.y) {
-                    case 'M':
-                        workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri));
-                        break;
-                    case 'D':
-                        workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED, renameUri));
-                        break;
-                }
+                // switch (raw.y) {
+                // 	case 'M': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri)); break;
+                // 	case 'D': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED, renameUri)); break;
+                // }
             });
             this._mergeGroup = new MergeGroup(merge);
-            this._indexGroup = new IndexGroup(index);
-            this._workingTreeGroup = new WorkingTreeGroup(workingTree);
+            this._workingTreeGroup = new WorkingFolderGroup(workingTree);
             this._onDidChangeResources.fire();
         });
     }
@@ -675,7 +615,7 @@ __decorate([
 ], Model.prototype, "sync", null);
 __decorate([
     decorators_1.throttle
-], Model.prototype, "update", null);
+], Model.prototype, "refresh", null);
 __decorate([
     decorators_1.debounce(1000)
 ], Model.prototype, "eventuallyUpdateWhenIdleAndWait", null);

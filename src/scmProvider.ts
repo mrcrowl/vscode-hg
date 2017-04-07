@@ -39,10 +39,9 @@ export class MercurialSCMProvider {
 
 		switch (countBadge) {
 			case 'off': return 0;
-			case 'tracked': return this.model.indexGroup.resources.length;
+			case 'tracked': return this.model.workingTreeGroup.resources.length;
 			default:
 				return this.model.mergeGroup.resources.length
-					+ this.model.indexGroup.resources.length
 					+ this.model.workingTreeGroup.resources.length;
 		}
 	}
@@ -72,11 +71,11 @@ export class MercurialSCMProvider {
 		this.onDidStatusBarCommandsChange();
 
 		this.mergeGroup = this._sourceControl.createResourceGroup(model.mergeGroup.id, model.mergeGroup.label);
-		this.indexGroup = this._sourceControl.createResourceGroup(model.indexGroup.id, model.indexGroup.label);
+		// this.indexGroup = this._sourceControl.createResourceGroup(model.workingTreeGroup.id, model.workingTreeGroup.label);
 		this.workingTreeGroup = this._sourceControl.createResourceGroup(model.workingTreeGroup.id, model.workingTreeGroup.label);
 
 		this.mergeGroup.hideWhenEmpty = true;
-		this.indexGroup.hideWhenEmpty = true;
+		this.workingTreeGroup.hideWhenEmpty = true;
 
 		this.disposables.push(this.mergeGroup);
 		this.disposables.push(this.indexGroup);
@@ -106,7 +105,7 @@ export class MercurialSCMProvider {
 
 	private onDidModelChange(): void {
 		this.mergeGroup.resourceStates = this.model.mergeGroup.resources;
-		this.indexGroup.resourceStates = this.model.indexGroup.resources;
+		this.workingTreeGroup.resourceStates = this.model.workingTreeGroup.resources;
 		this.workingTreeGroup.resourceStates = this.model.workingTreeGroup.resources;
 		this._sourceControl.count = this.count;
 		commands.executeCommand('setContext', 'hgState', this.stateContextKey);

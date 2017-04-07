@@ -7,7 +7,7 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState } from 'vscode';
 import { Ref, RefType, Hg } from './hg';
-import { Model, Resource, Status, CommitOptions, WorkingTreeGroup, IndexGroup, MergeGroup } from './model';
+import { Model, Resource, Status, CommitOptions, WorkingFolderGroup, IndexGroup, MergeGroup } from './model';
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
@@ -130,8 +130,8 @@ export class CommandCenter {
 
 	private getLeftResource(resource: Resource): Uri | undefined {
 		switch (resource.type) {
-			case Status.INDEX_MODIFIED:
-			case Status.INDEX_RENAMED:
+			case Status.MODIFIED:
+			// case Status.INDEX_RENAMED:
 				return resource.original.with({ scheme: 'hg', query: 'HEAD' });
 
 			case Status.MODIFIED:
@@ -141,15 +141,15 @@ export class CommandCenter {
 
 	private getRightResource(resource: Resource): Uri | undefined {
 		switch (resource.type) {
-			case Status.INDEX_MODIFIED:
-			case Status.INDEX_ADDED:
-			case Status.INDEX_COPIED:
+			case Status.MODIFIED:
+			case Status.ADDED:
+			// case Status.INDEX_COPIED:
 				return resource.resourceUri.with({ scheme: 'hg' });
 
-			case Status.INDEX_RENAMED:
-				return resource.resourceUri.with({ scheme: 'hg' });
+			// case Status.INDEX_RENAMED:
+				// return resource.resourceUri.with({ scheme: 'hg' });
 
-			case Status.INDEX_DELETED:
+			// case Status.INDEX_DELETED:
 			case Status.DELETED:
 				return resource.resourceUri.with({ scheme: 'hg', query: 'HEAD' });
 
@@ -157,7 +157,7 @@ export class CommandCenter {
 			case Status.UNTRACKED:
 			case Status.IGNORED:
 				const uriString = resource.resourceUri.toString();
-				const [indexStatus] = this.model.indexGroup.resources.filter(r => r.resourceUri.toString() === uriString);
+				const [indexStatus] = this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString);
 
 				if (indexStatus && indexStatus.renameResourceUri) {
 					return indexStatus.renameResourceUri;
@@ -165,8 +165,8 @@ export class CommandCenter {
 
 				return resource.resourceUri;
 
-			case Status.BOTH_MODIFIED:
-				return resource.resourceUri;
+			// case Status.BOTH_MODIFIED:
+				// return resource.resourceUri;
 		}
 	}
 
@@ -174,12 +174,12 @@ export class CommandCenter {
 		const basename = path.basename(resource.resourceUri.fsPath);
 
 		switch (resource.type) {
-			case Status.INDEX_MODIFIED:
-			case Status.INDEX_RENAMED:
-				return `${basename} (Index)`;
+			// case Status.INDEX_MODIFIED:
+			// case Status.INDEX_RENAMED:
+			// 	return `${basename} (Index)`;
 
 			case Status.MODIFIED:
-				return `${basename} (Working Tree)`;
+				return `${basename} (Working Folder)`;
 		}
 
 		return '';
@@ -290,7 +290,7 @@ export class CommandCenter {
 		}
 
 		const resources = resourceStates
-			.filter(s => s instanceof Resource && (s.resourceGroup instanceof WorkingTreeGroup || s.resourceGroup instanceof MergeGroup)) as Resource[];
+			.filter(s => s instanceof Resource && (s.resourceGroup instanceof WorkingFolderGroup || s.resourceGroup instanceof MergeGroup)) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -344,7 +344,7 @@ export class CommandCenter {
 		}
 
 		const resources = resourceStates
-			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingTreeGroup) as Resource[];
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingFolderGroup) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -382,14 +382,14 @@ export class CommandCenter {
 		opts?: CommitOptions
 	): Promise<boolean> {
 		if (!opts) {
-			opts = { all: this.model.indexGroup.resources.length === 0 };
+			opts = { all: this.model.workingTreeGroup.resources.length === 0 };
 		}
 
 		if (
 			// no changes
-			(this.model.indexGroup.resources.length === 0 && this.model.workingTreeGroup.resources.length === 0)
+			(this.model.workingTreeGroup.resources.length === 0 && this.model.workingTreeGroup.resources.length === 0)
 			// or no staged changes and not `all`
-			|| (!opts.all && this.model.indexGroup.resources.length === 0)
+			|| (!opts.all && this.model.workingTreeGroup.resources.length === 0)
 		) {
 			window.showInformationMessage(localize('no changes', "There are no changes to commit."));
 			return false;
@@ -464,7 +464,7 @@ export class CommandCenter {
 
 	@command('hg.undoCommit')
 	async undoCommit(): Promise<void> {
-		const HEAD = this.model.HEAD;
+		const HEAD = this.model.workingDirectoryParent;
 
 		if (!HEAD || !HEAD.commit) {
 			return;
@@ -475,24 +475,20 @@ export class CommandCenter {
 		scm.inputBox.value = commit.message;
 	}
 
-	@command('hg.checkout')
+	@command('hg.update')
 	async checkout(): Promise<void> {
 		const config = workspace.getConfiguration('hg');
-		const checkoutType = config.get<string>('checkoutType') || 'all';
+		const checkoutType = config.get<string>('updateType') || 'all';
 		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
-		const includeRemotes = checkoutType === 'all' || checkoutType === 'remote';
 
-		const heads = this.model.refs.filter(ref => ref.type === RefType.Head)
+		const heads = this.model.refs.filter(ref => ref.type === RefType.Branch)
 			.map(ref => new CheckoutItem(ref));
 
 		const tags = (includeTags ? this.model.refs.filter(ref => ref.type === RefType.Tag) : [])
 			.map(ref => new CheckoutTagItem(ref));
 
-		const remoteHeads = (includeRemotes ? this.model.refs.filter(ref => ref.type === RefType.RemoteHead) : [])
-			.map(ref => new CheckoutRemoteHeadItem(ref));
-
-		const picks = [...heads, ...tags, ...remoteHeads];
-		const placeHolder = 'Select a ref to checkout';
+		const picks = [...heads, ...tags];
+		const placeHolder = 'Select a branch/tag to update to';
 		const choice = await window.showQuickPick<CheckoutItem>(picks, { placeHolder });
 
 		if (!choice) {
@@ -520,34 +516,22 @@ export class CommandCenter {
 
 	@command('hg.pull')
 	async pull(): Promise<void> {
-		const remotes = this.model.remotes;
+		const paths = this.model.paths;
 
-		if (remotes.length === 0) {
-			window.showWarningMessage(localize('no remotes to pull', "Your repository has no remotes configured to pull from."));
+		if (paths.length === 0) {
+			window.showWarningMessage(localize('no remotes to pull', "Your repository has no paths configured to pull from."));
 			return;
 		}
 
 		await this.model.pull();
 	}
 
-	@command('hg.pullRebase')
-	async pullRebase(): Promise<void> {
-		const remotes = this.model.remotes;
-
-		if (remotes.length === 0) {
-			window.showWarningMessage(localize('no remotes to pull', "Your repository has no remotes configured to pull from."));
-			return;
-		}
-
-		await this.model.pull(true);
-	}
-
 	@command('hg.push')
 	async push(): Promise<void> {
-		const remotes = this.model.remotes;
+		const paths = this.model.paths;
 
-		if (remotes.length === 0) {
-			window.showWarningMessage(localize('no remotes to push', "Your repository has no remotes configured to push to."));
+		if (paths.length === 0) {
+			window.showWarningMessage(localize('no paths to push', "Your repository has no paths configured to push to."));
 			return;
 		}
 
@@ -556,76 +540,22 @@ export class CommandCenter {
 
 	@command('hg.pushTo')
 	async pushTo(): Promise<void> {
-		const remotes = this.model.remotes;
+		const paths = this.model.paths;
 
-		if (remotes.length === 0) {
-			window.showWarningMessage(localize('no remotes to push', "Your repository has no remotes configured to push to."));
+		if (paths.length === 0) {
+			window.showWarningMessage(localize('no remotes to push', "Your repository has no paths configured to push to."));
 			return;
 		}
 
-		if (!this.model.HEAD || !this.model.HEAD.name) {
-			window.showWarningMessage(localize('nobranch', "Please check out a branch to push to a remote."));
-			return;
-		}
-
-		const branchName = this.model.HEAD.name;
-		const picks = remotes.map(r => ({ label: r.name, description: r.url }));
-		const placeHolder = localize('pick remote', "Pick a remote to publish the branch '{0}' to:", branchName);
+		const picks = paths.map(p => ({ label: p.name, description: p.url }));
+		const placeHolder = localize('pick remote', "Pick a remote to push to:");
 		const pick = await window.showQuickPick(picks, { placeHolder });
 
 		if (!pick) {
 			return;
 		}
 
-		this.model.push(pick.label, branchName);
-	}
-
-	@command('hg.sync')
-	async sync(): Promise<void> {
-		const HEAD = this.model.HEAD;
-
-		if (!HEAD || !HEAD.upstream) {
-			return;
-		}
-
-		const config = workspace.getConfiguration('hg');
-		const shouldPrompt = config.get<boolean>('confirmSync') === true;
-
-		if (shouldPrompt) {
-			const message = localize('sync is unpredictable', "This action will push and pull commits to and from '{0}'.", HEAD.upstream);
-			const yes = localize('ok', "OK");
-			const neverAgain = localize('never again', "OK, Never Show Again");
-			const pick = await window.showWarningMessage(message, { modal: true }, yes, neverAgain);
-
-			if (pick === neverAgain) {
-				await config.update('confirmSync', false, true);
-			} else if (pick !== yes) {
-				return;
-			}
-		}
-
-		await this.model.sync();
-	}
-
-	@command('hg.publish')
-	async publish(): Promise<void> {
-		const remotes = this.model.remotes;
-
-		if (remotes.length === 0) {
-			window.showWarningMessage(localize('no remotes to publish', "Your repository has no remotes configured to publish to."));
-			return;
-		}
-
-		const branchName = this.model.HEAD && this.model.HEAD.name || '';
-		const picks = this.model.remotes.map(r => r.name);
-		const placeHolder = localize('pick remote', "Pick a remote to publish the branch '{0}' to:", branchName);
-		const choice = await window.showQuickPick(picks, { placeHolder });
-
-		if (!choice) {
-			return;
-		}
-
-		await this.model.push(choice, branchName, { setUpstream: true });
+		this.model.push(pick.label);
 	}
 
 	@command('hg.showOutput')
@@ -702,7 +632,7 @@ export class CommandCenter {
 			const uriString = uri.toString();
 
 			return this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0]
-				|| this.model.indexGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+				|| this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
 		}
 	}
 

@@ -24,7 +24,7 @@ class CheckoutStatusBar {
 	}
 
 	get command(): Command | undefined {
-		const HEAD = this.model.HEAD;
+		const HEAD = this.model.workingDirectoryParent;
 
 		if (!HEAD) {
 			return undefined;
@@ -36,7 +36,7 @@ class CheckoutStatusBar {
 		const title = '$(hg-branch) '
 			+ head
 			+ (this.model.workingTreeGroup.resources.length > 0 ? '*' : '')
-			+ (this.model.indexGroup.resources.length > 0 ? '+' : '')
+			// + (this.model.indexGroup.resources.length > 0 ? '+' : '')
 			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
 		return {
@@ -53,7 +53,7 @@ class CheckoutStatusBar {
 
 interface SyncStatusBarState {
 	isSyncRunning: boolean;
-	hasRemotes: boolean;
+	hasPaths: boolean;
 	HEAD: Branch | undefined;
 }
 
@@ -61,7 +61,7 @@ class SyncStatusBar {
 
 	private static StartState: SyncStatusBarState = {
 		isSyncRunning: false,
-		hasRemotes: false,
+		hasPaths: false,
 		HEAD: undefined
 	};
 
@@ -92,13 +92,13 @@ class SyncStatusBar {
 	private onModelChange(): void {
 		this.state = {
 			...this.state,
-			hasRemotes: this.model.remotes.length > 0,
-			HEAD: this.model.HEAD
+			hasPaths: this.model.paths.length > 0,
+			HEAD: this.model.workingDirectoryParent
 		};
 	}
 
 	get command(): Command | undefined {
-		if (!this.state.hasRemotes) {
+		if (!this.state.hasPaths) {
 			return undefined;
 		}
 

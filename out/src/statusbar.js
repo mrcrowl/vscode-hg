@@ -19,7 +19,7 @@ class CheckoutStatusBar {
     }
     get onDidChange() { return this._onDidChange.event; }
     get command() {
-        const HEAD = this.model.HEAD;
+        const HEAD = this.model.workingDirectoryParent;
         if (!HEAD) {
             return undefined;
         }
@@ -29,7 +29,6 @@ class CheckoutStatusBar {
         const title = '$(hg-branch) '
             + head
             + (this.model.workingTreeGroup.resources.length > 0 ? '*' : '')
-            + (this.model.indexGroup.resources.length > 0 ? '+' : '')
             + (this.model.mergeGroup.resources.length > 0 ? '!' : '');
         return {
             command: 'hg.update',
@@ -61,10 +60,10 @@ class SyncStatusBar {
         this.state = Object.assign({}, this.state, { isSyncRunning: this.model.operations.isRunning(model_1.Operation.Sync) });
     }
     onModelChange() {
-        this.state = Object.assign({}, this.state, { hasRemotes: this.model.remotes.length > 0, HEAD: this.model.HEAD });
+        this.state = Object.assign({}, this.state, { hasPaths: this.model.paths.length > 0, HEAD: this.model.workingDirectoryParent });
     }
     get command() {
-        if (!this.state.hasRemotes) {
+        if (!this.state.hasPaths) {
             return undefined;
         }
         const HEAD = this.state.HEAD;
@@ -107,7 +106,7 @@ class SyncStatusBar {
 }
 SyncStatusBar.StartState = {
     isSyncRunning: false,
-    hasRemotes: false,
+    hasPaths: false,
     HEAD: undefined
 };
 class StatusBarCommands {

@@ -45,7 +45,7 @@ class TextEditorMergeDecorator {
             this.dispose();
             return;
         }
-        if (this.model.mergeGroup.resources.some(r => r.type === model_1.Status.BOTH_MODIFIED && r.resourceUri.toString() === this.uri)) {
+        if (this.model.mergeGroup.resources.some(r => r.type === model_1.Status.MODIFIED && r.resourceUri.toString() === this.uri)) {
             decorations = decorate(this.editor.document);
         }
         this.editor.setDecorations(TextEditorMergeDecorator.DecorationType, decorations);

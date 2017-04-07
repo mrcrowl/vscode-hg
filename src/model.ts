@@ -6,7 +6,7 @@
 'use strict';
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace } from 'vscode';
-import { Hg, Repository, Ref, Branch, Remote, PushOptions, Commit, HgErrorCodes, HgError } from './hg';
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError } from './hg';
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
 import { memoize, throttle, debounce } from './decorators';
 import { watch } from './watch';
@@ -31,31 +31,20 @@ export enum State {
 }
 
 export enum Status {
-	INDEX_MODIFIED,
-	INDEX_ADDED,
-	INDEX_DELETED,
-	INDEX_RENAMED,
-	INDEX_COPIED,
-
 	MODIFIED,
+	ADDED,
 	DELETED,
 	UNTRACKED,
 	IGNORED,
-
-	ADDED_BY_US,
-	ADDED_BY_THEM,
-	DELETED_BY_US,
-	DELETED_BY_THEM,
-	BOTH_ADDED,
-	BOTH_DELETED,
-	BOTH_MODIFIED
+	MISSING,
+	CONFLICT
 }
 
 export class Resource implements SourceControlResourceState {
 
 	@memoize
 	get resourceUri(): Uri {
-		if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED || this._type === Status.INDEX_RENAMED)) {
+		if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED)) {
 			return this.renameResourceUri;
 		}
 
@@ -101,22 +90,13 @@ export class Resource implements SourceControlResourceState {
 
 	private getIconPath(theme: string): Uri | undefined {
 		switch (this.type) {
-			case Status.INDEX_MODIFIED: return Resource.Icons[theme].Modified;
 			case Status.MODIFIED: return Resource.Icons[theme].Modified;
-			case Status.INDEX_ADDED: return Resource.Icons[theme].Added;
-			case Status.INDEX_DELETED: return Resource.Icons[theme].Deleted;
+			case Status.ADDED: return Resource.Icons[theme].Added;
 			case Status.DELETED: return Resource.Icons[theme].Deleted;
-			case Status.INDEX_RENAMED: return Resource.Icons[theme].Renamed;
-			case Status.INDEX_COPIED: return Resource.Icons[theme].Copied;
+			// case Status.RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
 			case Status.IGNORED: return Resource.Icons[theme].Ignored;
-			case Status.BOTH_DELETED: return Resource.Icons[theme].Conflict;
-			case Status.ADDED_BY_US: return Resource.Icons[theme].Conflict;
-			case Status.DELETED_BY_THEM: return Resource.Icons[theme].Conflict;
-			case Status.ADDED_BY_THEM: return Resource.Icons[theme].Conflict;
-			case Status.DELETED_BY_US: return Resource.Icons[theme].Conflict;
-			case Status.BOTH_ADDED: return Resource.Icons[theme].Conflict;
-			case Status.BOTH_MODIFIED: return Resource.Icons[theme].Conflict;
+			case Status.CONFLICT: return Resource.Icons[theme].Conflict;
 			default: return void 0;
 		}
 	}
@@ -124,9 +104,6 @@ export class Resource implements SourceControlResourceState {
 	private get strikeThrough(): boolean {
 		switch (this.type) {
 			case Status.DELETED:
-			case Status.BOTH_DELETED:
-			case Status.DELETED_BY_THEM:
-			case Status.DELETED_BY_US:
 				return true;
 			default:
 				return false;
@@ -178,12 +155,12 @@ export class IndexGroup extends ResourceGroup {
 	}
 }
 
-export class WorkingTreeGroup extends ResourceGroup {
+export class WorkingFolderGroup extends ResourceGroup {
 
 	static readonly ID = 'workingTree';
 
 	constructor(resources: Resource[] = []) {
-		super(WorkingTreeGroup.ID, localize('changes', "Changes"), resources);
+		super(WorkingFolderGroup.ID, localize('changes', "Changes"), resources);
 	}
 }
 
@@ -302,15 +279,12 @@ export class Model implements Disposable {
 	private _mergeGroup = new MergeGroup([]);
 	get mergeGroup(): MergeGroup { return this._mergeGroup; }
 
-	private _indexGroup = new IndexGroup([]);
-	get indexGroup(): IndexGroup { return this._indexGroup; }
+	private _workingTreeGroup = new WorkingFolderGroup([]);
+	get workingTreeGroup(): WorkingFolderGroup { return this._workingTreeGroup; }
 
-	private _workingTreeGroup = new WorkingTreeGroup([]);
-	get workingTreeGroup(): WorkingTreeGroup { return this._workingTreeGroup; }
-
-	private _HEAD: Branch | undefined;
-	get HEAD(): Branch | undefined {
-		return this._HEAD;
+	private _workingDirParent: Branch | undefined;
+	get workingDirectoryParent(): Branch | undefined {
+		return this._workingDirParent;
 	}
 
 	private _refs: Ref[] = [];
@@ -318,9 +292,9 @@ export class Model implements Disposable {
 		return this._refs;
 	}
 
-	private _remotes: Remote[] = [];
-	get remotes(): Remote[] {
-		return this._remotes;
+	private _paths: Path[] = [];
+	get paths(): Path[] {
+		return this._paths;
 	}
 
 	private _operations = new OperationsImpl();
@@ -334,12 +308,11 @@ export class Model implements Disposable {
 		this._state = state;
 		this._onDidChangeState.fire(state);
 
-		this._HEAD = undefined;
+		this._workingDirParent = undefined;
 		this._refs = [];
-		this._remotes = [];
 		this._mergeGroup = new MergeGroup();
-		this._indexGroup = new IndexGroup();
-		this._workingTreeGroup = new WorkingTreeGroup();
+		// this._indexGroup = new IndexGroup();
+		this._workingTreeGroup = new WorkingFolderGroup();
 		this._onDidChangeResources.fire();
 	}
 
@@ -494,7 +467,7 @@ export class Model implements Disposable {
 		await this.run(Operation.Sync, async () => {
 			await this.repository.pull();
 
-			const shouldPush = this.HEAD && this.HEAD.ahead ? this.HEAD.ahead > 0 : true;
+			const shouldPush = this.workingDirectoryParent && this.workingDirectoryParent.ahead ? this.workingDirectoryParent.ahead > 0 : true;
 
 			if (shouldPush) {
 				await this.repository.push();
@@ -536,12 +509,12 @@ export class Model implements Disposable {
 				const result = await runOperation();
 
 				if (!isReadOnly(operation)) {
-					await this.update();
+					await this.refresh();
 				}
 
 				return result;
 			} catch (err) {
-				if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
+				if (err.hgErrorCode === HgErrorCodes.NoRespositoryFound) {
 					this.repositoryDisposable.dispose();
 
 					const disposables: Disposable[] = [];
@@ -592,31 +565,19 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	private async update(): Promise<void> {
+	private async refresh(): Promise<void> {
 		const status = await this.repository.getStatus();
-		let HEAD: Branch | undefined;
+		let branch: Branch | undefined;
 
 		try {
-			HEAD = await this.repository.getHEAD();
-
-			if (HEAD.name) {
-				try {
-					HEAD = await this.repository.getBranch(HEAD.name);
-				} catch (err) {
-					// noop
-				}
-			}
+			branch = await this.repository.getParent();
 		} catch (err) {
 			// noop
 		}
 
-		const [refs, remotes] = await Promise.all([this.repository.getRefs(), this.repository.getRemotes()]);
+		this._workingDirParent = branch;
+		this._refs = await this.repository.getRefs();;
 
-		this._HEAD = HEAD;
-		this._refs = refs;
-		this._remotes = remotes;
-
-		const index: Resource[] = [];
 		const workingTree: Resource[] = [];
 		const merge: Resource[] = [];
 
@@ -624,37 +585,33 @@ export class Model implements Disposable {
 			const uri = Uri.file(path.join(this.repository.root, raw.path));
 			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
 
-			switch (raw.x + raw.y) {
-				case '??': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.UNTRACKED));
-				case '!!': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.IGNORED));
-				case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
-				case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
-				case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
-				case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
-				case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
-				case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
-				case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
+			switch (raw.status) {
+				case '?': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.UNTRACKED));
+				case '!': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MISSING));
+				case 'M': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED));
+				case 'A': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.ADDED));
+				case 'R': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED));
+				case 'C': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.CONFLICT));
+				case 'I': return workingTree.push(new Resource(this.workingTreeGroup, uri, Status.IGNORED));
+
+				// case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
+				// case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
+				// case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
+				// case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
+				// case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
+				// case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
+				// case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
+				// case 'R': index.push(new Resource(this.indexGroup, uri, Status.RENAMED, renameUri)); break;
 			}
 
-			let isModifiedInIndex = false;
-
-			switch (raw.x) {
-				case 'M': index.push(new Resource(this.indexGroup, uri, Status.INDEX_MODIFIED)); isModifiedInIndex = true; break;
-				case 'A': index.push(new Resource(this.indexGroup, uri, Status.INDEX_ADDED)); break;
-				case 'D': index.push(new Resource(this.indexGroup, uri, Status.INDEX_DELETED)); break;
-				case 'R': index.push(new Resource(this.indexGroup, uri, Status.INDEX_RENAMED, renameUri)); break;
-				case 'C': index.push(new Resource(this.indexGroup, uri, Status.INDEX_COPIED)); break;
-			}
-
-			switch (raw.y) {
-				case 'M': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri)); break;
-				case 'D': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED, renameUri)); break;
-			}
+			// switch (raw.y) {
+			// 	case 'M': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri)); break;
+			// 	case 'D': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED, renameUri)); break;
+			// }
 		});
 
 		this._mergeGroup = new MergeGroup(merge);
-		this._indexGroup = new IndexGroup(index);
-		this._workingTreeGroup = new WorkingTreeGroup(workingTree);
+		this._workingTreeGroup = new WorkingFolderGroup(workingTree);
 		this._onDidChangeResources.fire();
 	}
 

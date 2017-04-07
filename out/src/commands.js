@@ -111,8 +111,8 @@ class CommandCenter {
     }
     getLeftResource(resource) {
         switch (resource.type) {
-            case model_1.Status.INDEX_MODIFIED:
-            case model_1.Status.INDEX_RENAMED:
+            case model_1.Status.MODIFIED:
+                // case Status.INDEX_RENAMED:
                 return resource.original.with({ scheme: 'hg', query: 'HEAD' });
             case model_1.Status.MODIFIED:
                 return resource.resourceUri.with({ scheme: 'hg', query: '~' });
@@ -120,36 +120,34 @@ class CommandCenter {
     }
     getRightResource(resource) {
         switch (resource.type) {
-            case model_1.Status.INDEX_MODIFIED:
-            case model_1.Status.INDEX_ADDED:
-            case model_1.Status.INDEX_COPIED:
+            case model_1.Status.MODIFIED:
+            case model_1.Status.ADDED:
+                // case Status.INDEX_COPIED:
                 return resource.resourceUri.with({ scheme: 'hg' });
-            case model_1.Status.INDEX_RENAMED:
-                return resource.resourceUri.with({ scheme: 'hg' });
-            case model_1.Status.INDEX_DELETED:
+            // case Status.INDEX_RENAMED:
+            // return resource.resourceUri.with({ scheme: 'hg' });
+            // case Status.INDEX_DELETED:
             case model_1.Status.DELETED:
                 return resource.resourceUri.with({ scheme: 'hg', query: 'HEAD' });
             case model_1.Status.MODIFIED:
             case model_1.Status.UNTRACKED:
             case model_1.Status.IGNORED:
                 const uriString = resource.resourceUri.toString();
-                const [indexStatus] = this.model.indexGroup.resources.filter(r => r.resourceUri.toString() === uriString);
+                const [indexStatus] = this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString);
                 if (indexStatus && indexStatus.renameResourceUri) {
                     return indexStatus.renameResourceUri;
                 }
-                return resource.resourceUri;
-            case model_1.Status.BOTH_MODIFIED:
                 return resource.resourceUri;
         }
     }
     getTitle(resource) {
         const basename = path.basename(resource.resourceUri.fsPath);
         switch (resource.type) {
-            case model_1.Status.INDEX_MODIFIED:
-            case model_1.Status.INDEX_RENAMED:
-                return `${basename} (Index)`;
+            // case Status.INDEX_MODIFIED:
+            // case Status.INDEX_RENAMED:
+            // 	return `${basename} (Index)`;
             case model_1.Status.MODIFIED:
-                return `${basename} (Working Tree)`;
+                return `${basename} (Working Folder)`;
         }
         return '';
     }
@@ -244,7 +242,7 @@ class CommandCenter {
                 resourceStates = [resource];
             }
             const resources = resourceStates
-                .filter(s => s instanceof model_1.Resource && (s.resourceGroup instanceof model_1.WorkingTreeGroup || s.resourceGroup instanceof model_1.MergeGroup));
+                .filter(s => s instanceof model_1.Resource && (s.resourceGroup instanceof model_1.WorkingFolderGroup || s.resourceGroup instanceof model_1.MergeGroup));
             if (!resources.length) {
                 return;
             }
@@ -288,7 +286,7 @@ class CommandCenter {
                 resourceStates = [resource];
             }
             const resources = resourceStates
-                .filter(s => s instanceof model_1.Resource && s.resourceGroup instanceof model_1.WorkingTreeGroup);
+                .filter(s => s instanceof model_1.Resource && s.resourceGroup instanceof model_1.WorkingFolderGroup);
             if (!resources.length) {
                 return;
             }
@@ -317,12 +315,12 @@ class CommandCenter {
     smartCommit(getCommitMessage, opts) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!opts) {
-                opts = { all: this.model.indexGroup.resources.length === 0 };
+                opts = { all: this.model.workingTreeGroup.resources.length === 0 };
             }
             if (
             // no changes
-            (this.model.indexGroup.resources.length === 0 && this.model.workingTreeGroup.resources.length === 0)
-                || (!opts.all && this.model.indexGroup.resources.length === 0)) {
+            (this.model.workingTreeGroup.resources.length === 0 && this.model.workingTreeGroup.resources.length === 0)
+                || (!opts.all && this.model.workingTreeGroup.resources.length === 0)) {
                 vscode_1.window.showInformationMessage(localize('no changes', "There are no changes to commit."));
                 return false;
             }
@@ -389,7 +387,7 @@ class CommandCenter {
     }
     undoCommit() {
         return __awaiter(this, void 0, void 0, function* () {
-            const HEAD = this.model.HEAD;
+            const HEAD = this.model.workingDirectoryParent;
             if (!HEAD || !HEAD.commit) {
                 return;
             }
@@ -401,17 +399,14 @@ class CommandCenter {
     checkout() {
         return __awaiter(this, void 0, void 0, function* () {
             const config = vscode_1.workspace.getConfiguration('hg');
-            const checkoutType = config.get('checkoutType') || 'all';
+            const checkoutType = config.get('updateType') || 'all';
             const includeTags = checkoutType === 'all' || checkoutType === 'tags';
-            const includeRemotes = checkoutType === 'all' || checkoutType === 'remote';
-            const heads = this.model.refs.filter(ref => ref.type === hg_1.RefType.Head)
+            const heads = this.model.refs.filter(ref => ref.type === hg_1.RefType.Branch)
                 .map(ref => new CheckoutItem(ref));
             const tags = (includeTags ? this.model.refs.filter(ref => ref.type === hg_1.RefType.Tag) : [])
                 .map(ref => new CheckoutTagItem(ref));
-            const remoteHeads = (includeRemotes ? this.model.refs.filter(ref => ref.type === hg_1.RefType.RemoteHead) : [])
-                .map(ref => new CheckoutRemoteHeadItem(ref));
-            const picks = [...heads, ...tags, ...remoteHeads];
-            const placeHolder = 'Select a ref to checkout';
+            const picks = [...heads, ...tags];
+            const placeHolder = 'Select a branch/tag to update to';
             const choice = yield vscode_1.window.showQuickPick(picks, { placeHolder });
             if (!choice) {
                 return;
@@ -435,29 +430,19 @@ class CommandCenter {
     }
     pull() {
         return __awaiter(this, void 0, void 0, function* () {
-            const remotes = this.model.remotes;
-            if (remotes.length === 0) {
-                vscode_1.window.showWarningMessage(localize('no remotes to pull', "Your repository has no remotes configured to pull from."));
+            const paths = this.model.paths;
+            if (paths.length === 0) {
+                vscode_1.window.showWarningMessage(localize('no remotes to pull', "Your repository has no paths configured to pull from."));
                 return;
             }
             yield this.model.pull();
         });
     }
-    pullRebase() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const remotes = this.model.remotes;
-            if (remotes.length === 0) {
-                vscode_1.window.showWarningMessage(localize('no remotes to pull', "Your repository has no remotes configured to pull from."));
-                return;
-            }
-            yield this.model.pull(true);
-        });
-    }
     push() {
         return __awaiter(this, void 0, void 0, function* () {
-            const remotes = this.model.remotes;
-            if (remotes.length === 0) {
-                vscode_1.window.showWarningMessage(localize('no remotes to push', "Your repository has no remotes configured to push to."));
+            const paths = this.model.paths;
+            if (paths.length === 0) {
+                vscode_1.window.showWarningMessage(localize('no paths to push', "Your repository has no paths configured to push to."));
                 return;
             }
             yield this.model.push();
@@ -465,63 +450,18 @@ class CommandCenter {
     }
     pushTo() {
         return __awaiter(this, void 0, void 0, function* () {
-            const remotes = this.model.remotes;
-            if (remotes.length === 0) {
-                vscode_1.window.showWarningMessage(localize('no remotes to push', "Your repository has no remotes configured to push to."));
+            const paths = this.model.paths;
+            if (paths.length === 0) {
+                vscode_1.window.showWarningMessage(localize('no remotes to push', "Your repository has no paths configured to push to."));
                 return;
             }
-            if (!this.model.HEAD || !this.model.HEAD.name) {
-                vscode_1.window.showWarningMessage(localize('nobranch', "Please check out a branch to push to a remote."));
-                return;
-            }
-            const branchName = this.model.HEAD.name;
-            const picks = remotes.map(r => ({ label: r.name, description: r.url }));
-            const placeHolder = localize('pick remote', "Pick a remote to publish the branch '{0}' to:", branchName);
+            const picks = paths.map(p => ({ label: p.name, description: p.url }));
+            const placeHolder = localize('pick remote', "Pick a remote to push to:");
             const pick = yield vscode_1.window.showQuickPick(picks, { placeHolder });
             if (!pick) {
                 return;
             }
-            this.model.push(pick.label, branchName);
-        });
-    }
-    sync() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const HEAD = this.model.HEAD;
-            if (!HEAD || !HEAD.upstream) {
-                return;
-            }
-            const config = vscode_1.workspace.getConfiguration('hg');
-            const shouldPrompt = config.get('confirmSync') === true;
-            if (shouldPrompt) {
-                const message = localize('sync is unpredictable', "This action will push and pull commits to and from '{0}'.", HEAD.upstream);
-                const yes = localize('ok', "OK");
-                const neverAgain = localize('never again', "OK, Never Show Again");
-                const pick = yield vscode_1.window.showWarningMessage(message, { modal: true }, yes, neverAgain);
-                if (pick === neverAgain) {
-                    yield config.update('confirmSync', false, true);
-                }
-                else if (pick !== yes) {
-                    return;
-                }
-            }
-            yield this.model.sync();
-        });
-    }
-    publish() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const remotes = this.model.remotes;
-            if (remotes.length === 0) {
-                vscode_1.window.showWarningMessage(localize('no remotes to publish', "Your repository has no remotes configured to publish to."));
-                return;
-            }
-            const branchName = this.model.HEAD && this.model.HEAD.name || '';
-            const picks = this.model.remotes.map(r => r.name);
-            const placeHolder = localize('pick remote', "Pick a remote to publish the branch '{0}' to:", branchName);
-            const choice = yield vscode_1.window.showQuickPick(picks, { placeHolder });
-            if (!choice) {
-                return;
-            }
-            yield this.model.push(choice, branchName, { setUpstream: true });
+            this.model.push(pick.label);
         });
     }
     showOutput() {
@@ -579,7 +519,7 @@ class CommandCenter {
         if (uri.scheme === 'file') {
             const uriString = uri.toString();
             return this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0]
-                || this.model.indexGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+                || this.model.workingTreeGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
         }
     }
     dispose() {
@@ -650,7 +590,7 @@ __decorate([
     command('hg.undoCommit')
 ], CommandCenter.prototype, "undoCommit", null);
 __decorate([
-    command('hg.checkout')
+    command('hg.update')
 ], CommandCenter.prototype, "checkout", null);
 __decorate([
     command('hg.branch')
@@ -659,20 +599,11 @@ __decorate([
     command('hg.pull')
 ], CommandCenter.prototype, "pull", null);
 __decorate([
-    command('hg.pullRebase')
-], CommandCenter.prototype, "pullRebase", null);
-__decorate([
     command('hg.push')
 ], CommandCenter.prototype, "push", null);
 __decorate([
     command('hg.pushTo')
 ], CommandCenter.prototype, "pushTo", null);
-__decorate([
-    command('hg.sync')
-], CommandCenter.prototype, "sync", null);
-__decorate([
-    command('hg.publish')
-], CommandCenter.prototype, "publish", null);
 __decorate([
     command('hg.showOutput')
 ], CommandCenter.prototype, "showOutput", null);

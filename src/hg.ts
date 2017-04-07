@@ -27,20 +27,13 @@ export interface PushOptions {
 }
 
 export interface IFileStatus {
-	x: string;
-	y: string;
+	status: string;
 	path: string;
 	rename?: string;
 }
 
-export interface Remote {
-	name: string;
-	url: string;
-}
-
 export enum RefType {
-	Head,
-	RemoteHead,
+	Branch,
 	Tag
 }
 
@@ -48,7 +41,11 @@ export interface Ref {
 	type: RefType;
 	name?: string;
 	commit?: string;
-	remote?: string;
+}
+
+export interface Path {
+	name: string;
+	url: string;
 }
 
 export interface Branch extends Ref {
@@ -58,20 +55,34 @@ export interface Branch extends Ref {
 }
 
 function parseVersion(raw: string): string {
-	return raw.replace(/^hg version /, '');
+	let match = raw.match(/\(version ([\d\.]+)\)/);
+	if (match) {
+		return match[1];
+	}
+
+	return "?";
 }
 
-function findSpecificGit(path: string): Promise<IHg> {
+function findSpecificHg(path: string): Promise<IHg> {
 	return new Promise<IHg>((c, e) => {
 		const buffers: Buffer[] = [];
 		const child = cp.spawn(path, ['--version']);
 		child.stdout.on('data', (b: Buffer) => buffers.push(b));
 		child.on('error', e);
-		child.on('exit', code => code ? e(new Error('Not found')) : c({ path, version: parseVersion(Buffer.concat(buffers).toString('utf8').trim()) }));
+		child.on('exit', code => {
+			if (!code) {
+				const output = Buffer.concat(buffers).toString('utf8');
+				return c({
+					path,
+					version: parseVersion(output)
+				});
+			}
+			return e(new Error('Not found'))
+		});
 	});
 }
 
-function findGitDarwin(): Promise<IHg> {
+function findHgDarwin(): Promise<IHg> {
 	return new Promise<IHg>((c, e) => {
 		cp.exec('which hg', (err, hgPathBuffer) => {
 			if (err) {
@@ -110,44 +121,39 @@ function findGitDarwin(): Promise<IHg> {
 	});
 }
 
-function findSystemGitWin32(base: string): Promise<IHg> {
+function findMercurialWin32(base: string): Promise<IHg> {
 	if (!base) {
 		return Promise.reject<IHg>('Not found');
 	}
 
-	return findSpecificGit(path.join(base, 'Git', 'cmd', 'hg.exe'));
+	return findSpecificHg(path.join(base, 'Mercurial', 'hg.exe'));
 }
 
-function findGitHubGitWin32(): Promise<IHg> {
-	const github = path.join(process.env['LOCALAPPDATA'], 'GitHub');
+function findTortoiseHgWin32(base: string): Promise<IHg> {
+	if (!base) {
+		return Promise.reject<IHg>('Not found');
+	}
 
-	return readdir(github).then(children => {
-		const hg = children.filter(child => /^PortableGit/.test(child))[0];
-
-		if (!hg) {
-			return Promise.reject<IHg>('Not found');
-		}
-
-		return findSpecificGit(path.join(github, hg, 'cmd', 'hg.exe'));
-	});
+	return findSpecificHg(path.join(base, 'TortoiseHg', 'hg.exe'));
 }
 
-function findGitWin32(): Promise<IHg> {
-	return findSystemGitWin32(process.env['ProgramW6432'])
-		.then(void 0, () => findSystemGitWin32(process.env['ProgramFiles(x86)']))
-		.then(void 0, () => findSystemGitWin32(process.env['ProgramFiles']))
-		.then(void 0, () => findSpecificGit('hg'))
-		.then(void 0, () => findGitHubGitWin32());
+function findHgWin32(): Promise<IHg> {
+	return findMercurialWin32(process.env['ProgramW6432'])
+		.then(void 0, () => findTortoiseHgWin32(process.env['ProgramFiles(x86)']))
+		.then(void 0, () => findTortoiseHgWin32(process.env['ProgramFiles']))
+		.then(void 0, () => findMercurialWin32(process.env['ProgramFiles(x86)']))
+		.then(void 0, () => findMercurialWin32(process.env['ProgramFiles']))
+		.then(void 0, () => findSpecificHg('hg'))
 }
 
 export function findHg(hint: string | undefined): Promise<IHg> {
-	var first = hint ? findSpecificGit(hint) : Promise.reject<IHg>(null);
+	var first = hint ? findSpecificHg(hint) : Promise.reject<IHg>(null);
 
 	return first.then(void 0, () => {
 		switch (process.platform) {
-			case 'darwin': return findGitDarwin();
-			case 'win32': return findGitWin32();
-			default: return findSpecificGit('hg');
+			case 'darwin': return findHgDarwin();
+			case 'win32': return findHgWin32();
+			default: return findSpecificHg('hg');
 		}
 	});
 }
@@ -259,7 +265,7 @@ export const HgErrorCodes = {
 	NoUserNameConfigured: 'NoUserNameConfigured',
 	NoUserEmailConfigured: 'NoUserEmailConfigured',
 	NoRemoteRepositorySpecified: 'NoRemoteRepositorySpecified',
-	NotAnHgRepository: 'NotAnHgRepository',
+	NoRespositoryFound: 'NotAnHgRepository',
 	NotAtRepositoryRoot: 'NotAtRepositoryRoot',
 	Conflict: 'Conflict',
 	UnmergedChanges: 'UnmergedChanges',
@@ -307,7 +313,7 @@ export class Hg {
 	}
 
 	async getRepositoryRoot(path: string): Promise<string> {
-		const result = await this.exec(path, ['rev-parse', '--show-toplevel']);
+		const result = await this.exec(path, ['root']);
 		return result.stdout.trim();
 	}
 
@@ -335,9 +341,9 @@ export class Hg {
 
 			if (/Authentication failed/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.AuthenticationFailed;
-			} else if (/Not an hg repository/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.NotAnHgRepository;
-			} else if (/bad config file/.test(result.stderr)) {
+			} else if (/no repository found/.test(result.stderr)) {
+				hgErrorCode = HgErrorCodes.NoRespositoryFound;
+			} /*else if (/bad config file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.BadConfigFile;
 			} else if (/cannot make pipe for command substitution|cannot create standard input pipe/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.CantCreatePipe;
@@ -345,7 +351,7 @@ export class Hg {
 				hgErrorCode = HgErrorCodes.RepositoryNotFound;
 			} else if (/unable to access/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.CantAccessRemote;
-			}
+			}*/
 
 			if (options.log !== false) {
 				this.log(`${result.stderr}\n`);
@@ -715,7 +721,7 @@ export class Repository {
 	}
 
 	async getStatus(): Promise<IFileStatus[]> {
-		const executionResult = await this.run(['status', '-z', '-u']);
+		const executionResult = await this.run(['status']);
 		const status = executionResult.stdout;
 		const result: IFileStatus[] = [];
 		let current: IFileStatus;
@@ -723,30 +729,38 @@ export class Repository {
 
 		function readName(): string {
 			const start = i;
-			let c: string;
-			while ((c = status.charAt(i)) !== '\u0000') { i++; }
+			let c: string = status.charAt(i);
+			while (c !== '\n' && c !== '\r') {
+				i++;
+				c = status.charAt(i);
+			}
+
+			// was it a windows line-ending?
+			if (status.charAt(i + 1) == '\n')
+			{
+				i++;
+			}	
 			return status.substring(start, i++);
 		}
 
 		while (i < status.length) {
 			current = {
-				x: status.charAt(i++),
-				y: status.charAt(i++),
+				status: status.charAt(i++),
 				path: ''
 			};
 
-			i++;
-
-			if (current.x === 'R') {
-				current.rename = readName();
+			let gap = status.charAt(i++);
+			if (gap != ' ') {
+				// message line: skip
+				readName();
+				continue;
 			}
 
 			current.path = readName();
 
-			// If path ends with slash, it must be a nested hg repo
-			if (current.path[current.path.length - 1] === '/') {
-				continue;
-			}
+			// if (current.path[current.path.length - 1] === '/') {
+			// 	continue;
+			// }
 
 			result.push(current);
 		}
@@ -754,64 +768,64 @@ export class Repository {
 		return result;
 	}
 
-	async getHEAD(): Promise<Ref> {
-		try {
-			const result = await this.run(['symbolic-ref', '--short', 'HEAD']);
-
-			if (!result.stdout) {
-				throw new Error('Not in a branch');
-			}
-
-			return { name: result.stdout.trim(), commit: void 0, type: RefType.Head };
-		} catch (err) {
-			const result = await this.run(['rev-parse', 'HEAD']);
-
-			if (!result.stdout) {
-				throw new Error('Error parsing HEAD');
-			}
-
-			return { name: void 0, commit: result.stdout.trim(), type: RefType.Head };
+	async getParent(): Promise<Ref> {
+		const branchResult = await this.run(['branch']);
+		if (!branchResult.stdout) {
+			throw new Error('Error parsing working directory branch result');
 		}
+		const branchName = branchResult.stdout.trim();
+
+		const logResult = await this.run(['log', '-r', branchName, '-l', '1', '--template="{short(node)}"'])
+		if (!logResult.stdout) {
+			throw new Error('Error parsing working directory log result');
+		}
+		
+		return { name: branchName, commit: logResult.stdout.trim(), type: RefType.Branch };
 	}
 
 	async getRefs(): Promise<Ref[]> {
-		const result = await this.run(['for-each-ref', '--format', '%(refname) %(objectname)']);
-
-		const fn = (line): Ref | null => {
-			let match: RegExpExecArray | null;
-
-			if (match = /^refs\/heads\/([^ ]+) ([0-9a-f]{40})$/.exec(line)) {
-				return { name: match[1], commit: match[2], type: RefType.Head };
-			} else if (match = /^refs\/remotes\/([^/]+)\/([^ ]+) ([0-9a-f]{40})$/.exec(line)) {
-				return { name: `${match[1]}/${match[2]}`, commit: match[3], type: RefType.RemoteHead, remote: match[1] };
-			} else if (match = /^refs\/tags\/([^ ]+) ([0-9a-f]{40})$/.exec(line)) {
-				return { name: match[1], commit: match[2], type: RefType.Tag };
-			}
-
-			return null;
-		};
-
-		return result.stdout.trim().split('\n')
+		const tagsResult = await this.run(['tags']);
+		const tagRefs = tagsResult.stdout.trim().split('\n')
 			.filter(line => !!line)
-			.map(fn)
+			.map((line: string): Ref | null => {
+				let match = /^(.*)\s+(\d+):([A-Fa-f0-9]+)$/;
+				if (match) {
+					return { name: match[1], commit: match[3], type: RefType.Tag };
+				}
+				return null;
+			})
 			.filter(ref => !!ref) as Ref[];
+		
+		const branches = await this.run(['branches']);
+		const branchRefs = tagsResult.stdout.trim().split('\n')
+			.filter(line => !!line)
+			.map((line: string): Ref | null => {
+				let match = /^(.*)\s+(\d+):([A-Fa-f0-9]+)(\s+\(inactive\))?$/;
+				if (match) {
+					return { name: match[1], commit: match[3], type: RefType.Branch };
+				}
+				return null;
+			})
+			.filter(ref => !!ref) as Ref[];
+		
+		return [...tagRefs, ...branchRefs];
 	}
 
-	async getRemotes(): Promise<Remote[]> {
-		const result = await this.run(['remote', '--verbose']);
-		const regex = /^([^\s]+)\s+([^\s]+)\s/;
-		const rawRemotes = result.stdout.trim().split('\n')
+	async getPaths(): Promise<Path[]> {
+		const result = await this.run(['paths']);
+		const regex = /^([^\s]+)\s+=\s+([^\s]+)\s/;
+		const rawPaths = result.stdout.trim().split('\n')
 			.filter(b => !!b)
 			.map(line => regex.exec(line))
 			.filter(g => !!g)
 			.map((groups: RegExpExecArray) => ({ name: groups[1], url: groups[2] }));
 
-		return uniqBy(rawRemotes, remote => remote.name);
+		return rawPaths;
 	}
 
 	async getBranch(name: string): Promise<Branch> {
-		if (name === 'HEAD') {
-			return this.getHEAD();
+		if (name === '.') {
+			return this.getParent();
 		}
 
 		const result = await this.run(['rev-parse', name]);
@@ -841,9 +855,9 @@ export class Repository {
 				while (res3.stdout.charAt(i++) !== '\n') { /* no-op */ }
 			}
 
-			return { name, type: RefType.Head, commit, upstream, ahead, behind };
+			return { name, type: RefType.Branch, commit, upstream, ahead, behind };
 		} catch (err) {
-			return { name, type: RefType.Head, commit };
+			return { name, type: RefType.Branch, commit };
 		}
 	}
 
