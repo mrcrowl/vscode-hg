@@ -56,6 +56,7 @@ export class MercurialSCMProvider {
 	private mergeGroup: SourceControlResourceGroup;
 	private stagingGroup: SourceControlResourceGroup;
 	private workingTreeGroup: SourceControlResourceGroup;
+	private untrackedGroup: SourceControlResourceGroup;
 
 	constructor(
 		private model: Model,
@@ -74,14 +75,17 @@ export class MercurialSCMProvider {
 		this.mergeGroup = this._sourceControl.createResourceGroup(model.mergeGroup.id, model.mergeGroup.label);
 		this.stagingGroup = this._sourceControl.createResourceGroup(model.stagingGroup.id, model.stagingGroup.label);
 		this.workingTreeGroup = this._sourceControl.createResourceGroup(model.workingDirectoryGroup.id, model.workingDirectoryGroup.label);
+		this.untrackedGroup = this._sourceControl.createResourceGroup(model.untrackedGroup.id, model.untrackedGroup.label);
 
 		this.mergeGroup.hideWhenEmpty = true;
 		this.workingTreeGroup.hideWhenEmpty = true;
 		this.stagingGroup.hideWhenEmpty = true;
+		this.untrackedGroup.hideWhenEmpty = true;
 
 		this.disposables.push(this.mergeGroup);
 		this.disposables.push(this.workingTreeGroup);
 		this.disposables.push(this.stagingGroup);
+		this.disposables.push(this.untrackedGroup);
 
 		model.onDidChange(this.onDidModelChange, this, this.disposables);
 		this.updateCommitTemplate();
@@ -109,6 +113,7 @@ export class MercurialSCMProvider {
 		this.mergeGroup.resourceStates = this.model.mergeGroup.resources;
 		this.workingTreeGroup.resourceStates = this.model.workingDirectoryGroup.resources;
 		this.stagingGroup.resourceStates = this.model.stagingGroup.resources;
+		this.untrackedGroup.resourceStates = this.model.untrackedGroup.resources;
 		this._sourceControl.count = this.count;
 		commands.executeCommand('setContext', 'hgState', this.stateContextKey);
 	}

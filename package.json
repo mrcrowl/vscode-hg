@@ -141,6 +141,20 @@
         }
       },
       {
+        "command": "hg.add",
+        "title": "%command.add%",
+        "category": "Mercurial",
+        "icon": {
+          "light": "resources/icons/light/add.svg",
+          "dark": "resources/icons/dark/add.svg"
+        }
+      },
+      {
+        "command": "hg.addAll",
+        "title": "%command.addAll%",
+        "category": "Mercurial"
+      },
+      {
         "command": "hg.commitStaged",
         "title": "%command.commitStaged%",
         "category": "Mercurial"
@@ -148,11 +162,6 @@
       {
         "command": "hg.commitAll",
         "title": "%command.commitAll%",
-        "category": "Mercurial"
-      },
-      {
-        "command": "hg.commitAllSigned",
-        "title": "%command.commitAllSigned%",
         "category": "Mercurial"
       },
       {
@@ -258,10 +267,6 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.commitAllSigned",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
-        },
-        {
           "command": "hg.undoCommit",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
@@ -332,11 +337,6 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.commitAllSigned",
-          "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
-        },
-        {
           "command": "hg.undoCommit",
           "group": "3_commit",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
@@ -394,9 +394,9 @@
           "group": "inline"
         },
         {
-          "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
-          "group": "inline"
+          "command": "hg.addAll",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "group": "1_modification"
         }
       ],
       "scm/resourceState/context": [
@@ -459,6 +459,16 @@
           "command": "hg.stage",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
+        },
+        {
+          "command": "hg.add",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "group": "inline"
+        },
+        {
+          "command": "hg.add",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "group": "1_modification"
         }
       ],
       "editor/title": [
@@ -501,11 +511,6 @@
           "description": "%config.autoincoming%",
           "default": true
         },
-        "hg.confirmSync": {
-          "type": "boolean",
-          "description": "%config.confirmSync%",
-          "default": true
-        },
         "hg.countBadge": {
           "type": "string",
           "enum": [
@@ -514,17 +519,6 @@
             "off"
           ],
           "description": "%config.countBadge%",
-          "default": "all"
-        },
-        "hg.updateType": {
-          "type": "string",
-          "enum": [
-            "all",
-            "local",
-            "tags",
-            "remote"
-          ],
-          "description": "%config.updateType%",
           "default": "all"
         }
       }

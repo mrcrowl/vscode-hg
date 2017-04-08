@@ -20,6 +20,8 @@
 	"command.push": "Push",
 	"command.pushTo": "Push to...",
 	"command.showOutput": "Show Mercurial Output",
+	"command.add": "Add Files",
+	"command.addAll": "Add All Untracked Files",
 	"config.enabled": "Whether mercurial is enabled",
 	"config.path": "Path to the mercurial executable",
 	"config.autorefresh": "Whether auto refreshing is enabled",

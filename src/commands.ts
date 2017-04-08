@@ -7,7 +7,7 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState } from 'vscode';
 import { Ref, RefType, Hg } from './hg';
-import { Model, Resource, Status, CommitOptions, WorkingDirectoryGroup, StagingGroup, MergeGroup } from './model';
+import { Model, Resource, Status, CommitOptions, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
@@ -148,7 +148,7 @@ export class CommandCenter {
 			case Status.MODIFIED:
 			case Status.UNTRACKED:
 			case Status.IGNORED:
-			case Status.ADDED:	
+			case Status.ADDED:
 				return resource.resourceUri;
 		}
 	}
@@ -256,6 +256,33 @@ export class CommandCenter {
 		return await this._openResource(resource);
 	}
 
+	@command('hg.addAll')
+	async addAll(): Promise<void> {
+		return await this.model.add();
+	}
+
+	@command('hg.add')
+	async add(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			const resource = this.getSCMResource();
+
+			if (!resource) {
+				return;
+			}
+
+			resourceStates = [resource];
+		}
+
+		const resources = resourceStates
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof UntrackedGroup) as Resource[];
+
+		if (!resources.length) {
+			return;
+		}
+
+		return await this.model.add(...resources);
+	}
+
 	@command('hg.stage')
 	async stage(...resourceStates: SourceControlResourceState[]): Promise<void> {
 		if (resourceStates.length === 0) {
@@ -321,22 +348,24 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates
-			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
+		const resources = resourceStates.filter(s => s instanceof Resource && s.isDirtyStatus) as Resource[];
 
 		if (!resources.length) {
 			return;
 		}
 
-		const message = resources.length === 1
-			? localize('confirm discard', "Are you sure you want to discard changes in {0}?", path.basename(resources[0].resourceUri.fsPath))
-			: localize('confirm discard multiple', "Are you sure you want to discard changes in {0} files?", resources.length);
+		const resourcesNeedingConfirmation = resources.filter(s => s.status !== Status.ADDED);
+		if (resourcesNeedingConfirmation.length > 0) {
+			const message = resourcesNeedingConfirmation.length === 1
+				? localize('confirm discard', "Are you sure you want to discard changes in {0}?", path.basename(resourcesNeedingConfirmation[0].resourceUri.fsPath))
+				: localize('confirm discard multiple', "Are you sure you want to discard changes in {0} files?", resourcesNeedingConfirmation.length);
 
-		const yes = localize('discard', "Discard Changes");
-		const pick = await window.showWarningMessage(message, { modal: true }, yes);
+			const yes = localize('discard', "Discard Changes");
+			const pick = await window.showWarningMessage(message, { modal: true }, yes);
 
-		if (pick !== yes) {
-			return;
+			if (pick !== yes) {
+				return;
+			}
 		}
 
 		await this.model.clean(...resources);
@@ -599,8 +628,10 @@ export class CommandCenter {
 		if (uri.scheme === 'file') {
 			const uriString = uri.toString();
 
-			return this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0]
-				|| this.model.workingDirectoryGroup.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+			return this.model.workingDirectoryGroup.getResource(uri)
+				|| this.model.stagingGroup.getResource(uri)
+				|| this.model.untrackedGroup.getResource(uri)
+				|| this.model.mergeGroup.getResource(uri);
 		}
 	}
 

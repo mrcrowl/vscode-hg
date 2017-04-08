@@ -60,6 +60,21 @@ export class Resource implements SourceControlResourceState {
 		};
 	}
 
+	get isDirtyStatus(): boolean {
+		switch (this._type) {
+			case Status.ADDED:
+			case Status.CONFLICT:
+			case Status.DELETED:
+			case Status.MISSING:
+			case Status.MODIFIED:
+				return true;
+
+			case Status.UNTRACKED:
+			case Status.IGNORED:	
+			default:
+				return false
+		}
+	}
 	get resourceGroup(): ResourceGroup { return this._resourceGroup; }
 	get status(): Status { return this._type; }
 	get original(): Uri { return this._resourceUri; }
@@ -147,6 +162,11 @@ export abstract class ResourceGroup {
 		return index;
 	}
 
+	getResource(uri: Uri): Resource | undefined {
+		const uriString = uri.toString();
+		return this.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+	}
+
 	includes(resource: Resource): boolean {
 		return this.includesUri(resource.resourceUri);
 	}
@@ -188,6 +208,15 @@ export class StagingGroup extends ResourceGroup {
 
 	constructor(resources: Resource[] = []) {
 		super(StagingGroup.ID, localize('staged changes', "Staged Changes"), resources);
+	}
+}
+
+export class UntrackedGroup extends ResourceGroup {
+
+	static readonly ID = 'untracked';
+
+	constructor(resources: Resource[] = []) {
+		super(UntrackedGroup.ID, localize('untracked files', "Untracked Files"), resources);
 	}
 }
 
@@ -321,6 +350,9 @@ export class Model implements Disposable {
 	private _workingDirectory = new WorkingDirectoryGroup([]);
 	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._workingDirectory; }
 
+	private _untrackedGroup = new UntrackedGroup([]);
+	get untrackedGroup(): UntrackedGroup { return this._untrackedGroup; }
+
 	private _parent: Branch | undefined;
 	get parent(): Branch | undefined { return this._parent; }
 
@@ -402,6 +434,9 @@ export class Model implements Disposable {
 
 	@throttle
 	async add(...resources: Resource[]): Promise<void> {
+		if (resources.length === 0) {
+			resources = this._untrackedGroup.resources;
+		}
 		await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.resourceUri.fsPath)));
 	}
 
@@ -428,9 +463,9 @@ export class Model implements Disposable {
 	@throttle
 	async commit(message: string, opts: CommitOptions = Object.create(null)): Promise<void> {
 		await this.run(Operation.Commit, async () => {
-			if (opts.all) {
-				await this.repository.add([]);
-			}
+			// if (opts.all) {
+			// 	await this.repository.add([]);
+			// }
 
 			await this.repository.commit(message, opts);
 		});
@@ -439,30 +474,36 @@ export class Model implements Disposable {
 	@throttle
 	async clean(...resources: Resource[]): Promise<void> {
 		await this.run(Operation.Clean, async () => {
-			const toClean: string[] = [];
-			const toCheckout: string[] = [];
+			const toRevert: string[] = [];
+			const toForget: string[] = [];
 
-			resources.forEach(r => {
+			for (let r of resources) {
 				switch (r.status) {
 					case Status.UNTRACKED:
 					case Status.IGNORED:
-						toClean.push(r.resourceUri.fsPath);
 						break;
 
+					case Status.ADDED:
+						toForget.push(r.resourceUri.fsPath);
+						break;
+
+					case Status.DELETED:
+					case Status.MISSING:
+					case Status.MODIFIED:
 					default:
-						toCheckout.push(r.resourceUri.fsPath);
+						toRevert.push(r.resourceUri.fsPath);
 						break;
 				}
-			});
+			}
 
 			const promises: Promise<void>[] = [];
 
-			if (toClean.length > 0) {
-				promises.push(this.repository.clean(toClean));
+			if (toRevert.length > 0) {
+				promises.push(this.repository.revert(toRevert));
 			}
 
-			if (toCheckout.length > 0) {
-				promises.push(this.repository.checkout('', toCheckout));
+			if (toForget.length > 0) {
+				promises.push(this.repository.forget(toForget));
 			}
 
 			await Promise.all(promises);
@@ -610,6 +651,7 @@ export class Model implements Disposable {
 		const workingDirectory: Resource[] = [];
 		const staging: Resource[] = [];
 		const merge: Resource[] = [];
+		const untracked: Resource[] = [];
 
 		status.forEach(raw => {
 			const uri = Uri.file(path.join(this.repository.root, raw.path));
@@ -626,12 +668,13 @@ export class Model implements Disposable {
 			const targetGroup: ResourceGroup = isStaged ? this.stagingGroup : this.workingDirectoryGroup;
 
 			switch (raw.status) {
-				case '?': return targetResources.push(new Resource(targetGroup, uri, Status.UNTRACKED));
 				case 'M': return targetResources.push(new Resource(targetGroup, uri, Status.MODIFIED));
 				case 'A': return targetResources.push(new Resource(targetGroup, uri, Status.ADDED));
 				case 'R': return targetResources.push(new Resource(targetGroup, uri, Status.DELETED));
 				case 'C': return targetResources.push(new Resource(targetGroup, uri, Status.CONFLICT));
+				case '?': return untracked.push(new Resource(this.untrackedGroup, uri, Status.UNTRACKED));
 			}
+
 			// case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
 			// case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
 			// case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
@@ -650,6 +693,7 @@ export class Model implements Disposable {
 		this._mergeGroup = new MergeGroup(merge);
 		this._stagingGroup = new StagingGroup(staging);
 		this._workingDirectory = new WorkingDirectoryGroup(workingDirectory);
+		this._untrackedGroup = new UntrackedGroup(untracked);
 		this._onDidChangeResources.fire();
 	}
 

@@ -491,13 +491,13 @@ export class Repository {
 		return stdout;
 	}
 
-	async add(paths: string[]): Promise<void> {
-		const args = ['add', '-A', '--'];
+	async add(paths?: string[]): Promise<void> {
+		const args = ['add'];
 
 		if (paths && paths.length) {
 			args.push.apply(args, paths);
 		} else {
-			args.push('.');
+			// args.push('.'); 
 		}
 
 		await this.run(args);
@@ -542,23 +542,15 @@ export class Repository {
 		}
 	}
 
-	async commit(message: string, opts: { all?: boolean, amend?: boolean, signoff?: boolean } = Object.create(null)): Promise<void> {
-		const args = ['commit', '--quiet', '--allow-empty-message', '--file', '-'];
+	async commit(message: string, opts: { all?: boolean, signoff?: boolean } = Object.create(null)): Promise<void> {
+		const args = ['commit'];
 
 		if (opts.all) {
-			args.push('--all');
-		}
-
-		if (opts.amend) {
-			args.push('--amend');
-		}
-
-		if (opts.signoff) {
-			args.push('--signoff');
+			args.push('--addremove');
 		}
 
 		try {
-			await this.run(args, { input: message || '' });
+			await this.run([...args, '-m', message || ""]);
 		} catch (commitErr) {
 			if (/not possible because you have unmerged files/.test(commitErr.stderr || '')) {
 				commitErr.hgErrorCode = HgErrorCodes.UnmergedChanges;
@@ -588,10 +580,20 @@ export class Repository {
 		await this.run(args);
 	}
 
-	async clean(paths: string[]): Promise<void> {
+	async revert(paths: string[]): Promise<void> {
 		const pathsByGroup = groupBy(paths, p => path.dirname(p));
 		const groups = Object.keys(pathsByGroup).map(k => pathsByGroup[k]);
-		const tasks = groups.map(paths => () => this.run(['clean', '-f', '-q', '--'].concat(paths)));
+		const tasks = groups.map(paths => () => this.run(['revert', '-C'].concat(paths))); // -C = no-backup
+ 
+		for (let task of tasks) {
+			await task();
+		}
+	}
+
+	async forget(paths: string[]): Promise<void> {
+		const pathsByGroup = groupBy(paths, p => path.dirname(p));
+		const groups = Object.keys(pathsByGroup).map(k => pathsByGroup[k]);
+		const tasks = groups.map(paths => () => this.run(['forget'].concat(paths)));
 
 		for (let task of tasks) {
 			await task();
