@@ -10,7 +10,7 @@ import { HgErrorCodes } from './hg';
 import { Model } from './model';
 import { throttle } from './decorators';
 
-export class AutoIncoming {
+export class AutoIncomingOutgoing {
 
 	private static Period = 3 * 60 * 1000 /* three minutes */;
 	private disposables: Disposable[] = [];
@@ -24,7 +24,7 @@ export class AutoIncoming {
 	private onConfiguration(): void {
 		const hgConfig = workspace.getConfiguration('hg');
 
-		if (hgConfig.get<boolean>('autoincoming') === false) {
+		if (hgConfig.get<boolean>('autoinout') === false) {
 			this.disable();
 		} else {
 			this.enable();
@@ -36,8 +36,8 @@ export class AutoIncoming {
 			return;
 		}
 
-		this.incoming();
-		this.timer = setInterval(() => this.incoming(), AutoIncoming.Period);
+		this.refresh();
+		this.timer = setInterval(() => this.refresh(), AutoIncomingOutgoing.Period);
 	}
 
 	disable(): void {
@@ -45,9 +45,9 @@ export class AutoIncoming {
 	}
 
 	@throttle
-	private async incoming(): Promise<void> {
+	private async refresh(): Promise<void> {
 		try {
-			await this.model.incoming();
+			await this.model.countIncomingOutgoing();
 		} catch (err) {
 			if (err.hgErrorCode === HgErrorCodes.AuthenticationFailed) {
 				this.disable();

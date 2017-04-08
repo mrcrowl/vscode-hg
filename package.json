@@ -506,9 +506,9 @@
           "description": "%config.autorefresh%",
           "default": true
         },
-        "hg.autoincoming": {
+        "hg.autoinout": {
           "type": "boolean",
-          "description": "%config.autoincoming%",
+          "description": "%config.autoinout%",
           "default": true
         },
         "hg.countBadge": {

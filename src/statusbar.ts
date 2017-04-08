@@ -13,7 +13,7 @@ import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
 
-class CheckoutStatusBar {
+class BranchStatusBar {
 
 	private _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> { return this._onDidChange.event; }
@@ -24,19 +24,16 @@ class CheckoutStatusBar {
 	}
 
 	get command(): Command | undefined {
-		const HEAD = this.model.parent;
+		const branch = this.model.parent;
 
-		if (!HEAD) {
+		if (!branch) {
 			return undefined;
 		}
 
-		const tag = this.model.refs.filter(iref => iref.type === RefType.Tag && iref.commit === HEAD.commit)[0];
-		const tagName = tag && tag.name;
-		const head = HEAD.name || tagName || (HEAD.commit || '').substr(0, 8);
+		const branchName = branch.name || (branch.commit || '').substr(0, 8);
 		const title = '$(hg-branch) '
-			+ head
-			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '*' : '')
-			// + (this.model.indexGroup.resources.length > 0 ? '+' : '')
+			+ branchName
+			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '')
 			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
 		return {
@@ -54,7 +51,8 @@ class CheckoutStatusBar {
 interface SyncStatusBarState {
 	isSyncRunning: boolean;
 	hasPaths: boolean;
-	HEAD: Branch | undefined;
+	branch: Branch | undefined;
+	syncCounts: { incoming: number, outgoing: number };
 }
 
 class SyncStatusBar {
@@ -62,7 +60,8 @@ class SyncStatusBar {
 	private static StartState: SyncStatusBarState = {
 		isSyncRunning: false,
 		hasPaths: false,
-		HEAD: undefined
+		branch: undefined,
+		syncCounts: {incoming: 0, outgoing: 0} 
 	};
 
 	private _onDidChange = new EventEmitter<void>();
@@ -83,9 +82,12 @@ class SyncStatusBar {
 	}
 
 	private onOperationsChange(): void {
+		const isPushing = this.model.operations.isRunning(Operation.Push);
+		const isPulling = this.model.operations.isRunning(Operation.Pull);
+
 		this.state = {
 			...this.state,
-			isSyncRunning: this.model.operations.isRunning(Operation.Sync)
+			isSyncRunning: isPushing || isPulling
 		};
 	}
 
@@ -93,7 +95,8 @@ class SyncStatusBar {
 		this.state = {
 			...this.state,
 			hasPaths: this.model.paths.length > 0,
-			HEAD: this.model.parent
+			branch: this.model.parent,
+			syncCounts: this.model.syncCounts
 		};
 	}
 
@@ -102,23 +105,24 @@ class SyncStatusBar {
 			return undefined;
 		}
 
-		const HEAD = this.state.HEAD;
+		const branch = this.state.branch;
 		let icon = '$(sync)';
 		let text = '';
 		let command = '';
 		let tooltip = '';
+		let syncCounts = this.state.syncCounts;
 
-		if (HEAD && HEAD.name && HEAD.commit) {
-			if (HEAD.upstream) {
-				if (HEAD.ahead || HEAD.behind) {
-					text += `${HEAD.behind}↓ ${HEAD.ahead}↑`;
-				}
-				command = 'hg.sync';
-				tooltip = localize('sync changes', "Synchronize changes");
-			} else {
+		if (branch) {
+			if (syncCounts && syncCounts.incoming) {
+				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
+				icon = '$(cloud-download)';
+				command = 'hg.pull';
+				tooltip = localize('pull changes', "Pull changes");
+			} else if (syncCounts && syncCounts.outgoing) {
+				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
 				icon = '$(cloud-upload)';
-				command = 'hg.publish';
-				tooltip = localize('publish changes', "Publish changes");
+				command = 'hg.push';
+				tooltip = localize('push changes', "Push changes");
 			}
 		} else {
 			command = '';
@@ -126,6 +130,7 @@ class SyncStatusBar {
 		}
 
 		if (this.state.isSyncRunning) {
+			icon = '$(sync)';
 			text = '';
 			command = '';
 			tooltip = localize('syncing changes', "Synchronizing changes...");
@@ -146,28 +151,28 @@ class SyncStatusBar {
 export class StatusBarCommands {
 
 	private syncStatusBar: SyncStatusBar;
-	private checkoutStatusBar: CheckoutStatusBar;
+	private branchStatusBar: BranchStatusBar;
 	private disposables: Disposable[] = [];
 
 	constructor(model: Model) {
 		this.syncStatusBar = new SyncStatusBar(model);
-		this.checkoutStatusBar = new CheckoutStatusBar(model);
+		this.branchStatusBar = new BranchStatusBar(model);
 	}
 
 	get onDidChange(): Event<void> {
 		return anyEvent(
 			this.syncStatusBar.onDidChange,
-			this.checkoutStatusBar.onDidChange
+			this.branchStatusBar.onDidChange
 		);
 	}
 
 	get commands(): Command[] {
 		const result: Command[] = [];
 
-		const checkout = this.checkoutStatusBar.command;
+		const update = this.branchStatusBar.command;
 
-		if (checkout) {
-			result.push(checkout);
+		if (update) {
+			result.push(update);
 		}
 
 		const sync = this.syncStatusBar.command;
@@ -181,7 +186,7 @@ export class StatusBarCommands {
 
 	dispose(): void {
 		this.syncStatusBar.dispose();
-		this.checkoutStatusBar.dispose();
+		this.branchStatusBar.dispose();
 		this.disposables = dispose(this.disposables);
 	}
 }

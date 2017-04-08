@@ -513,7 +513,7 @@ export class CommandCenter {
 		const paths = this.model.paths;
 
 		if (paths.length === 0) {
-			window.showWarningMessage(localize('no remotes to pull', "Your repository has no paths configured to pull from."));
+			window.showWarningMessage(localize('no paths to pull', "Your repository has no paths configured to pull from."));
 			return;
 		}
 

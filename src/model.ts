@@ -238,14 +238,15 @@ export enum Operation {
 	Branch = 1 << 5,
 	Update = 1 << 6,
 	Reset = 1 << 7,
-	Incoming = 1 << 8,
+	CountIncoming = 1 << 8,
 	Pull = 1 << 9,
 	Push = 1 << 10,
 	Sync = 1 << 11,
 	Init = 1 << 12,
 	Show = 1 << 13,
 	Stage = 1 << 14,
-	GetCommitTemplate = 1 << 15
+	GetCommitTemplate = 1 << 15,
+	CountOutgoing = 1 << 16
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -347,6 +348,12 @@ export class Model implements Disposable {
 	private _operations = new OperationsImpl();
 	get operations(): Operations { return this._operations; }
 
+	private _syncCounts: { incoming: number; outgoing: number };
+	get syncCounts(): { incoming: number; outgoing: number } { return this._syncCounts; }
+
+	private _numOutgoing: number;
+	get numOutgoingCommits(): number { return this._numOutgoing; }
+
 	private repository: Repository;
 
 	private _state = State.Uninitialized;
@@ -357,6 +364,7 @@ export class Model implements Disposable {
 
 		this._parent = undefined;
 		this._refs = [];
+		this._syncCounts = { incoming: 0, outgoing: 0 };
 		this._mergeGroup = new MergeGroup();
 		this._stagingGroup = new StagingGroup();
 		this._workingDirectory = new WorkingDirectoryGroup();
@@ -451,15 +459,21 @@ export class Model implements Disposable {
 				let selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
 					this.stagingGroup.resources :
 					this.workingDirectoryGroup.resources;
-				
-				for (let resource of selectedResources)
-				{
+
+				for (let resource of selectedResources) {
 					const relativePath = path.relative(this.repository.root, resource.resourceUri.fsPath).replace(/\\/g, '/');
 					fileList.push(relativePath);
-				}	
+				}
 			}
 
 			await this.repository.commit(message, { all: opts.scope === CommitScope.ALL, fileList });
+			try {
+				this._syncCounts.outgoing++;
+				this._onDidChangeResources.fire();
+				this.countOutgoing();
+			} catch (e) {
+				// noop
+			}
 		});
 	}
 
@@ -514,7 +528,8 @@ export class Model implements Disposable {
 
 	@throttle
 	async getCommit(ref: string): Promise<Commit> {
-		return await this.repository.getCommit(ref);
+		let commit = await this.repository.getCommit(ref);
+		return commit;
 	}
 
 	@throttle
@@ -522,19 +537,36 @@ export class Model implements Disposable {
 		await this.run(Operation.Reset, () => this.repository.reset(treeish, hard));
 	}
 
+	async countIncomingOutgoing() {
+		await Promise.all([this.countIncoming(), this.countOutgoing()]);
+	}
+
 	@throttle
-	async incoming(): Promise<void> {
-		await this.run(Operation.Incoming, () => this.repository.incoming());
+	async countIncoming(): Promise<void> {
+		this._syncCounts.incoming = await this.run(Operation.CountIncoming, () => this.repository.countIncoming());
+		this._onDidChangeResources.fire();
+	}
+
+	@throttle
+	async countOutgoing(): Promise<void> {
+		this._syncCounts.outgoing = await this.run(Operation.CountOutgoing, () => this.repository.countOutgoing());
+		this._onDidChangeResources.fire();
 	}
 
 	@throttle
 	async pull(): Promise<void> {
 		await this.run(Operation.Pull, () => this.repository.pull());
+		this.countIncomingOutgoing();
 	}
 
 	@throttle
-	async push(path?: string, name?: string, options?: PushOptions): Promise<void> {
-		await this.run(Operation.Push, () => this.repository.push(path, name, options));
+	async push(path?: string, options?: PushOptions): Promise<void> {
+		await this.run(Operation.Push, () => this.repository.push(path, options));
+		if (!path || path === "default") {
+			this._syncCounts.outgoing = 0;
+			this._onDidChangeResources.fire();
+			this.countIncomingOutgoing();
+		}
 	}
 
 	async show(ref: string, uri: Uri): Promise<string> {
@@ -609,6 +641,7 @@ export class Model implements Disposable {
 		const disposables: Disposable[] = [];
 		const repositoryRoot = await this._hg.getRepositoryRoot(this.workspaceRootPath);
 		this.repository = this._hg.open(repositoryRoot);
+		this.updateRepositoryPaths();
 
 		const dotHgPath = path.join(repositoryRoot, '.hg');
 		const { event: onRawHgChange, disposable: watcher } = watch(dotHgPath);
@@ -626,6 +659,18 @@ export class Model implements Disposable {
 		this.state = State.Idle;
 	}
 
+	private async updateRepositoryPaths() {
+		let paths: Path[] | undefined;
+		try {
+			paths = await this.repository.getPaths();
+			this._paths = paths;
+		}
+		catch (e) {
+			console.log("I'm in the updatePaths catch:", e);
+			// noop
+		}
+	}
+
 	@throttle
 	public async getRefs(): Promise<Ref[]> {
 		const [branches, tags] = await Promise.all([this.repository.getBranches(), this.repository.getTags()]);
@@ -635,15 +680,8 @@ export class Model implements Disposable {
 
 	@throttle
 	private async refresh(): Promise<void> {
-		const status = await this.repository.getStatus();
-		let branch: Branch | undefined;
-
-		// try {
-		// 	branch = await this.repository.getParent();
-		// } catch (err) {
-		// 	// noop
-		// }
-		// this._parent = branch;
+		const [status, branch] = await Promise.all([this.repository.getStatus(), this.repository.getParent()])
+		this._parent = branch;
 
 		const workingDirectory: Resource[] = [];
 		const staging: Resource[] = [];

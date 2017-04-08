@@ -24,7 +24,7 @@ export interface IHg {
 }
 
 export interface PushOptions {
-	setUpstream?: boolean;
+	pushNewBranches?: boolean;
 }
 
 export interface IFileStatus {
@@ -646,15 +646,46 @@ export class Repository {
 		}
 	}
 
-	async incoming(): Promise<void> {
+	async countIncoming(): Promise<number> {
 		try {
-			await this.run(['incoming']);
+			const incomingResult = await this.run(['incoming', '-q']);
+			if (!incomingResult.stdout)
+			{
+				return 0;
+			}	
+
+			return incomingResult.stdout.trim().split("\n").length;
 		} catch (err) {
+			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
+			{
+				return 0;
+			}	
+
 			if (/repository default not found\./.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.NoRemoteRepositorySpecified;
 			} else if (/abort/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
+
+			throw err;
+		}
+	}
+
+	async countOutgoing(): Promise<number> {
+		try {
+			const result = await this.run(['outgoing', '-q']); //, '-r', 'draft()']);
+
+			if (!result.stdout)
+			{
+				return 0;
+			}	
+
+			return result.stdout.trim().split("\n").length;
+		} catch (err) {
+			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
+			{
+				return 0;
+			}	
 
 			throw err;
 		}
@@ -666,6 +697,11 @@ export class Repository {
 		try {
 			await this.run(args);
 		} catch (err) {
+			if (err instanceof HgError && err.exitCode === 1)
+			{
+				return;
+			}	
+			
 			if (/^CONFLICT \([^)]+\): \b/m.test(err.stdout || '')) {
 				err.hgErrorCode = HgErrorCodes.Conflict;
 			} else if (/Please tell me who you are\./.test(err.stderr || '')) {
@@ -680,24 +716,25 @@ export class Repository {
 		}
 	}
 
-	async push(path?: string, name?: string, options?: PushOptions): Promise<void> {
-		const args = ['push'];
+	async push(path?: string, options?: PushOptions): Promise<void> {
+		const args = ['push', '-q'];
 
-		if (options && options.setUpstream) {
-			args.push('-u');
+		if (options && options.pushNewBranches) {
+			args.push('--new-branch');
 		}
 
 		if (path) {
 			args.push(path);
 		}
 
-		if (name) {
-			args.push(name);
-		}
-
 		try {
 			await this.run(args);
 		} catch (err) {
+			if (err instanceof HgError && err.exitCode === 1)
+			{
+				return;
+			}	
+
 			if (/^error: failed to push some refs to\b/m.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushRejected;
 			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
@@ -761,13 +798,12 @@ export class Repository {
 			throw new Error('Error parsing working directory branch result');
 		}
 		const branchName = branchResult.stdout.trim();
+		// const logResult = await this.run(['identify'])
+		// if (!logResult.stdout) {
+		// 	throw new Error('Error parsing working directory identify result');
+		// }
 
-		const logResult = await this.run(['log', '-r', branchName, '-l', '1', '--template="{short(node)}"'])
-		if (!logResult.stdout) {
-			throw new Error('Error parsing working directory log result');
-		}
-
-		return { name: branchName, commit: logResult.stdout.trim(), type: RefType.Branch };
+		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
 	async getTags(): Promise<Ref[]> {
@@ -782,7 +818,7 @@ export class Repository {
 				return null;
 			})
 			.filter(ref => !!ref) as Ref[];
-		
+
 		return tagRefs;
 	}
 
@@ -798,20 +834,25 @@ export class Repository {
 				return null;
 			})
 			.filter(ref => !!ref) as Ref[];
-		
+
 		return branchRefs;
 	}
 
 	async getPaths(): Promise<Path[]> {
-		const result = await this.run(['paths']);
-		const regex = /^([^\s]+)\s+=\s+([^\s]+)\s/;
-		const rawPaths = result.stdout.trim().split('\n')
-			.filter(b => !!b)
-			.map(line => regex.exec(line))
-			.filter(g => !!g)
-			.map((groups: RegExpExecArray) => ({ name: groups[1], url: groups[2] }));
+		const pathsResult = await this.run(['paths']);
+		console.log(pathsResult.stdout);
+		const paths = pathsResult.stdout.trim().split('\n')
+			.filter(line => !!line)
+			.map((line: string): Path | null => {
+				let match = line.match(/^(\S+)\s*=\s*(.*)$/);
+				if (match) {
+					return { name: match[1], url: match[2] };
+				}
+				return null;
+			})
+			.filter(ref => !!ref) as Path[];
 
-		return rawPaths;
+		return paths;
 	}
 
 	async getBranch(name: string): Promise<Branch> {
