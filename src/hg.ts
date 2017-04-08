@@ -649,17 +649,20 @@ export class Repository {
 	async countIncoming(): Promise<number> {
 		try {
 			const incomingResult = await this.run(['incoming', '-q']);
-			if (!incomingResult.stdout)
-			{
+			if (!incomingResult.stdout) {
+				console.log("hg:nostdout");
 				return 0;
-			}	
+			}
 
-			return incomingResult.stdout.trim().split("\n").length;
+			const numIncoming = incomingResult.stdout.trim().split("\n").length;
+			console.log("hg:countIncoming", numIncoming);
+			return numIncoming;
 		} catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
 			{
+				console.log("hg:exitCode1");
 				return 0;
-			}	
+			}
 
 			if (/repository default not found\./.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.NoRemoteRepositorySpecified;
@@ -675,17 +678,16 @@ export class Repository {
 		try {
 			const result = await this.run(['outgoing', '-q']); //, '-r', 'draft()']);
 
-			if (!result.stdout)
-			{
+			if (!result.stdout) {
 				return 0;
-			}	
+			}
 
 			return result.stdout.trim().split("\n").length;
 		} catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
 			{
 				return 0;
-			}	
+			}
 
 			throw err;
 		}
@@ -697,11 +699,10 @@ export class Repository {
 		try {
 			await this.run(args);
 		} catch (err) {
-			if (err instanceof HgError && err.exitCode === 1)
-			{
+			if (err instanceof HgError && err.exitCode === 1) {
 				return;
-			}	
-			
+			}
+
 			if (/^CONFLICT \([^)]+\): \b/m.test(err.stdout || '')) {
 				err.hgErrorCode = HgErrorCodes.Conflict;
 			} else if (/Please tell me who you are\./.test(err.stderr || '')) {
@@ -730,10 +731,9 @@ export class Repository {
 		try {
 			await this.run(args);
 		} catch (err) {
-			if (err instanceof HgError && err.exitCode === 1)
-			{
+			if (err instanceof HgError && err.exitCode === 1) {
 				return;
-			}	
+			}
 
 			if (/^error: failed to push some refs to\b/m.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushRejected;

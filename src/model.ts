@@ -348,7 +348,7 @@ export class Model implements Disposable {
 	private _operations = new OperationsImpl();
 	get operations(): Operations { return this._operations; }
 
-	private _syncCounts: { incoming: number; outgoing: number };
+	private _syncCounts = { incoming: 0, outgoing: 0 };
 	get syncCounts(): { incoming: number; outgoing: number } { return this._syncCounts; }
 
 	private _numOutgoing: number;
@@ -538,19 +538,24 @@ export class Model implements Disposable {
 	}
 
 	async countIncomingOutgoing() {
-		await Promise.all([this.countIncoming(), this.countOutgoing()]);
+		await this.countIncoming();
+		await this.countOutgoing();
 	}
 
 	@throttle
 	async countIncoming(): Promise<void> {
-		this._syncCounts.incoming = await this.run(Operation.CountIncoming, () => this.repository.countIncoming());
-		this._onDidChangeResources.fire();
+		await this.run(Operation.CountIncoming, async () => {
+			this._syncCounts.incoming = await this.repository.countIncoming();
+			this._onDidChangeResources.fire();
+		});
 	}
 
 	@throttle
 	async countOutgoing(): Promise<void> {
-		this._syncCounts.outgoing = await this.run(Operation.CountOutgoing, () => this.repository.countOutgoing());
-		this._onDidChangeResources.fire();
+		await this.run(Operation.CountOutgoing, async () => {
+			this._syncCounts.outgoing = await this.repository.countOutgoing();
+			this._onDidChangeResources.fire();
+		});
 	}
 
 	@throttle
