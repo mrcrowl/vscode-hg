@@ -70,7 +70,7 @@ export class Resource implements SourceControlResourceState {
 				return true;
 
 			case Status.UNTRACKED:
-			case Status.IGNORED:	
+			case Status.IGNORED:
 			default:
 				return false
 		}
@@ -308,10 +308,14 @@ class OperationsImpl implements Operations {
 	}
 }
 
+export const enum CommitScope {
+	ALL,
+	STAGED_CHANGES,
+	CHANGES
+}
+
 export interface CommitOptions {
-	all?: boolean;
-	amend?: boolean;
-	signoff?: boolean;
+	scope: CommitScope;
 }
 
 export class Model implements Disposable {
@@ -463,11 +467,21 @@ export class Model implements Disposable {
 	@throttle
 	async commit(message: string, opts: CommitOptions = Object.create(null)): Promise<void> {
 		await this.run(Operation.Commit, async () => {
-			// if (opts.all) {
-			// 	await this.repository.add([]);
-			// }
+			let fileList: string[] = [];
+			if (opts.scope === CommitScope.CHANGES ||
+				opts.scope === CommitScope.STAGED_CHANGES) {
+				let selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
+					this.stagingGroup.resources :
+					this.workingDirectoryGroup.resources;
+				
+				for (let resource of selectedResources)
+				{
+					const relativePath = path.relative(this.repository.root, resource.resourceUri.fsPath).replace(/\\/g, '/');
+					fileList.push(relativePath);
+				}	
+			}
 
-			await this.repository.commit(message, opts);
+			await this.repository.commit(message, { all: opts.scope === CommitScope.ALL, fileList });
 		});
 	}
 

@@ -7,7 +7,7 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState } from 'vscode';
 import { Ref, RefType, Hg } from './hg';
-import { Model, Resource, Status, CommitOptions, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup } from "./model";
+import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
@@ -388,15 +388,11 @@ export class CommandCenter {
 		getCommitMessage: () => Promise<string>,
 		opts?: CommitOptions
 	): Promise<boolean> {
-		if (!opts) {
-			opts = { all: this.model.workingDirectoryGroup.resources.length === 0 };
-		}
-
-		if (
-			// no changes
-			(this.model.workingDirectoryGroup.resources.length === 0 && this.model.workingDirectoryGroup.resources.length === 0)
-			// or no staged changes and not `all`
-			|| (!opts.all && this.model.workingDirectoryGroup.resources.length === 0)
+		const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
+		const numStagingResources = this.model.stagingGroup.resources.length;
+		if ((numWorkingResources === 0 && numStagingResources === 0) // no changes
+			|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
+			|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
 		) {
 			window.showInformationMessage(localize('no changes', "There are no changes to commit."));
 			return false;
@@ -437,7 +433,7 @@ export class CommandCenter {
 
 	@command('hg.commit')
 	async commit(): Promise<void> {
-		await this.commitWithAnyInput();
+		await this.commitWithAnyInput({ scope: CommitScope.CHANGES });
 	}
 
 	@command('hg.commitWithInput')
@@ -451,12 +447,12 @@ export class CommandCenter {
 
 	@command('hg.commitStaged')
 	async commitStaged(): Promise<void> {
-		await this.commitWithAnyInput({ all: false });
+		await this.commitWithAnyInput({ scope: CommitScope.STAGED_CHANGES });
 	}
 
 	@command('hg.commitAll')
 	async commitAll(): Promise<void> {
-		await this.commitWithAnyInput({ all: true });
+		await this.commitWithAnyInput({ scope: CommitScope.ALL });
 	}
 
 	@command('hg.undoCommit')

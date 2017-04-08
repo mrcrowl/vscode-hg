@@ -542,12 +542,17 @@ export class Repository {
 		}
 	}
 
-	async commit(message: string, opts: { all?: boolean, signoff?: boolean } = Object.create(null)): Promise<void> {
-		const args = ['commit'];
+	async commit(message: string, opts: { all?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
+		let args = ['commit'];
 
 		if (opts.all) {
 			args.push('--addremove');
 		}
+
+		if (opts.fileList && opts.fileList.length)
+		{
+			args = args.concat(opts.fileList);
+		}	
 
 		try {
 			await this.run([...args, '-m', message || ""]);
