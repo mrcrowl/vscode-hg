@@ -12,6 +12,7 @@ import * as cp from 'child_process';
 import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp } from './util';
 import { EventEmitter, Event } from 'vscode';
 import * as nls from 'vscode-nls';
+import { Askpass } from "./askpass";
 
 const localize = nls.loadMessageBundle();
 const readdir = denodeify<string[]>(fs.readdir);
@@ -263,7 +264,6 @@ export const HgErrorCodes = {
 	BadConfigFile: 'BadConfigFile',
 	AuthenticationFailed: 'AuthenticationFailed',
 	NoUserNameConfigured: 'NoUserNameConfigured',
-	NoUserEmailConfigured: 'NoUserEmailConfigured',
 	NoRemoteRepositorySpecified: 'NoRemoteRepositorySpecified',
 	NoRespositoryFound: 'NotAnHgRepository',
 	NotAtRepositoryRoot: 'NotAtRepositoryRoot',
@@ -557,18 +557,9 @@ export class Repository {
 				throw commitErr;
 			}
 
-			try {
-				await this.run(['config', '--get-all', 'user.name']);
-			} catch (err) {
-				err.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
-				throw err;
-			}
-
-			try {
-				await this.run(['config', '--get-all', 'user.email']);
-			} catch (err) {
-				err.hgErrorCode = HgErrorCodes.NoUserEmailConfigured;
-				throw err;
+			if (/no username supplied/.test(commitErr.stderr || '')) {
+				commitErr.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
+				throw commitErr;
 			}
 
 			throw commitErr;
