@@ -271,7 +271,7 @@ export const HgErrorCodes = {
 	UnmergedChanges: 'UnmergedChanges',
 	PushRejected: 'PushRejected',
 	RemoteConnectionError: 'RemoteConnectionError',
-	DirtyWorkTree: 'DirtyWorkTree',
+	DirtyWorkingDirectory: 'DirtyWorkingDirectory',
 	CantOpenResource: 'CantOpenResource',
 	HgNotFound: 'HgNotFound',
 	CantCreatePipe: 'CantCreatePipe',
@@ -530,7 +530,7 @@ export class Repository {
 			await this.run(args);
 		} catch (err) {
 			if (/uncommitted changes/.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.DirtyWorkTree;
+				err.hgErrorCode = HgErrorCodes.DirtyWorkingDirectory;
 			}
 
 			throw err;
@@ -673,7 +673,7 @@ export class Repository {
 			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			} else if (/Pull is not possible because you have unmerged files|Cannot pull with rebase: You have unstaged changes|Your local changes to the following files would be overwritten|Please, commit your changes before you can merge/.test(err.stderr)) {
-				err.hgErrorCode = HgErrorCodes.DirtyWorkTree;
+				err.hgErrorCode = HgErrorCodes.DirtyWorkingDirectory;
 			}
 
 			throw err;

@@ -572,12 +572,13 @@ export class CommandCenter {
 				let message: string;
 
 				switch (err.hgErrorCode) {
-					case 'DirtyWorkTree':
-						message = localize('clean repo', "Please clean your repository working tree before checkout.");
+					case 'DirtyWorkingDirectory':
+						message = localize('clean repo', "Please clean your repository working directory before updating.");
 						break;
+
 					default:
 						const hint = (err.stderr || err.message || String(err))
-							.replace(/^error: /mi, '')
+							.replace(/^abort: /mi, '')
 							.replace(/^> husky.*$/mi, '')
 							.split(/[\r\n]/)
 							.filter(line => !!line)
@@ -601,6 +602,8 @@ export class CommandCenter {
 
 				if (choice === openOutputChannelChoice) {
 					outputChannel.show();
+				} else {
+					commands.executeCommand("workbench.view.scm");
 				}
 			});
 		};
