@@ -66,27 +66,6 @@ export class HgContentProvider {
 
 		let ref = uri.query; 
 
-		// if (ref === '~') {
-		// 	const fileUri = uri.with({ scheme: 'file', query: '' });
-		// 	const isStaged = this.model.stagingGroup.includesUri(fileUri);
-		// }
-
-		if (ref == '')
-		{
-			return new Promise<string>((c, e) => {
-				readFile(uri.fsPath, (err, data) => {
-					if (!err)
-					{
-						console.log(this.model);
-						const contents = data.toString('utf-8');
-						return c(contents);
-					}
-
-					e(err);
-				})
-			});
-		}	
-
 		try {
 			const result = await this.model.show(ref, uri);
 			return result;
