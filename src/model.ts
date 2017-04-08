@@ -8,7 +8,7 @@
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace } from 'vscode';
 import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError } from './hg';
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
-import { memoize, throttle, debounce } from './decorators';
+import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -236,7 +236,7 @@ export enum Operation {
 	Commit = 1 << 3,
 	Clean = 1 << 4,
 	Branch = 1 << 5,
-	Checkout = 1 << 6,
+	Update = 1 << 6,
 	Reset = 1 << 7,
 	Incoming = 1 << 8,
 	Pull = 1 << 9,
@@ -247,28 +247,6 @@ export enum Operation {
 	Stage = 1 << 14,
 	GetCommitTemplate = 1 << 15
 }
-
-// function getOperationName(operation: Operation): string {
-// 	switch (operation) {
-// 		case Operation.Status: return 'Status';
-// 		case Operation.Add: return 'Add';
-// 		case Operation.RevertFiles: return 'RevertFiles';
-// 		case Operation.Commit: return 'Commit';
-// 		case Operation.Clean: return 'Clean';
-// 		case Operation.Branch: return 'Branch';
-// 		case Operation.Checkout: return 'Checkout';
-// 		case Operation.Reset: return 'Reset';
-// 		case Operation.Fetch: return 'Fetch';
-// 		case Operation.Pull: return 'Pull';
-// 		case Operation.Push: return 'Push';
-// 		case Operation.Sync: return 'Sync';
-// 		case Operation.Init: return 'Init';
-// 		case Operation.Show: return 'Show';
-// 		case Operation.Stage: return 'Stage';
-// 		case Operation.GetCommitTemplate: return 'GetCommitTemplate';
-// 		default: return 'unknown';
-// 	}
-// }
 
 function isReadOnly(operation: Operation): boolean {
 	switch (operation) {
@@ -530,8 +508,8 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async checkout(treeish: string): Promise<void> {
-		await this.run(Operation.Checkout, () => this.repository.checkout(treeish, []));
+	async update(treeish: string): Promise<void> {
+		await this.run(Operation.Update, () => this.repository.update(treeish, []));
 	}
 
 	@throttle
@@ -649,6 +627,13 @@ export class Model implements Disposable {
 	}
 
 	@throttle
+	public async getRefs(): Promise<Ref[]> {
+		const [branches, tags] = await Promise.all([this.repository.getBranches(), this.repository.getTags()]);
+		this._refs = [...branches, ...tags];
+		return this._refs;
+	}
+
+	@throttle
 	private async refresh(): Promise<void> {
 		const status = await this.repository.getStatus();
 		let branch: Branch | undefined;
@@ -658,9 +643,7 @@ export class Model implements Disposable {
 		// } catch (err) {
 		// 	// noop
 		// }
-
 		// this._parent = branch;
-		// this._refs = await this.repository.getRefs();;
 
 		const workingDirectory: Resource[] = [];
 		const staging: Resource[] = [];

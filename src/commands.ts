@@ -32,7 +32,7 @@ class CheckoutItem implements QuickPickItem {
 			return;
 		}
 
-		await model.checkout(ref);
+		await model.update(ref);
 	}
 }
 
@@ -474,13 +474,14 @@ export class CommandCenter {
 		const checkoutType = config.get<string>('updateType') || 'all';
 		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
 
-		const heads = this.model.refs.filter(ref => ref.type === RefType.Branch)
+		let refs = await this.model.getRefs();
+		const branches = refs.filter(ref => ref.type === RefType.Branch)
 			.map(ref => new CheckoutItem(ref));
 
-		const tags = (includeTags ? this.model.refs.filter(ref => ref.type === RefType.Tag) : [])
+		const tags = (includeTags ? refs.filter(ref => ref.type === RefType.Tag) : [])
 			.map(ref => new CheckoutTagItem(ref));
 
-		const picks = [...heads, ...tags];
+		const picks = [...branches, ...tags];
 		const placeHolder = 'Select a branch/tag to update to';
 		const choice = await window.showQuickPick<CheckoutItem>(picks, { placeHolder });
 

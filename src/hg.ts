@@ -519,22 +519,17 @@ export class Repository {
 		await this.run(['update-index', '--cacheinfo', '100644', stdout, path]);
 	}
 
-	async checkout(treeish: string, paths: string[]): Promise<void> {
-		const args = ['checkout', '-q'];
+	async update(treeish: string, paths: string[]): Promise<void> {
+		const args = ['update', '-q'];
 
 		if (treeish) {
 			args.push(treeish);
 		}
 
-		if (paths && paths.length) {
-			args.push('--');
-			args.push.apply(args, paths);
-		}
-
 		try {
 			await this.run(args);
 		} catch (err) {
-			if (/Please, commit your changes or stash them/.test(err.stderr || '')) {
+			if (/uncommitted changes/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.DirtyWorkTree;
 			}
 
@@ -549,10 +544,9 @@ export class Repository {
 			args.push('--addremove');
 		}
 
-		if (opts.fileList && opts.fileList.length)
-		{
+		if (opts.fileList && opts.fileList.length) {
 			args = args.concat(opts.fileList);
-		}	
+		}
 
 		try {
 			await this.run([...args, '-m', message || ""]);
@@ -580,7 +574,7 @@ export class Repository {
 		const pathsByGroup = groupBy(paths, p => path.dirname(p));
 		const groups = Object.keys(pathsByGroup).map(k => pathsByGroup[k]);
 		const tasks = groups.map(paths => () => this.run(['revert', '-C'].concat(paths))); // -C = no-backup
- 
+
 		for (let task of tasks) {
 			await task();
 		}
@@ -730,10 +724,9 @@ export class Repository {
 			}
 
 			// was it a windows line-ending?
-			if (status.charAt(i + 1) == '\n')
-			{
+			if (status.charAt(i + 1) == '\n') {
 				i++;
-			}	
+			}
 			return status.substring(start, i++);
 		}
 
@@ -773,16 +766,16 @@ export class Repository {
 		if (!logResult.stdout) {
 			throw new Error('Error parsing working directory log result');
 		}
-		
+
 		return { name: branchName, commit: logResult.stdout.trim(), type: RefType.Branch };
 	}
 
-	async getRefs(): Promise<Ref[]> {
+	async getTags(): Promise<Ref[]> {
 		const tagsResult = await this.run(['tags']);
 		const tagRefs = tagsResult.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Ref | null => {
-				let match = /^(.*)\s+(\d+):([A-Fa-f0-9]+)$/;
+				let match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
 				if (match) {
 					return { name: match[1], commit: match[3], type: RefType.Tag };
 				}
@@ -790,11 +783,15 @@ export class Repository {
 			})
 			.filter(ref => !!ref) as Ref[];
 		
-		const branches = await this.run(['branches']);
-		const branchRefs = tagsResult.stdout.trim().split('\n')
+		return tagRefs;
+	}
+
+	async getBranches(): Promise<Ref[]> {
+		const branchesResult = await this.run(['branches']);
+		const branchRefs = branchesResult.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Ref | null => {
-				let match = /^(.*)\s+(\d+):([A-Fa-f0-9]+)(\s+\(inactive\))?$/;
+				let match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)(\s+\(inactive\))?$/);
 				if (match) {
 					return { name: match[1], commit: match[3], type: RefType.Branch };
 				}
@@ -802,7 +799,7 @@ export class Repository {
 			})
 			.filter(ref => !!ref) as Ref[];
 		
-		return [...tagRefs, ...branchRefs];
+		return branchRefs;
 	}
 
 	async getPaths(): Promise<Path[]> {
