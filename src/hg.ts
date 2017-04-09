@@ -269,7 +269,7 @@ export const HgErrorCodes = {
 	NotAtRepositoryRoot: 'NotAtRepositoryRoot',
 	Conflict: 'Conflict',
 	UnmergedChanges: 'UnmergedChanges',
-	PushRejected: 'PushRejected',
+	PushCreatesNewRemoteHead: 'PushCreatesNewRemoteHead',
 	RemoteConnectionError: 'RemoteConnectionError',
 	DirtyWorkingDirectory: 'DirtyWorkingDirectory',
 	CantOpenResource: 'CantOpenResource',
@@ -736,8 +736,8 @@ export class Repository {
 				return;
 			}
 
-			if (/^error: failed to push some refs to\b/m.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.PushRejected;
+			if (/push creates new remote head/m.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteHead;
 			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}

@@ -5,8 +5,8 @@
 
 'use strict';
 
-import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace } from 'vscode';
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError } from './hg';
+import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -566,11 +566,29 @@ export class Model implements Disposable {
 
 	@throttle
 	async push(path?: string, options?: PushOptions): Promise<void> {
-		await this.run(Operation.Push, () => this.repository.push(path, options));
-		if (!path || path === "default") {
-			this._syncCounts.outgoing = 0;
-			this._onDidChangeResources.fire();
-			this.countIncomingOutgoing();
+		try {
+			await this.run(Operation.Push, () => this.repository.push(path, options));
+
+			if (!path || path === "default") {
+				this._syncCounts.outgoing = 0;
+				this._onDidChangeResources.fire();
+				this.countIncomingOutgoing();
+			}
+		}
+		catch (e) {
+			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
+				const warningMessage = localize('pullandmerge', "Push would create new head. Try Pull and Merge first.");
+				const pullOption = localize('pull', 'Pull');
+				const choice = await window.showErrorMessage(warningMessage, pullOption);
+				if (choice === pullOption)
+				{
+					commands.executeCommand("hg.pull");
+				}	
+
+				return;
+			}
+
+			throw e;
 		}
 	}
 
@@ -592,11 +610,7 @@ export class Model implements Disposable {
 			return result.stdout;
 		});
 	}
-
-	// async getCommitTemplate(): Promise<string> {
-	// 	return await this.run(Operation.GetCommitTemplate, async () => this.repository.getCommitTemplate());
-	// }
-
+	
 	private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
 		return window.withScmProgress(async () => {
 			this._operations = this._operations.start(operation);
