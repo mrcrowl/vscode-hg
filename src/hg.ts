@@ -27,6 +27,10 @@ export interface PushOptions {
 	pushNewBranches?: boolean;
 }
 
+export interface IRepoStatus {
+	isMerge: boolean;
+}
+
 export interface IFileStatus {
 	status: string;
 	path: string;
@@ -507,6 +511,20 @@ export class Repository {
 		await this.run(args);
 	}
 
+	async resolve(paths: string[]): Promise<void> {
+		const args = ['resolve'];
+		args.push.apply(args, paths);
+
+		await this.run(args);
+	}
+
+	async unresolve(paths: string[]): Promise<void> {
+		const args = ['resolve', '--unmark'];
+		args.push.apply(args, paths);
+
+		await this.run(args);
+	}
+
 	async stage(path: string, data: string): Promise<void> {
 		const child = this.stream(['hash-object', '--stdin', '-w'], { stdio: [null, null, null] });
 		child.stdin.end(data, 'utf8');
@@ -523,12 +541,17 @@ export class Repository {
 		await this.run(['update-index', '--cacheinfo', '100644', stdout, path]);
 	}
 
-	async update(treeish: string, paths: string[]): Promise<void> {
+	async update(treeish: string, paths: string[], opts?: { discard: boolean }): Promise<void> {
 		const args = ['update', '-q'];
 
 		if (treeish) {
 			args.push(treeish);
 		}
+
+		if (opts && opts.discard)
+		{
+			args.push('--clean');
+		}	
 
 		try {
 			await this.run(args);
@@ -541,10 +564,10 @@ export class Repository {
 		}
 	}
 
-	async commit(message: string, opts: { all?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
+	async commit(message: string, opts: { addRemove?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
 		let args = ['commit'];
 
-		if (opts.all) {
+		if (opts.addRemove) {
 			args.push('--addremove');
 		}
 
@@ -746,9 +769,33 @@ export class Repository {
 		}
 	}
 
+	async getSummary(): Promise<IRepoStatus> {
+		const summaryResult = await this.run(['summary', '-q']);
+		const summary = summaryResult.stdout;
+		const lines = summary.trim().split('\n');
+		// const parents = lines.filter(line => line.startsWith("parent:"))
+		const commitLine = lines.filter(line => line.startsWith("commit:"))[0];
+		if (commitLine) {
+			const isMerge = /\bmerge\b/.test(commitLine);
+			return { isMerge }
+		}
+
+		return { isMerge: false };
+	}
+
+	async getResolveList(): Promise<IFileStatus[]> {
+		const resolveResult = await this.run(['resolve', '--list']);
+		const resolve = resolveResult.stdout;
+		return this.parseStatusLines(resolve);
+	}
+
 	async getStatus(): Promise<IFileStatus[]> {
 		const executionResult = await this.run(['status']);
 		const status = executionResult.stdout;
+		return this.parseStatusLines(status);
+	}
+
+	parseStatusLines(status: string): IFileStatus[] {
 		const result: IFileStatus[] = [];
 		let current: IFileStatus;
 		let i = 0;
@@ -793,7 +840,7 @@ export class Repository {
 		return result;
 	}
 
-	async getParent(): Promise<Ref> {
+	async getCurrentBranch(): Promise<Ref> {
 		const branchResult = await this.run(['branch']);
 		if (!branchResult.stdout) {
 			throw new Error('Error parsing working directory branch result');
@@ -805,6 +852,22 @@ export class Repository {
 		// }
 
 		return { name: branchName, commit: "", type: RefType.Branch };
+	}
+
+	async getParents(): Promise<Commit[]> {
+		const result = await this.run(['log', '-r', 'parents()', `--template={node}/{strip(desc,'\n')}\n`]);
+		const parents = result.stdout.trim().split('\n')
+			.filter(line => !!line)
+			.map((line: string): Commit | null => {
+				let match = line.match(/^([^\/]+)\/(.*)/);
+				if (match) {
+					return { hash: match[1], message: match[2] };
+				}
+				return null;
+			})
+			.filter(ref => !!ref) as Commit[];
+
+		return parents;
 	}
 
 	async getTags(): Promise<Ref[]> {
@@ -857,7 +920,7 @@ export class Repository {
 
 	async getBranch(name: string): Promise<Branch> {
 		if (name === '.') {
-			return this.getParent();
+			return this.getCurrentBranch();
 		}
 
 		const result = await this.run(['rev-parse', name]);

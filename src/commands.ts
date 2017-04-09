@@ -5,9 +5,9 @@
 
 'use strict';
 
-import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState } from 'vscode';
-import { Ref, RefType, Hg } from './hg';
-import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup } from "./model";
+import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
+import { Ref, RefType, Hg, Commit } from "./hg";
+import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, MergeStatus } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
@@ -16,7 +16,7 @@ import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
 
-class CheckoutItem implements QuickPickItem {
+class UpdateRefItem implements QuickPickItem {
 
 	protected get shortCommit(): string { return (this.ref.commit || '').substr(0, 8); }
 	protected get treeish(): string | undefined { return this.ref.name; }
@@ -36,14 +36,27 @@ class CheckoutItem implements QuickPickItem {
 	}
 }
 
-class CheckoutTagItem extends CheckoutItem {
+class UpdateCommitItem implements QuickPickItem {
+
+	protected get shortCommit(): string { return (this.commit.hash || '').substr(0, 8); }
+	get label(): string { return this.commit.message; }
+	get description(): string { return this.shortCommit; }
+
+	constructor(protected commit: Commit, private opts: { discard: boolean }) { }
+
+	async run(model: Model): Promise<void> {
+		await model.update(this.commit.hash, this.opts);
+	}
+}
+
+class UpdateTagItem extends UpdateRefItem {
 
 	get description(): string {
 		return localize('tag at', "Tag at {0}", this.shortCommit);
 	}
 }
 
-class CheckoutRemoteHeadItem extends CheckoutItem {
+class CheckoutRemoteHeadItem extends UpdateRefItem {
 
 	get description(): string {
 		return localize('remote branch at', "Remote branch at {0}", this.shortCommit);
@@ -310,6 +323,42 @@ export class CommandCenter {
 		return await this.model.stage();
 	}
 
+	@command('hg.resolve')
+	async resolve(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			return;
+		}
+
+		const resources = resourceStates.filter(s =>
+			s instanceof Resource &&
+			s.resourceGroup instanceof ConflictGroup &&
+			s.mergeStatus === MergeStatus.UNRESOLVED) as Resource[];
+
+		if (!resources.length) {
+			return;
+		}
+
+		return await this.model.resolve(...resources);
+	}
+
+	@command('hg.unresolve')
+	async unresolve(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			return;
+		}
+
+		const resources = resourceStates.filter(s =>
+			s instanceof Resource &&
+			s.resourceGroup instanceof MergeGroup &&
+			s.mergeStatus === MergeStatus.RESOLVED) as Resource[];
+
+		if (!resources.length) {
+			return;
+		}
+
+		return await this.model.unresolve(...resources);
+	}
+
 	@command('hg.unstage')
 	async unstage(...resourceStates: SourceControlResourceState[]): Promise<void> {
 		if (resourceStates.length === 0) {
@@ -322,7 +371,9 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates.filter(s => s instanceof Resource && s.resourceGroup instanceof StagingGroup) as Resource[];
+		const resources = resourceStates.filter(s =>
+			s instanceof Resource &&
+			s.resourceGroup instanceof StagingGroup) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -348,7 +399,9 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates.filter(s => s instanceof Resource && s.isDirtyStatus) as Resource[];
+		const resources = resourceStates.filter(s =>
+			s instanceof Resource &&
+			s.isDirtyStatus) as Resource[];
 
 		if (!resources.length) {
 			return;
@@ -373,6 +426,17 @@ export class CommandCenter {
 
 	@command('hg.cleanAll')
 	async cleanAll(): Promise<void> {
+		const parents = await this.model.getParents();
+		if (parents.length > 1) {
+			const message = localize('clean 2 parents', "")
+			const picks = parents.map(p => new UpdateCommitItem(p, { discard: true }));
+			const choice = await window.showQuickPick(picks, { placeHolder: "Choose parent to update to:" });
+			if (choice) {
+				await choice.run(this.model);
+			}
+			return;
+		}
+
 		const message = localize('confirm discard all', "Are you sure you want to discard ALL changes?");
 		const yes = localize('discard', "Discard Changes");
 		const pick = await window.showWarningMessage(message, { modal: true }, yes);
@@ -381,31 +445,46 @@ export class CommandCenter {
 			return;
 		}
 
-		await this.model.clean(...this.model.workingDirectoryGroup.resources);
+		const resources = this.model.workingDirectoryGroup.resources;
+		await this.model.clean(...resources);
 	}
 
 	private async smartCommit(getCommitMessage: () => Promise<string>, opts?: CommitOptions): Promise<boolean> {
-		const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
-		const numStagingResources = this.model.stagingGroup.resources.length;
-		if (!opts || opts.scope === undefined) {
-			if (numStagingResources > 0) {
-				opts = {
-					scope: CommitScope.STAGED_CHANGES
-				};
-			}
-			else {
-				opts = {
-					scope: CommitScope.CHANGES
-				};
-			}
+		// validate no conflicts
+		const numConflictResources = this.model.conflictGroup.resources.length;
+		if (numConflictResources > 0) {
+			window.showWarningMessage(localize('conflicts', "Resolve conflicts before committing."));
+			return false;
 		}
 
-		if ((numWorkingResources === 0 && numStagingResources === 0) // no changes
-			|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
-			|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
-		) {
-			window.showInformationMessage(localize('no changes', "There are no changes to commit."));
-			return false;
+		const isMergeCommit = this.model.mergeGroup.resources.length > 0;
+		if (isMergeCommit) {
+			// merge-commit
+			opts = { scope: CommitScope.ALL };
+		} else {
+			// validate non-merge commit
+			const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
+			const numStagingResources = this.model.stagingGroup.resources.length;
+			if (!opts || opts.scope === undefined) {
+				if (numStagingResources > 0) {
+					opts = {
+						scope: CommitScope.STAGED_CHANGES
+					};
+				}
+				else {
+					opts = {
+						scope: CommitScope.CHANGES
+					};
+				}
+			}
+
+			if ((numWorkingResources === 0 && numStagingResources === 0) // no changes
+				|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
+				|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
+			) {
+				window.showInformationMessage(localize('no changes', "There are no changes to commit."));
+				return false;
+			}
 		}
 
 		const message = await getCommitMessage();
@@ -462,7 +541,7 @@ export class CommandCenter {
 
 	@command('hg.commitAll')
 	async commitAll(): Promise<void> {
-		await this.commitWithAnyInput({ scope: CommitScope.ALL });
+		await this.commitWithAnyInput({ scope: CommitScope.ALL_WITH_ADD_REMOVE });
 	}
 
 	@command('hg.undoCommit')
@@ -486,14 +565,14 @@ export class CommandCenter {
 
 		let refs = await this.model.getRefs();
 		const branches = refs.filter(ref => ref.type === RefType.Branch)
-			.map(ref => new CheckoutItem(ref));
+			.map(ref => new UpdateRefItem(ref));
 
 		const tags = (includeTags ? refs.filter(ref => ref.type === RefType.Tag) : [])
-			.map(ref => new CheckoutTagItem(ref));
+			.map(ref => new UpdateTagItem(ref));
 
 		const picks = [...branches, ...tags];
-		const placeHolder = 'Select a branch/tag to update to';
-		const choice = await window.showQuickPick<CheckoutItem>(picks, { placeHolder });
+		const placeHolder = 'Select a branch/tag to update to:';
+		const choice = await window.showQuickPick<UpdateRefItem>(picks, { placeHolder });
 
 		if (!choice) {
 			return;

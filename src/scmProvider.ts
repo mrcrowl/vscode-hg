@@ -54,6 +54,7 @@ export class MercurialSCMProvider {
 	}
 
 	private mergeGroup: SourceControlResourceGroup;
+	private conflictGroup: SourceControlResourceGroup;
 	private stagingGroup: SourceControlResourceGroup;
 	private workingTreeGroup: SourceControlResourceGroup;
 	private untrackedGroup: SourceControlResourceGroup;
@@ -72,16 +73,19 @@ export class MercurialSCMProvider {
 		this.statusBarCommands.onDidChange(this.onDidStatusBarCommandsChange, this, this.disposables);
 		this.onDidStatusBarCommandsChange();
 
+		this.conflictGroup = this._sourceControl.createResourceGroup(model.conflictGroup.id, model.conflictGroup.label);
 		this.mergeGroup = this._sourceControl.createResourceGroup(model.mergeGroup.id, model.mergeGroup.label);
 		this.stagingGroup = this._sourceControl.createResourceGroup(model.stagingGroup.id, model.stagingGroup.label);
 		this.workingTreeGroup = this._sourceControl.createResourceGroup(model.workingDirectoryGroup.id, model.workingDirectoryGroup.label);
 		this.untrackedGroup = this._sourceControl.createResourceGroup(model.untrackedGroup.id, model.untrackedGroup.label);
 
+		this.conflictGroup.hideWhenEmpty = true;
 		this.mergeGroup.hideWhenEmpty = true;
 		this.stagingGroup.hideWhenEmpty = true;
-		this.workingTreeGroup.hideWhenEmpty = false;
+		this.workingTreeGroup.hideWhenEmpty = true;
 		this.untrackedGroup.hideWhenEmpty = true;
 
+		this.disposables.push(this.conflictGroup);
 		this.disposables.push(this.mergeGroup);
 		this.disposables.push(this.workingTreeGroup);
 		this.disposables.push(this.stagingGroup);
@@ -102,6 +106,7 @@ export class MercurialSCMProvider {
 
 	private onDidModelChange(): void {
 		this.mergeGroup.resourceStates = this.model.mergeGroup.resources;
+		this.conflictGroup.resourceStates = this.model.conflictGroup.resources;
 		this.workingTreeGroup.resourceStates = this.model.workingDirectoryGroup.resources;
 		this.stagingGroup.resourceStates = this.model.stagingGroup.resources;
 		this.untrackedGroup.resourceStates = this.model.untrackedGroup.resources;

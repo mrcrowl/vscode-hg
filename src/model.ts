@@ -6,7 +6,7 @@
 'use strict';
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -22,6 +22,14 @@ const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'ico
 
 function getIconUri(iconName: string, theme: string): Uri {
 	return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
+}
+
+function toMergeStatus(this: void, status: string): MergeStatus {
+	switch (status) {
+		case 'R': return MergeStatus.RESOLVED;
+		case 'U': return MergeStatus.UNRESOLVED;
+		case '': default: return MergeStatus.NONE;
+	}
 }
 
 export enum State {
@@ -40,11 +48,17 @@ export enum Status {
 	CONFLICT
 }
 
+export enum MergeStatus {
+	NONE,
+	UNRESOLVED,
+	RESOLVED
+}
+
 export class Resource implements SourceControlResourceState {
 
 	@memoize
 	get resourceUri(): Uri {
-		if (this.renameResourceUri && (this._type === Status.MODIFIED || this._type === Status.DELETED)) {
+		if (this.renameResourceUri && (this._status === Status.MODIFIED || this._status === Status.DELETED)) {
 			return this.renameResourceUri;
 		}
 
@@ -61,7 +75,7 @@ export class Resource implements SourceControlResourceState {
 	}
 
 	get isDirtyStatus(): boolean {
-		switch (this._type) {
+		switch (this._status) {
 			case Status.ADDED:
 			case Status.CONFLICT:
 			case Status.DELETED:
@@ -76,8 +90,9 @@ export class Resource implements SourceControlResourceState {
 		}
 	}
 	get resourceGroup(): ResourceGroup { return this._resourceGroup; }
-	get status(): Status { return this._type; }
+	get status(): Status { return this._status; }
 	get original(): Uri { return this._resourceUri; }
+	get mergeStatus(): MergeStatus { return this._mergeStatus; }
 	get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
 
 	private static Icons = {
@@ -104,6 +119,10 @@ export class Resource implements SourceControlResourceState {
 	};
 
 	private getIconPath(theme: string): Uri | undefined {
+		if (this.mergeStatus === MergeStatus.UNRESOLVED) {
+			return Resource.Icons[theme].Conflict;
+		}
+
 		switch (this.status) {
 			case Status.MODIFIED: return Resource.Icons[theme].Modified;
 			case Status.ADDED: return Resource.Icons[theme].Added;
@@ -111,7 +130,6 @@ export class Resource implements SourceControlResourceState {
 			// case Status.RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
 			case Status.IGNORED: return Resource.Icons[theme].Ignored;
-			case Status.CONFLICT: return Resource.Icons[theme].Conflict;
 			default: return void 0;
 		}
 	}
@@ -135,7 +153,8 @@ export class Resource implements SourceControlResourceState {
 	constructor(
 		private _resourceGroup: ResourceGroup,
 		private _resourceUri: Uri,
-		private _type: Status,
+		private _status: Status,
+		private _mergeStatus: MergeStatus,
 		private _renameResourceUri?: Uri
 	) { }
 }
@@ -176,7 +195,7 @@ export abstract class ResourceGroup {
 	}
 
 	intersect(resources: Resource[]): this {
-		const newUniqueResources = resources.filter(r => !this.includes(r)).map(r => new Resource(this, r.resourceUri, r.status));
+		const newUniqueResources = resources.filter(r => !this.includes(r)).map(r => new Resource(this, r.resourceUri, r.status, r.mergeStatus));
 		const intersectionResources: Resource[] = [...this.resources, ...newUniqueResources];
 		return this.newResourceGroup(intersectionResources);
 	}
@@ -198,7 +217,16 @@ export class MergeGroup extends ResourceGroup {
 	static readonly ID = 'merge';
 
 	constructor(resources: Resource[] = []) {
-		super(MergeGroup.ID, localize('merge changes', "Merge Changes"), resources);
+		super(MergeGroup.ID, localize('merged changes', "Merged Changes"), resources);
+	}
+}
+
+export class ConflictGroup extends ResourceGroup {
+
+	static readonly ID = 'conflict';
+
+	constructor(resources: Resource[] = []) {
+		super(ConflictGroup.ID, localize('merge conflicts', "Unresolved Conflicts"), resources);
 	}
 }
 
@@ -246,7 +274,10 @@ export enum Operation {
 	Show = 1 << 13,
 	Stage = 1 << 14,
 	GetCommitTemplate = 1 << 15,
-	CountOutgoing = 1 << 16
+	CountOutgoing = 1 << 16,
+	Resolve = 1 << 17,
+	Unresolve = 1 << 18,
+	Parents = 1 << 19,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -289,6 +320,7 @@ class OperationsImpl implements Operations {
 
 export const enum CommitScope {
 	ALL,
+	ALL_WITH_ADD_REMOVE,
 	STAGED_CHANGES,
 	CHANGES
 }
@@ -326,6 +358,9 @@ export class Model implements Disposable {
 
 	private _mergeGroup = new MergeGroup([]);
 	get mergeGroup(): MergeGroup { return this._mergeGroup; }
+
+	private _conflictGroup = new ConflictGroup([]);
+	get conflictGroup(): ConflictGroup { return this._conflictGroup; }
 
 	private _stagingGroup = new StagingGroup([]);
 	get stagingGroup(): StagingGroup { return this._stagingGroup; }
@@ -427,7 +462,8 @@ export class Model implements Disposable {
 		if (resources.length === 0) {
 			resources = this._untrackedGroup.resources;
 		}
-		await this.run(Operation.Add, () => this.repository.add(resources.map(r => r.resourceUri.fsPath)));
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		await this.run(Operation.Add, () => this.repository.add(relativePaths));
 	}
 
 	@throttle
@@ -438,6 +474,23 @@ export class Model implements Disposable {
 		this._stagingGroup = this._stagingGroup.intersect(resources);
 		this._workingDirectory = this._workingDirectory.except(resources);
 		this._onDidChangeResources.fire();
+	}
+
+	private mapResourceToRelativePath(resource: Resource): string {
+		const relativePath = path.relative(this.repository.root, resource.resourceUri.fsPath).replace(/\\/g, '/');
+		return relativePath;
+	}
+
+	@throttle
+	async resolve(...resources: Resource[]): Promise<void> {
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths));
+	}
+
+	@throttle
+	async unresolve(...resources: Resource[]): Promise<void> {
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		await this.run(Operation.Unresolve, () => this.repository.unresolve(relativePaths));
 	}
 
 	@throttle
@@ -460,13 +513,10 @@ export class Model implements Disposable {
 					this.stagingGroup.resources :
 					this.workingDirectoryGroup.resources;
 
-				for (let resource of selectedResources) {
-					const relativePath = path.relative(this.repository.root, resource.resourceUri.fsPath).replace(/\\/g, '/');
-					fileList.push(relativePath);
-				}
+				fileList = selectedResources.map(r => this.mapResourceToRelativePath(r));
 			}
 
-			await this.repository.commit(message, { all: opts.scope === CommitScope.ALL, fileList });
+			await this.repository.commit(message, { addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
 			try {
 				this._syncCounts.outgoing++;
 				this._onDidChangeResources.fire();
@@ -490,14 +540,14 @@ export class Model implements Disposable {
 						break;
 
 					case Status.ADDED:
-						toForget.push(r.resourceUri.fsPath);
+						toForget.push(this.mapResourceToRelativePath(r));
 						break;
 
 					case Status.DELETED:
 					case Status.MISSING:
 					case Status.MODIFIED:
 					default:
-						toRevert.push(r.resourceUri.fsPath);
+						toRevert.push(this.mapResourceToRelativePath(r));
 						break;
 				}
 			}
@@ -522,8 +572,8 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async update(treeish: string): Promise<void> {
-		await this.run(Operation.Update, () => this.repository.update(treeish, []));
+	async update(treeish: string, opts?: { discard: boolean }): Promise<void> {
+		await this.run(Operation.Update, () => this.repository.update(treeish, [], opts));
 	}
 
 	@throttle
@@ -580,10 +630,9 @@ export class Model implements Disposable {
 				const warningMessage = localize('pullandmerge', "Push would create new head. Try Pull and Merge first.");
 				const pullOption = localize('pull', 'Pull');
 				const choice = await window.showErrorMessage(warningMessage, pullOption);
-				if (choice === pullOption)
-				{
+				if (choice === pullOption) {
 					commands.executeCommand("hg.pull");
-				}	
+				}
 
 				return;
 			}
@@ -610,7 +659,7 @@ export class Model implements Disposable {
 			return result.stdout;
 		});
 	}
-	
+
 	private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
 		return window.withScmProgress(async () => {
 			this._operations = this._operations.start(operation);
@@ -697,52 +746,67 @@ export class Model implements Disposable {
 	}
 
 	@throttle
+	public getParents(): Promise<Commit[]> {
+		return this.repository.getParents();
+	}
+
+	@throttle
 	private async refresh(): Promise<void> {
-		const [status, branch] = await Promise.all([this.repository.getStatus(), this.repository.getParent()])
+		const { isMerge } = await this.repository.getSummary();
+		const resolvePromise: Promise<IFileStatus[] | undefined> = isMerge ?
+			this.repository.getResolveList() :
+			Promise.resolve(undefined);
+
+		const [statuses, branch, resolveList] = await Promise.all([this.repository.getStatus(), this.repository.getCurrentBranch(), resolvePromise])
 		this._parent = branch;
 
 		const workingDirectory: Resource[] = [];
 		const staging: Resource[] = [];
+		const conflict: Resource[] = [];
 		const merge: Resource[] = [];
 		const untracked: Resource[] = [];
 
-		status.forEach(raw => {
-			const uri = Uri.file(path.join(this.repository.root, raw.path));
-			const uriString = uri.toString();
-			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
+		const chooseResourcesAndGroup = (uriString: string, rawStatus: string, mergeStatus: MergeStatus): [Resource[], ResourceGroup, Status] => {
+			let status: Status;
+			switch (rawStatus) {
+				case 'M': status = Status.MODIFIED; break;
+				case 'A': status = Status.ADDED; break;
+				case 'R': status = Status.DELETED; break;
+				case 'C': status = Status.CONFLICT; break;
+				case 'I': status = Status.IGNORED; break;
+				case '?': status = Status.UNTRACKED; break;
+				case '!': status = Status.MISSING; break;
+				default: throw new HgError({ message: "Unknown rawStatus: " + rawStatus })
+			}
 
-			switch (raw.status) {
-				case 'I': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.IGNORED));
-				case '!': return workingDirectory.push(new Resource(this.workingDirectoryGroup, uri, Status.MISSING));
+			if (status === Status.IGNORED || status === Status.UNTRACKED) {
+				return [untracked, this.untrackedGroup, status]
+			}
+
+			if (isMerge) {
+				if (mergeStatus === MergeStatus.UNRESOLVED) {
+					return [conflict, this.conflictGroup, status];
+				}
+				return [merge, this.mergeGroup, status];
 			}
 
 			const isStaged = this._stagingGroup.resources.some(resource => resource.resourceUri.toString() === uriString);
 			const targetResources: Resource[] = isStaged ? staging : workingDirectory;
 			const targetGroup: ResourceGroup = isStaged ? this.stagingGroup : this.workingDirectoryGroup;
+			return [targetResources, targetGroup, status];
+		};
 
-			switch (raw.status) {
-				case 'M': return targetResources.push(new Resource(targetGroup, uri, Status.MODIFIED));
-				case 'A': return targetResources.push(new Resource(targetGroup, uri, Status.ADDED));
-				case 'R': return targetResources.push(new Resource(targetGroup, uri, Status.DELETED));
-				case 'C': return targetResources.push(new Resource(targetGroup, uri, Status.CONFLICT));
-				case '?': return untracked.push(new Resource(this.untrackedGroup, uri, Status.UNTRACKED));
-			}
+		for (let raw of statuses) {
+			const uri = Uri.file(path.join(this.repository.root, raw.path));
+			const uriString = uri.toString();
+			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
+			const resolveFile = resolveList && resolveList.filter(res => res.path === raw.path)[0];
+			const mergeStatus = resolveFile ? toMergeStatus(resolveFile.status) : MergeStatus.NONE;
+			const [resources, group, status] = chooseResourcesAndGroup(uriString, raw.status, mergeStatus);
+			resources.push(new Resource(group, uri, status, mergeStatus));
+		}
 
-			// case 'DD': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_DELETED));
-			// case 'AU': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_US));
-			// case 'UD': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_THEM));
-			// case 'UA': return merge.push(new Resource(this.mergeGroup, uri, Status.ADDED_BY_THEM));
-			// case 'DU': return merge.push(new Resource(this.mergeGroup, uri, Status.DELETED_BY_US));
-			// case 'AA': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_ADDED));
-			// case 'UU': return merge.push(new Resource(this.mergeGroup, uri, Status.BOTH_MODIFIED));
-			// case 'R': index.push(new Resource(this.indexGroup, uri, Status.RENAMED, renameUri)); break;
-
-			// switch (raw.y) {
-			// 	case 'M': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.MODIFIED, renameUri)); break;
-			// 	case 'D': workingTree.push(new Resource(this.workingTreeGroup, uri, Status.DELETED, renameUri)); break;
-			// }
-		});
-
+		this._conflictGroup = new ConflictGroup(conflict);
 		this._mergeGroup = new MergeGroup(merge);
 		this._stagingGroup = new StagingGroup(staging);
 		this._workingDirectory = new WorkingDirectoryGroup(workingDirectory);

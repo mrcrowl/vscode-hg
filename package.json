@@ -78,6 +78,20 @@
         }
       },
       {
+        "command": "hg.resolve",
+        "title": "%command.resolve%",
+        "category": "Mercurial",
+        "icon": {
+          "light": "resources/icons/light/check.svg",
+          "dark": "resources/icons/dark/check.svg"
+        }
+      },
+      {
+        "command": "hg.unresolve",
+        "title": "%command.unresolve%",
+        "category": "Mercurial"
+      },
+      {
         "command": "hg.stage",
         "title": "%command.stage%",
         "category": "Mercurial",
@@ -359,16 +373,6 @@
       ],
       "scm/resourceGroup/context": [
         {
-          "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
-          "group": "1_modification"
-        },
-        {
-          "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
-          "group": "inline"
-        },
-        {
           "command": "hg.unstageAll",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "1_modification"
@@ -401,14 +405,14 @@
       ],
       "scm/resourceState/context": [
         {
-          "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
-          "group": "1_modification"
+          "command": "hg.resolve",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "group": "inline"
         },
         {
-          "command": "hg.stage",
+          "command": "hg.unresolve",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
-          "group": "inline"
+          "group": "1_modification"
         },
         {
           "command": "hg.openChange",
