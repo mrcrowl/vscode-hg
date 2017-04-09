@@ -384,12 +384,22 @@ export class CommandCenter {
 		await this.model.clean(...this.model.workingDirectoryGroup.resources);
 	}
 
-	private async smartCommit(
-		getCommitMessage: () => Promise<string>,
-		opts?: CommitOptions
-	): Promise<boolean> {
+	private async smartCommit(getCommitMessage: () => Promise<string>, opts?: CommitOptions): Promise<boolean> {
 		const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
 		const numStagingResources = this.model.stagingGroup.resources.length;
+		if (!opts || opts.scope === undefined) {
+			if (numStagingResources > 0) {
+				opts = {
+					scope: CommitScope.STAGED_CHANGES
+				};
+			}
+			else {
+				opts = {
+					scope: CommitScope.CHANGES
+				};
+			}
+		}
+
 		if ((numWorkingResources === 0 && numStagingResources === 0) // no changes
 			|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
 			|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
@@ -433,7 +443,7 @@ export class CommandCenter {
 
 	@command('hg.commit')
 	async commit(): Promise<void> {
-		await this.commitWithAnyInput({ scope: CommitScope.CHANGES });
+		await this.commitWithAnyInput();
 	}
 
 	@command('hg.commitWithInput')
