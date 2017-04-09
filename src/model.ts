@@ -580,7 +580,7 @@ export class Model implements Disposable {
 
 		return await this.run(Operation.Show, async () => {
 			const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-			const result = await this.repository.hg.exec(this.repository.root, ['cat', relativePath, '-r', ref]);
+			const result = await this.repository.hg.exec(this.repository.root, ['cat', relativePath, '-r', ref], { log: false });
 
 			if (result.exitCode !== 0) {
 				throw new HgError({
@@ -593,9 +593,9 @@ export class Model implements Disposable {
 		});
 	}
 
-	async getCommitTemplate(): Promise<string> {
-		return await this.run(Operation.GetCommitTemplate, async () => this.repository.getCommitTemplate());
-	}
+	// async getCommitTemplate(): Promise<string> {
+	// 	return await this.run(Operation.GetCommitTemplate, async () => this.repository.getCommitTemplate());
+	// }
 
 	private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
 		return window.withScmProgress(async () => {
@@ -671,7 +671,6 @@ export class Model implements Disposable {
 			this._paths = paths;
 		}
 		catch (e) {
-			console.log("I'm in the updatePaths catch:", e);
 			// noop
 		}
 	}

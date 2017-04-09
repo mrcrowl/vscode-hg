@@ -427,7 +427,7 @@ export class CommandCenter {
 		const didCommit = await this.smartCommit(getCommitMessage, opts);
 
 		if (message && didCommit) {
-			scm.inputBox.value = await this.model.getCommitTemplate();
+			scm.inputBox.value = ""; //await this.model.getCommitTemplate();
 		}
 	}
 
@@ -441,7 +441,7 @@ export class CommandCenter {
 		const didCommit = await this.smartCommit(async () => scm.inputBox.value);
 
 		if (didCommit) {
-			scm.inputBox.value = await this.model.getCommitTemplate();
+			scm.inputBox.value = ""; //await this.model.getCommitTemplate();
 		}
 	}
 

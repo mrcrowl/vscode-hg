@@ -78,8 +78,8 @@ export class MercurialSCMProvider {
 		this.untrackedGroup = this._sourceControl.createResourceGroup(model.untrackedGroup.id, model.untrackedGroup.label);
 
 		this.mergeGroup.hideWhenEmpty = true;
-		this.workingTreeGroup.hideWhenEmpty = true;
 		this.stagingGroup.hideWhenEmpty = true;
+		this.workingTreeGroup.hideWhenEmpty = false;
 		this.untrackedGroup.hideWhenEmpty = true;
 
 		this.disposables.push(this.mergeGroup);
@@ -88,15 +88,6 @@ export class MercurialSCMProvider {
 		this.disposables.push(this.untrackedGroup);
 
 		model.onDidChange(this.onDidModelChange, this, this.disposables);
-		this.updateCommitTemplate();
-	}
-
-	private async updateCommitTemplate(): Promise<void> {
-		try {
-			this._sourceControl.commitTemplate = await this.model.getCommitTemplate();
-		} catch (e) {
-			// noop
-		}
 	}
 
 	provideOriginalResource(uri: Uri): Uri | undefined {

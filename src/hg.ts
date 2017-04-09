@@ -229,7 +229,7 @@ export class HgError {
 			this.error = void 0;
 		}
 
-		this.message = this.message || data.message || 'Git error';
+		this.message = this.message || data.message || 'Hg error';
 		this.stdout = data.stdout;
 		this.stderr = data.stderr;
 		this.exitCode = data.exitCode;
@@ -276,7 +276,8 @@ export const HgErrorCodes = {
 	HgNotFound: 'HgNotFound',
 	CantCreatePipe: 'CantCreatePipe',
 	CantAccessRemote: 'CantAccessRemote',
-	RepositoryNotFound: 'RepositoryNotFound'
+	RepositoryNotFound: 'RepositoryNotFound',
+	NoSuchFile: 'NoSuchFile'
 };
 
 export class Hg {
@@ -343,7 +344,10 @@ export class Hg {
 				hgErrorCode = HgErrorCodes.AuthenticationFailed;
 			} else if (/no repository found/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoRespositoryFound;
-			} /*else if (/bad config file/.test(result.stderr)) {
+			} else if (/no such file/.test(result.stderr)) {
+				hgErrorCode = HgErrorCodes.NoSuchFile;
+			}
+			/*else if (/bad config file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.BadConfigFile;
 			} else if (/cannot make pipe for command substitution|cannot create standard input pipe/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.CantCreatePipe;
@@ -650,17 +654,14 @@ export class Repository {
 		try {
 			const incomingResult = await this.run(['incoming', '-q']);
 			if (!incomingResult.stdout) {
-				console.log("hg:nostdout");
 				return 0;
 			}
 
 			const numIncoming = incomingResult.stdout.trim().split("\n").length;
-			console.log("hg:countIncoming", numIncoming);
 			return numIncoming;
 		} catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
 			{
-				console.log("hg:exitCode1");
 				return 0;
 			}
 
@@ -840,7 +841,6 @@ export class Repository {
 
 	async getPaths(): Promise<Path[]> {
 		const pathsResult = await this.run(['paths']);
-		console.log(pathsResult.stdout);
 		const paths = pathsResult.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Path | null => {
@@ -890,31 +890,6 @@ export class Repository {
 			return { name, type: RefType.Branch, commit, upstream, ahead, behind };
 		} catch (err) {
 			return { name, type: RefType.Branch, commit };
-		}
-	}
-
-	async getCommitTemplate(): Promise<string> {
-		try {
-			const result = await this.run(['config', '--get', 'commit.template']);
-
-			if (!result.stdout) {
-				return '';
-			}
-
-			// https://github.com/git/git/blob/3a0f269e7c82aa3a87323cb7ae04ac5f129f036b/path.c#L612
-			const homedir = os.homedir();
-			let templatePath = result.stdout.trim()
-				.replace(/^~([^\/]*)\//, (_, user) => `${user ? path.join(path.dirname(homedir), user) : homedir}/`);
-
-			if (!path.isAbsolute(templatePath)) {
-				templatePath = path.join(this.repositoryRoot, templatePath);
-			}
-
-			const raw = await readfile(templatePath, 'utf8');
-			return raw.replace(/^\s*#.*$\n?/gm, '').trim();
-
-		} catch (err) {
-			return '';
 		}
 	}
 
