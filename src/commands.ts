@@ -6,7 +6,7 @@
 'use strict';
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, MergeStatus } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
@@ -624,6 +624,14 @@ export class CommandCenter {
 		await this.model.pull();
 	}
 
+	private createPushOptions(): PushOptions | undefined {
+		const config = workspace.getConfiguration('hg');
+		const allowPushNewBranches = config.get<boolean>('allowPushNewBranches') || false;
+		return allowPushNewBranches ?
+			{ allowPushNewBranches: true } :
+			undefined;
+	}
+
 	@command('hg.push')
 	async push(): Promise<void> {
 		const paths = this.model.paths;
@@ -633,7 +641,7 @@ export class CommandCenter {
 			return;
 		}
 
-		await this.model.push();
+		await this.model.push(undefined, this.createPushOptions());
 	}
 
 	@command('hg.pushTo')
@@ -653,7 +661,7 @@ export class CommandCenter {
 			return;
 		}
 
-		this.model.push(pick.label);
+		this.model.push(pick.label, this.createPushOptions());
 	}
 
 	@command('hg.showOutput')

@@ -524,6 +524,11 @@
           ],
           "description": "%config.countBadge%",
           "default": "all"
+        },
+        "hg.allowPushNewBranches": {
+          "type":"boolean",
+          "description": "%config.allowPushNewBranches%",
+          "default": false
         }
       }
     }

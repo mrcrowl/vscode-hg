@@ -98,6 +98,7 @@ export class Resource implements SourceControlResourceState {
 	private static Icons = {
 		light: {
 			Modified: getIconUri('status-modified', 'light'),
+			Missing: getIconUri('status-missing', 'light'),
 			Added: getIconUri('status-added', 'light'),
 			Deleted: getIconUri('status-deleted', 'light'),
 			Renamed: getIconUri('status-renamed', 'light'),
@@ -108,6 +109,7 @@ export class Resource implements SourceControlResourceState {
 		},
 		dark: {
 			Modified: getIconUri('status-modified', 'dark'),
+			Missing: getIconUri('status-missing', 'dark'),
 			Added: getIconUri('status-added', 'dark'),
 			Deleted: getIconUri('status-deleted', 'dark'),
 			Renamed: getIconUri('status-renamed', 'dark'),
@@ -124,6 +126,7 @@ export class Resource implements SourceControlResourceState {
 		}
 
 		switch (this.status) {
+			case Status.MISSING: return Resource.Icons[theme].Missing;
 			case Status.MODIFIED: return Resource.Icons[theme].Modified;
 			case Status.ADDED: return Resource.Icons[theme].Added;
 			case Status.DELETED: return Resource.Icons[theme].Deleted;

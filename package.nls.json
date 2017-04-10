@@ -19,16 +19,17 @@
 	"command.pull": "Pull",
 	"command.push": "Push",
 	"command.pushTo": "Push to...",
-	"command.showOutput": "Show Mercurial Output",
 	"command.add": "Add Files",
 	"command.addAll": "Add All Untracked Files",
 	"command.resolve": "Mark Resolved",
 	"command.unresolve": "Mark Unresolved",
+	"command.showOutput": "Show Mercurial Output",
 	"config.enabled": "Whether mercurial is enabled",
 	"config.path": "Path to the mercurial executable",
 	"config.autorefresh": "Whether auto refreshing is enabled",
 	"config.autoinout": "Whether auto-incoming/-outgoing counts are enabled",
 	"config.enableLongCommitWarning": "Whether long commit messages should be warned about",
 	"config.countBadge": "Controls the mercurial badge counter",
-	"config.checkoutType": "Controls what type of branches are listed"
+	"config.checkoutType": "Controls what type of branches are listed",
+	"config.allowPushNewBranches": "Whether new branches are pushed without warning"
 }

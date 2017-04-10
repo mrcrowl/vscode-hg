@@ -24,7 +24,7 @@ export interface IHg {
 }
 
 export interface PushOptions {
-	pushNewBranches?: boolean;
+	allowPushNewBranches?: boolean;
 }
 
 export interface IRepoStatus {
@@ -755,7 +755,7 @@ export class Repository {
 	async push(path?: string, options?: PushOptions): Promise<void> {
 		const args = ['push', '-q'];
 
-		if (options && options.pushNewBranches) {
+		if (options && options.allowPushNewBranches) {
 			args.push('--new-branch');
 		}
 
