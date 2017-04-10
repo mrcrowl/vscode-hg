@@ -567,8 +567,11 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async branch(name: string): Promise<void> {
-		await this.run(Operation.Branch, () => this.repository.branch(name, true));
+	async branch(name: string, opts?: { allowBranchReuse: boolean }): Promise<void> {
+		const hgOpts = opts && {
+			force: opts && opts.allowBranchReuse
+		};
+		await this.run(Operation.Branch, () => this.repository.branch(name, hgOpts));
 	}
 
 	@throttle

@@ -281,7 +281,8 @@ export const HgErrorCodes = {
 	CantCreatePipe: 'CantCreatePipe',
 	CantAccessRemote: 'CantAccessRemote',
 	RepositoryNotFound: 'RepositoryNotFound',
-	NoSuchFile: 'NoSuchFile'
+	NoSuchFile: 'NoSuchFile',
+	BranchAlreadyExists: 'BranchAlreadyExists',
 };
 
 export class Hg {
@@ -577,24 +578,37 @@ export class Repository {
 
 		try {
 			await this.run([...args, '-m', message || ""]);
-		} catch (commitErr) {
-			if (/not possible because you have unmerged files/.test(commitErr.stderr || '')) {
-				commitErr.hgErrorCode = HgErrorCodes.UnmergedChanges;
-				throw commitErr;
+		} catch (err) {
+			if (/not possible because you have unmerged files/.test(err.stderr)) {
+				err.hgErrorCode = HgErrorCodes.UnmergedChanges;
+				throw err;
 			}
 
-			if (/no username supplied/.test(commitErr.stderr || '')) {
-				commitErr.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
-				throw commitErr;
+			if (/no username supplied/.test(err.stderr)) {
+				err.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
+				throw err;
 			}
 
-			throw commitErr;
+			throw err;
 		}
 	}
 
-	async branch(name: string, checkout: boolean): Promise<void> {
-		const args = checkout ? ['checkout', '-q', '-b', name] : ['branch', '-q', name];
-		await this.run(args);
+	async branch(name: string, opts?: { force: boolean }): Promise<void> {
+		const args = ['branch', '-q'];
+		if (opts && opts.force) {
+			args.push('-f');
+		}
+		args.push(name);
+
+		try {
+			await this.run(args);
+		} catch (err) {
+			if (err instanceof HgError && /a branch of the same name already exists/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.BranchAlreadyExists;
+			}
+
+			throw err;
+		}
 	}
 
 	async revert(paths: string[]): Promise<void> {

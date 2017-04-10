@@ -6,7 +6,7 @@
 'use strict';
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, MergeStatus } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
@@ -594,7 +594,22 @@ export class CommandCenter {
 		}
 
 		const name = result.replace(/^\.|\/\.|\.\.|~|\^|:|\/$|\.lock$|\.lock\/|\\|\*|\s|^\s*$|\.$/g, '-');
-		await this.model.branch(name);
+		try {
+			await this.model.branch(name);
+		} catch (e) {
+			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.BranchAlreadyExists) {
+				const updateTo = "Update";
+				const reopen = "Re-open";
+				const message = localize('branch already exists', `Branch '{0}' already exists. Update or Re-open?`, name);
+				const choice = await window.showWarningMessage(message, { modal: true }, updateTo, reopen);
+				if (choice === reopen) {
+					await this.model.branch(name, { allowBranchReuse: true });
+				}
+				else if (choice === updateTo) {
+					await this.model.update(name);
+				}
+			}
+		}
 	}
 
 	@command('hg.pull')
