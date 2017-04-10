@@ -310,7 +310,7 @@ export class Hg {
 	}
 
 	async clone(url: string, parentPath: string): Promise<string> {
-		const folderName = url.replace(/^.*\//, '').replace(/\.hg$/, '') || 'repository';
+		const folderName = url.replace(/^.*\//, '') || 'repository';
 		const folderPath = path.join(parentPath, folderName);
 
 		await mkdirp(parentPath);
