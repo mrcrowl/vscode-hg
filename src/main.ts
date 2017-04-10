@@ -5,8 +5,8 @@
 
 'use strict';
 
-import { ExtensionContext, workspace, window, Disposable, commands, Uri } from 'vscode';
-import { findHg, Hg } from './hg';
+import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputChannel } from 'vscode';
+import { HgFinder, Hg, IHg, HgFindAttemptLogger } from './hg';
 import { Model } from './model';
 import { MercurialSCMProvider } from './scmProvider';
 import { CommandCenter } from './commands';
@@ -33,7 +33,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const workspaceRootPath = workspace.rootPath;
 
 	const pathHint = workspace.getConfiguration('hg').get<string>('path');
-	const info = await findHg(pathHint);
+	const info: IHg = await findHg(pathHint, outputChannel);
 	const askpass = new Askpass();
 	const env = await askpass.getEnv();
 	const hg = new Hg({ hgPath: info.path, version: info.version, env });
@@ -75,7 +75,24 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	}
 }
 
-export function activate(context: ExtensionContext): any {
+export async function findHg(pathHint: string | undefined, outputChannel: OutputChannel): Promise<IHg> {
+	const logger = {
+		attempts: <string[]>[],
+		log: (path: string) => logger.attempts.push(path)
+	}
+
+	try {
+		const finder = new HgFinder(logger);
+		return await finder.find(pathHint);
+	}
+	catch (e) {
+		outputChannel.appendLine("Could not find hg, tried:")
+		logger.attempts.forEach(attempt => outputChannel.appendLine(` - ${attempt}`));
+		throw e;
+	}
+}
+
+export function activate(context: ExtensionContext) {
 	const disposables: Disposable[] = [];
 	context.subscriptions.push(new Disposable(() => Disposable.from(...disposables).dispose()));
 

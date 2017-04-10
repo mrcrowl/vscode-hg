@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp } from './util';
-import { EventEmitter, Event } from 'vscode';
+import { EventEmitter, Event, OutputChannel } from 'vscode';
 import * as nls from 'vscode-nls';
 import { Askpass } from "./askpass";
 
@@ -68,101 +68,99 @@ function parseVersion(raw: string): string {
 	return "?";
 }
 
-function findSpecificHg(path: string): Promise<IHg> {
-	return new Promise<IHg>((c, e) => {
-		const buffers: Buffer[] = [];
-		const child = cp.spawn(path, ['--version']);
-		child.stdout.on('data', (b: Buffer) => buffers.push(b));
-		child.on('error', e);
-		child.on('exit', code => {
-			if (!code) {
-				const output = Buffer.concat(buffers).toString('utf8');
-				return c({
-					path,
-					version: parseVersion(output)
-				});
-			}
-			return e(new Error('Not found'))
-		});
-	});
+export interface HgFindAttemptLogger {
+	log(path: string);
 }
 
-function findHgDarwin(): Promise<IHg> {
-	return new Promise<IHg>((c, e) => {
-		cp.exec('which hg', (err, hgPathBuffer) => {
-			if (err) {
-				return e('hg not found');
+export class HgFinder {
+	constructor(private logger: HgFindAttemptLogger) { }
+
+	private logAttempt(path: string) {
+		this.logger.log(path);
+	}
+
+	public async find(hint?: string): Promise<IHg> {
+		const first = hint ? this.findSpecificHg(hint) : Promise.reject<IHg>(null);
+
+		return first.then(undefined, () => {
+			switch (process.platform) {
+				case 'darwin': return this.findHgDarwin();
+				case 'win32': return this.findHgWin32();
+				default: return this.findSpecificHg('hg');
 			}
+		});
+	}
 
-			const path = hgPathBuffer.toString().replace(/^\s+|\s+$/g, '');
-
-			function getVersion(path: string) {
-				// make sure hg executes
-				cp.exec('hg --version', (err, stdout: Buffer) => {
-					if (err) {
-						return e('hg not found');
-					}
-
-					return c({ path, version: parseVersion(stdout.toString('utf8').trim()) });
-				});
-			}
-
-			if (path !== '/usr/bin/hg') {
-				return getVersion(path);
-			}
-
-			// must check if XCode is installed
-			cp.exec('xcode-select -p', (err: any) => {
-				if (err && err.code === 2) {
-					// hg is not installed, and launching /usr/bin/hg
-					// will prompt the user to install it
-
+	private findHgDarwin(): Promise<IHg> {
+		return new Promise<IHg>((c, e) => {
+			cp.exec('which hg', (err, hgPathBuffer) => {
+				if (err) {
 					return e('hg not found');
 				}
 
-				getVersion(path);
+				const path = hgPathBuffer.toString().replace(/^\s+|\s+$/g, '');
+
+				const getVersion = (path: string) => {
+					// make sure hg executes
+					this.logAttempt(path);
+					cp.exec('hg --version', (err, stdout: Buffer) => {
+						if (err) {
+							return e('hg not found');
+						}
+
+						return c({ path, version: parseVersion(stdout.toString('utf8').trim()) });
+					});
+				}
+
+				return getVersion(path);
 			});
 		});
-	});
-}
-
-function findMercurialWin32(base: string): Promise<IHg> {
-	if (!base) {
-		return Promise.reject<IHg>('Not found');
 	}
 
-	return findSpecificHg(path.join(base, 'Mercurial', 'hg.exe'));
-}
-
-function findTortoiseHgWin32(base: string): Promise<IHg> {
-	if (!base) {
-		return Promise.reject<IHg>('Not found');
-	}
-
-	return findSpecificHg(path.join(base, 'TortoiseHg', 'hg.exe'));
-}
-
-function findHgWin32(): Promise<IHg> {
-	return findMercurialWin32(process.env['ProgramW6432'])
-		.then(void 0, () => findTortoiseHgWin32(process.env['ProgramFiles(x86)']))
-		.then(void 0, () => findTortoiseHgWin32(process.env['ProgramFiles']))
-		.then(void 0, () => findMercurialWin32(process.env['ProgramFiles(x86)']))
-		.then(void 0, () => findMercurialWin32(process.env['ProgramFiles']))
-		.then(void 0, () => findSpecificHg('hg'))
-}
-
-export function findHg(hint: string | undefined): Promise<IHg> {
-	var first = hint ? findSpecificHg(hint) : Promise.reject<IHg>(null);
-
-	return first.then(void 0, () => {
-		switch (process.platform) {
-			case 'darwin': return findHgDarwin();
-			case 'win32': return findHgWin32();
-			default: return findSpecificHg('hg');
+	private findMercurialWin32(base: string): Promise<IHg> {
+		if (!base) {
+			return Promise.reject<IHg>('Not found');
 		}
-	});
-}
 
+		return this.findSpecificHg(path.join(base, 'Mercurial', 'hg.exe'));
+	}
+
+	private findTortoiseHgWin32(base: string): Promise<IHg> {
+		if (!base) {
+			return Promise.reject<IHg>('Not found');
+		}
+
+		return this.findSpecificHg(path.join(base, 'TortoiseHg', 'hg.exe'));
+	}
+
+	private findHgWin32(): Promise<IHg> {
+		return this.findMercurialWin32(process.env['ProgramW6432'])
+			.then(undefined, () => this.findMercurialWin32(process.env['ProgramFiles(x86)']))
+			.then(undefined, () => this.findTortoiseHgWin32(process.env['ProgramW6432']))
+			.then(undefined, () => this.findTortoiseHgWin32(process.env['ProgramFiles(x86)']))
+			.then(undefined, () => this.findSpecificHg('hg'))
+	}
+
+	private findSpecificHg(path: string): Promise<IHg> {
+		return new Promise<IHg>((c, e) => {
+			const buffers: Buffer[] = [];
+			this.logAttempt(path);
+			const child = cp.spawn(path, ['--version']);
+			child.stdout.on('data', (b: Buffer) => buffers.push(b));
+			child.on('error', e);
+			child.on('exit', code => {
+				if (!code) {
+					const output = Buffer.concat(buffers).toString('utf8');
+					return c({
+						path,
+						version: parseVersion(output)
+					});
+				}
+				return e(new Error('Not found'))
+			});
+		});
+	}
+}
 
 export interface IExecutionResult {
 	exitCode: number;
@@ -549,10 +547,9 @@ export class Repository {
 			args.push(treeish);
 		}
 
-		if (opts && opts.discard)
-		{
+		if (opts && opts.discard) {
 			args.push('--clean');
-		}	
+		}
 
 		try {
 			await this.run(args);
