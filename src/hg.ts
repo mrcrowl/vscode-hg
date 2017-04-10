@@ -222,6 +222,7 @@ export class HgError {
 	exitCode?: number;
 	hgErrorCode?: string;
 	hgCommand?: string;
+	hgBranches?: string;
 
 	constructor(data: IHgErrorData) {
 		if (data.error) {
@@ -272,6 +273,7 @@ export const HgErrorCodes = {
 	Conflict: 'Conflict',
 	UnmergedChanges: 'UnmergedChanges',
 	PushCreatesNewRemoteHead: 'PushCreatesNewRemoteHead',
+	PushCreatesNewRemoteBranches: 'PushCreatesNewRemoteBranches',
 	RemoteConnectionError: 'RemoteConnectionError',
 	DirtyWorkingDirectory: 'DirtyWorkingDirectory',
 	CantOpenResource: 'CantOpenResource',
@@ -770,8 +772,15 @@ export class Repository {
 				return;
 			}
 
-			if (/push creates new remote head/m.test(err.stderr || '')) {
+			if (/push creates new remote head/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteHead;
+			} else if (err instanceof HgError && err.stderr && /push creates new remote branches/.test(err.stderr)) {
+				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteBranches;
+				const branchMatch = err.stderr.match(/: (.*)!/)
+				if (branchMatch)
+				{
+					err.hgBranches = branchMatch[1];
+				}	
 			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}

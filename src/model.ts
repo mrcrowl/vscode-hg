@@ -642,6 +642,16 @@ export class Model implements Disposable {
 
 				return;
 			}
+			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
+				const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
+				const allowOption = localize('allow', 'Allow');
+				const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);
+				if (choice === allowOption) {
+					return this.push(path, { allowPushNewBranches: true })
+				}
+
+				return;
+			}
 
 			throw e;
 		}
