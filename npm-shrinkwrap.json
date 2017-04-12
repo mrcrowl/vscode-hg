@@ -1,11 +1,63 @@
 {
-  "name": "hg",
+  "name": "vscode-hg-scm",
   "version": "0.0.1",
   "dependencies": {
     "applicationinsights": {
       "version": "0.18.0",
       "from": "applicationinsights@0.18.0",
       "resolved": "https://registry.npmjs.org/applicationinsights/-/applicationinsights-0.18.0.tgz"
+    },
+    "async": {
+      "version": "1.0.0",
+      "from": "async@>=1.0.0 <1.1.0",
+      "resolved": "https://registry.npmjs.org/async/-/async-1.0.0.tgz"
+    },
+    "coffee-script": {
+      "version": "1.12.5",
+      "from": "coffee-script@>=1.4.0",
+      "resolved": "https://registry.npmjs.org/coffee-script/-/coffee-script-1.12.5.tgz"
+    },
+    "colors": {
+      "version": "1.0.3",
+      "from": "colors@>=1.0.0 <1.1.0",
+      "resolved": "https://registry.npmjs.org/colors/-/colors-1.0.3.tgz"
+    },
+    "cycle": {
+      "version": "1.0.3",
+      "from": "cycle@>=1.0.0 <1.1.0",
+      "resolved": "https://registry.npmjs.org/cycle/-/cycle-1.0.3.tgz"
+    },
+    "eyes": {
+      "version": "0.1.8",
+      "from": "eyes@>=0.1.0 <0.2.0",
+      "resolved": "https://registry.npmjs.org/eyes/-/eyes-0.1.8.tgz"
+    },
+    "hg": {
+      "version": "0.2.0",
+      "from": "hg@0.2.0",
+      "resolved": "https://registry.npmjs.org/hg/-/hg-0.2.0.tgz",
+      "dependencies": {
+        "uuid": {
+          "version": "1.4.2",
+          "from": "uuid@>=1.4.0 <1.5.0",
+          "resolved": "https://registry.npmjs.org/uuid/-/uuid-1.4.2.tgz"
+        }
+      }
+    },
+    "isstream": {
+      "version": "0.1.2",
+      "from": "isstream@>=0.1.2 <0.2.0",
+      "resolved": "https://registry.npmjs.org/isstream/-/isstream-0.1.2.tgz"
+    },
+    "lodash": {
+      "version": "4.17.4",
+      "from": "lodash@>=1.0.0",
+      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.4.tgz"
+    },
+    "stack-trace": {
+      "version": "0.0.9",
+      "from": "stack-trace@>=0.0.0 <0.1.0",
+      "resolved": "https://registry.npmjs.org/stack-trace/-/stack-trace-0.0.9.tgz"
     },
     "vscode-extension-telemetry": {
       "version": "0.0.6",
@@ -21,6 +73,11 @@
       "version": "1.2.3",
       "from": "winreg@1.2.3",
       "resolved": "https://registry.npmjs.org/winreg/-/winreg-1.2.3.tgz"
+    },
+    "winston": {
+      "version": "2.3.1",
+      "from": "winston@>=0.5.0",
+      "resolved": "https://registry.npmjs.org/winston/-/winston-2.3.1.tgz"
     }
   }
 }

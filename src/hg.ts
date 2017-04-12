@@ -13,6 +13,7 @@ import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose,
 import { EventEmitter, Event, OutputChannel } from 'vscode';
 import * as nls from 'vscode-nls';
 import { Askpass } from "./askpass";
+import { HgCommandServer } from "./hgserve";
 
 const localize = nls.loadMessageBundle();
 const readdir = denodeify<string[]>(fs.readdir);
@@ -290,6 +291,7 @@ export class Hg {
 	private hgPath: string;
 	private version: string;
 	private env: any;
+	private server: HgCommandServer;
 
 	private _onOutput = new EventEmitter<string>();
 	get onOutput(): Event<string> { return this._onOutput.event; }
@@ -300,7 +302,9 @@ export class Hg {
 		this.env = options.env || {};
 	}
 
-	open(repository: string): Repository {
+	async open(repository: string): Promise<Repository> {
+		const hgFolderPath = path.dirname(this.hgPath);
+		this.server = await HgCommandServer.start(hgFolderPath, repository);
 		return new Repository(this, repository);
 	}
 
@@ -324,7 +328,7 @@ export class Hg {
 	}
 
 	async exec(cwd: string, args: string[], options: any = {}): Promise<IExecutionResult> {
-		options = assign({ cwd }, options || {});
+		options = { cwd, ...options };
 		return await this._exec(args, options);
 	}
 
@@ -334,13 +338,17 @@ export class Hg {
 	}
 
 	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
-		const child = this.spawn(args, options);
+		let result: IExecutionResult;
+		if (this.server) {
+			result = await this.server.runcommand(...args);
+		} else {
+			const child = this.spawn(args, options);
+			if (options.input) {
+				child.stdin.end(options.input, 'utf8');
+			}
 
-		if (options.input) {
-			child.stdin.end(options.input, 'utf8');
+			result = await exec(child);
 		}
-
-		const result = await exec(child);
 
 		if (result.exitCode) {
 			let hgErrorCode: string | undefined = void 0;
@@ -777,10 +785,9 @@ export class Repository {
 			} else if (err instanceof HgError && err.stderr && /push creates new remote branches/.test(err.stderr)) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteBranches;
 				const branchMatch = err.stderr.match(/: (.*)!/)
-				if (branchMatch)
-				{
+				if (branchMatch) {
 					err.hgBranches = branchMatch[1];
-				}	
+				}
 			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}

@@ -1,5 +1,5 @@
 {
-  "name": "hg",
+  "name": "vscode-hg-scm",
   "publisher": "mrcrowl",
   "displayName": "Mercurial",
   "description": "Mercurial Source Control Management",
@@ -526,7 +526,7 @@
           "default": "all"
         },
         "hg.allowPushNewBranches": {
-          "type":"boolean",
+          "type": "boolean",
           "description": "%config.allowPushNewBranches%",
           "default": false
         }
@@ -539,6 +539,7 @@
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "dependencies": {
+    "hg": "^0.2.0",
     "vscode-extension-telemetry": "^0.0.6",
     "vscode-nls": "^2.0.1"
   },

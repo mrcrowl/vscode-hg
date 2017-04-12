@@ -724,7 +724,7 @@ export class Model implements Disposable {
 
 		const disposables: Disposable[] = [];
 		const repositoryRoot = await this._hg.getRepositoryRoot(this.workspaceRootPath);
-		this.repository = this._hg.open(repositoryRoot);
+		this.repository = await this._hg.open(repositoryRoot);
 		this.updateRepositoryPaths();
 
 		const dotHgPath = path.join(repositoryRoot, '.hg');
@@ -765,6 +765,11 @@ export class Model implements Disposable {
 	public getParents(): Promise<Commit[]> {
 		return this.repository.getParents();
 	}
+
+	// @throttle 
+	// public getLogEntries(): Promise<LogEntry[]> {
+		
+	// }	
 
 	@throttle
 	private async refresh(): Promise<void> {

@@ -37,7 +37,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const askpass = new Askpass();
 	const env = await askpass.getEnv();
 	const hg = new Hg({ hgPath: info.path, version: info.version, env });
-
+	
 	if (!workspaceRootPath || !enabled) {
 		const commandCenter = new CommandCenter(hg, undefined, outputChannel, telemetryReporter);
 		disposables.push(commandCenter);

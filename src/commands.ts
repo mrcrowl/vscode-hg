@@ -113,6 +113,14 @@ export class CommandCenter {
 			});
 	}
 
+	// @command('hg.log')
+	// async refresh(): Promise<void> {
+	// 			return commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'CSS Property Preview').then((success) => {
+	// 	}, (reason) => {
+	// 		vscode.window.showErrorMessage(reason);
+	// 	});
+	// }	
+
 	@command('hg.refresh')
 	async refresh(): Promise<void> {
 		await this.model.status();
