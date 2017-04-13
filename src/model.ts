@@ -45,7 +45,8 @@ export enum Status {
 	UNTRACKED,
 	IGNORED,
 	MISSING,
-	CONFLICT
+	CONFLICT,
+	RENAMED,
 }
 
 export enum MergeStatus {
@@ -76,17 +77,18 @@ export class Resource implements SourceControlResourceState {
 
 	get isDirtyStatus(): boolean {
 		switch (this._status) {
+			case Status.UNTRACKED:
+			case Status.IGNORED:
+				return false;
+
 			case Status.ADDED:
 			case Status.CONFLICT:
 			case Status.DELETED:
 			case Status.MISSING:
 			case Status.MODIFIED:
-				return true;
-
-			case Status.UNTRACKED:
-			case Status.IGNORED:
+			case Status.RENAMED:	
 			default:
-				return false
+				return true;
 		}
 	}
 	get resourceGroup(): ResourceGroup { return this._resourceGroup; }
@@ -130,7 +132,7 @@ export class Resource implements SourceControlResourceState {
 			case Status.MODIFIED: return Resource.Icons[theme].Modified;
 			case Status.ADDED: return Resource.Icons[theme].Added;
 			case Status.DELETED: return Resource.Icons[theme].Deleted;
-			// case Status.RENAMED: return Resource.Icons[theme].Renamed;
+			case Status.RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
 			case Status.IGNORED: return Resource.Icons[theme].Ignored;
 			default: return void 0;

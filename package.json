@@ -510,6 +510,15 @@
           "description": "%config.autorefresh%",
           "default": true
         },
+        "hg.commandMode": {
+          "type": "string",
+          "description": "%config.commandMode%",
+          "default": "cmdline",
+          "enum": [
+            "cmdline",
+            "server"
+          ]
+        },
         "hg.autoinout": {
           "type": "boolean",
           "description": "%config.autoinout%",

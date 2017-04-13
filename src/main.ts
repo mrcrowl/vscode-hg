@@ -30,13 +30,15 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 
 	const config = workspace.getConfiguration('hg');
 	const enabled = config.get<boolean>('enabled') === true;
+	const enableInstrumentation = config.get<boolean>('instrumentation') === true;
+	const enableServer = config.get<string>('commandMode') === "server";
 	const workspaceRootPath = workspace.rootPath;
 
 	const pathHint = workspace.getConfiguration('hg').get<string>('path');
 	const info: IHg = await findHg(pathHint, outputChannel);
 	const askpass = new Askpass();
 	const env = await askpass.getEnv();
-	const hg = new Hg({ hgPath: info.path, version: info.version, env });
+	const hg = new Hg({ hgPath: info.path, version: info.version, env, enableInstrumentation, enableServer });
 	
 	if (!workspaceRootPath || !enabled) {
 		const commandCenter = new CommandCenter(hg, undefined, outputChannel, telemetryReporter);

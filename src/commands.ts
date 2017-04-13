@@ -716,12 +716,11 @@ export class CommandCenter {
 					return;
 				}
 
-				const outputChannel = this.outputChannel as OutputChannel;
 				const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
 				const choice = await window.showErrorMessage(message, openOutputChannelChoice);
 
 				if (choice === openOutputChannelChoice) {
-					outputChannel.show();
+					this.outputChannel.show();
 				} else {
 					commands.executeCommand("workbench.view.scm");
 				}

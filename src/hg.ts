@@ -262,6 +262,8 @@ export interface IHgOptions {
 	hgPath: string;
 	version: string;
 	env?: any;
+	enableInstrumentation: boolean;
+	enableServer: boolean;
 }
 
 export const HgErrorCodes = {
@@ -292,19 +294,25 @@ export class Hg {
 	private version: string;
 	private env: any;
 	private server: HgCommandServer;
+	private instrumentEnabled: boolean;
+	private serverEnabled: boolean;
 
 	private _onOutput = new EventEmitter<string>();
 	get onOutput(): Event<string> { return this._onOutput.event; }
 
 	constructor(options: IHgOptions) {
+		this.env = options.env || {};
 		this.hgPath = options.hgPath;
 		this.version = options.version;
-		this.env = options.env || {};
+		this.instrumentEnabled = options.enableInstrumentation;
+		this.serverEnabled = options.enableServer;
 	}
 
 	async open(repository: string): Promise<Repository> {
 		const hgFolderPath = path.dirname(this.hgPath);
-		this.server = await HgCommandServer.start(hgFolderPath, repository);
+		if (this.serverEnabled) {
+			this.server = await HgCommandServer.start(hgFolderPath, repository);
+		}
 		return new Repository(this, repository);
 	}
 
@@ -337,10 +345,21 @@ export class Hg {
 		return this.spawn(args, options);
 	}
 
+	private async runServerCommand(args: string[], options: any = {}) {
+		if (options.log !== false && !this.instrumentEnabled) {
+			this.log(`hg ${args.join(' ')}\n`);
+		}
+		const result = await this.server.runcommand(...args);
+		return result;
+	}
+
 	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
+
+		const startTimeHR = process.hrtime();
+
 		let result: IExecutionResult;
-		if (this.server) {
-			result = await this.server.runcommand(...args);
+		if (this.serverEnabled && this.server) {
+			result = await this.runServerCommand(args, options);
 		} else {
 			const child = this.spawn(args, options);
 			if (options.input) {
@@ -349,6 +368,12 @@ export class Hg {
 
 			result = await exec(child);
 		}
+
+		if (this.instrumentEnabled) {
+			const durationHR = process.hrtime(startTimeHR);
+			this.log(`hg ${args.join(' ')}: ${Math.floor(msFromHighResTime(durationHR))}ms\n`);
+		}
+
 
 		if (result.exitCode) {
 			let hgErrorCode: string | undefined = void 0;
@@ -370,7 +395,7 @@ export class Hg {
 				hgErrorCode = HgErrorCodes.CantAccessRemote;
 			}*/
 
-			if (options.log !== false) {
+			if (options.log !== false && result.stderr) {
 				this.log(`${result.stderr}\n`);
 			}
 
@@ -406,7 +431,7 @@ export class Hg {
 			LANG: 'en_US.UTF-8'
 		});
 
-		if (options.log !== false) {
+		if (!this.instrumentEnabled && options.log !== false) {
 			this.log(`hg ${args.join(' ')}\n`);
 		}
 
@@ -993,4 +1018,9 @@ export class Repository {
 
 		return { hash: match[1], message: match[2] };
 	}
+}
+
+function msFromHighResTime(hiResTime: [number, number]): number {
+	const [seconds, nanoSeconds] = hiResTime;
+	return seconds * 1e3 + nanoSeconds / 1e6;
 }
