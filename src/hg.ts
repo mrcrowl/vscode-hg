@@ -12,7 +12,6 @@ import * as cp from 'child_process';
 import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp } from './util';
 import { EventEmitter, Event, OutputChannel } from 'vscode';
 import * as nls from 'vscode-nls';
-import { Askpass } from "./askpass";
 import { HgCommandServer } from "./hgserve";
 
 const localize = nls.loadMessageBundle();
@@ -299,7 +298,6 @@ export class Hg {
 
 	private hgPath: string;
 	private version: string;
-	private env: any;
 	private server: HgCommandServer;
 	private instrumentEnabled: boolean;
 	private serverEnabled: boolean;
@@ -308,7 +306,6 @@ export class Hg {
 	get onOutput(): Event<string> { return this._onOutput.event; }
 
 	constructor(options: IHgOptions) {
-		this.env = options.env || {};
 		this.hgPath = options.hgPath;
 		this.version = options.version;
 		this.instrumentEnabled = options.enableInstrumentation;
@@ -432,11 +429,13 @@ export class Hg {
 			options.stdio = ['ignore', null, null]; // Unless provided, ignore stdin and leave default streams for stdout and stderr
 		}
 
-		options.env = assign({}, process.env, this.env, options.env || {}, {
-			VSCODE_GIT_COMMAND: args[0],
+		options.env = {
+			...process.env,
+			...options.env,
+			VSCODE_HG_COMMAND: args[0],
 			LC_ALL: 'en_US',
 			LANG: 'en_US.UTF-8'
-		});
+		}
 
 		if (!this.instrumentEnabled && options.log !== false) {
 			this.log(`hg ${args.join(' ')}\n`);

@@ -14,7 +14,6 @@ import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
 import { AutoIncomingOutgoing } from './autoinout';
 import { MergeDecorator } from './merge';
-import { Askpass } from './askpass';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import * as nls from 'vscode-nls';
 
@@ -36,9 +35,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 
 	const pathHint = workspace.getConfiguration('hg').get<string>('path');
 	const info: IHg = await findHg(pathHint, outputChannel);
-	const askpass = new Askpass();
-	const env = await askpass.getEnv();
-	const hg = new Hg({ hgPath: info.path, version: info.version, env, enableInstrumentation, enableServer });
+	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation, enableServer });
 	
 	if (!workspaceRootPath || !enabled) {
 		const commandCenter = new CommandCenter(hg, undefined, outputChannel, telemetryReporter);
