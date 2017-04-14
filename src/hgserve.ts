@@ -40,6 +40,7 @@ export class HgCommandServer {
     private encoding: string;
     private capabilities;
     private commandQueue: PipelineCommand[];
+    private stopWhenQueueEmpty: boolean;
 
     private constructor(config = {}) {
         // super();
@@ -70,9 +71,16 @@ export class HgCommandServer {
         if (!this.server) {
             return;
         }
+
+        if (this.commandQueue.length) {
+            this.stopWhenQueueEmpty = true;
+            return;
+        }
+
         this.server.stdout.removeAllListeners("data");
         this.server.stderr.removeAllListeners("data");
-        return this.server.stdin.end();
+        this.server.stdin.end();
+        this.server = undefined;
     }
 
     /** Run a command */
@@ -242,6 +250,11 @@ export class HgCommandServer {
                     const command = this.dequeueCommand();
                     if (command) {
                         command.result.resolve(result);
+                    }
+
+                    if (this.stopWhenQueueEmpty && this.commandQueue.length === 0) {
+                        this.stop();
+                        return;
                     }
                 }
             }

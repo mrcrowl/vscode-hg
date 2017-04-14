@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp } from './util';
-import { EventEmitter, Event, OutputChannel } from 'vscode';
+import { EventEmitter, Event, OutputChannel, workspace, Disposable } from "vscode";
 import * as nls from 'vscode-nls';
 import { HgCommandServer } from "./hgserve";
 
@@ -268,7 +268,6 @@ export interface IHgOptions {
 	version: string;
 	env?: any;
 	enableInstrumentation: boolean;
-	enableServer: boolean;
 }
 
 export const HgErrorCodes = {
@@ -298,9 +297,11 @@ export class Hg {
 
 	private hgPath: string;
 	private version: string;
-	private server: HgCommandServer;
+	private server: HgCommandServer | undefined;
 	private instrumentEnabled: boolean;
-	private serverEnabled: boolean;
+	private useServer: boolean;
+	private disposables: Disposable[] = [];
+	private openRepository: Repository | undefined;
 
 	private _onOutput = new EventEmitter<string>();
 	get onOutput(): Event<string> { return this._onOutput.event; }
@@ -309,15 +310,42 @@ export class Hg {
 		this.hgPath = options.hgPath;
 		this.version = options.version;
 		this.instrumentEnabled = options.enableInstrumentation;
-		this.serverEnabled = options.enableServer;
+
+		workspace.onDidChangeConfiguration(this.onConfigurationChange, this, this.disposables);
+		this.onConfigurationChange();
+	}
+
+	async onConfigurationChange() {
+		const hgConfig = workspace.getConfiguration('hg');
+		const wasUsingServer = this.useServer;
+		const useServer = hgConfig.get<string>('commandMode') === "server";
+		this.useServer = useServer;
+
+		if (!useServer && this.server) {
+			this.server.stop();
+			this.server = undefined;
+			this.log("cmdserve stopped\n");
+		}
+		else if (useServer && !wasUsingServer) {
+			if (this.openRepository) {
+				this.server = await this.startServer(this.openRepository.root);
+			}
+		}
+	}
+
+	async startServer(repositoryRoot: string): Promise<HgCommandServer> {
+		const hgFolderPath = path.dirname(this.hgPath);
+		const server = await HgCommandServer.start(hgFolderPath, repositoryRoot);
+		this.log("cmdserve started\n")
+		return server;
 	}
 
 	async open(repository: string): Promise<Repository> {
-		const hgFolderPath = path.dirname(this.hgPath);
-		if (this.serverEnabled) {
-			this.server = await HgCommandServer.start(hgFolderPath, repository);
+		if (this.useServer) {
+			this.server = await this.startServer(repository);
 		}
-		return new Repository(this, repository);
+		this.openRepository = new Repository(this, repository);
+		return this.openRepository;
 	}
 
 	async init(repository: string): Promise<void> {
@@ -349,21 +377,20 @@ export class Hg {
 		return this.spawn(args, options);
 	}
 
-	private async runServerCommand(args: string[], options: any = {}) {
+	private async runServerCommand(server: HgCommandServer, args: string[], options: any = {}) {
 		if (options.log !== false && !this.instrumentEnabled) {
 			this.log(`hg ${args.join(' ')}\n`);
 		}
-		const result = await this.server.runcommand(...args);
+		const result = await server.runcommand(...args);
 		return result;
 	}
 
 	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
-
 		const startTimeHR = process.hrtime();
 
 		let result: IExecutionResult;
-		if (this.serverEnabled && this.server) {
-			result = await this.runServerCommand(args, options);
+		if (this.server) {
+			result = await this.runServerCommand(this.server, args, options);
 		} else {
 			const child = this.spawn(args, options);
 			if (options.input) {
