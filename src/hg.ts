@@ -978,8 +978,8 @@ export class Repository {
 		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
-	async getParents(): Promise<Commit[]> {
-		const result = await this.run(['log', '-r', 'parents()', '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`]);
+	async getLogResults(revQuery: string): Promise<Commit[]> {
+		const result = await this.run(['log', '-r', revQuery, '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`]);
 		const parents = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
@@ -992,6 +992,14 @@ export class Repository {
 			.filter(ref => !!ref) as Commit[];
 
 		return parents;
+	}
+
+	async getParents(): Promise<Commit[]> {
+		return this.getLogResults('parents()');
+	}
+
+	async getHeads(): Promise<Commit[]> {
+		return this.getLogResults('head()');
 	}
 
 	async getTags(): Promise<Ref[]> {

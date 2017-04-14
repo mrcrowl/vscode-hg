@@ -7,7 +7,7 @@
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
 import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails } from "./hg";
-import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
+import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
 import * as path from 'path';
@@ -673,6 +673,26 @@ export class Model implements Disposable {
 	@throttle
 	public getParents(): Promise<Commit[]> {
 		return this.repository.getParents();
+	}
+
+	@throttle
+	public async getBranchNamesWithMultipleHeads(): Promise<string[]> {
+		const allHeads = await this.repository.getHeads();
+		const multiHeadBranches: string[] = [];
+		const headsPerBranch = groupBy(allHeads, h => h.branch)
+		for (const branch in headsPerBranch) {
+			const branchHeads = headsPerBranch[branch];
+			if (branchHeads.length > 1)
+			{
+				multiHeadBranches.push(branch);
+			}	
+		}
+		return multiHeadBranches;
+	}
+
+	@throttle
+	public getHeads(): Promise<Commit[]> {
+		return this.repository.getHeads();
 	}
 
 	// @throttle 

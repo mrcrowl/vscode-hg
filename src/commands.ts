@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
@@ -184,7 +182,7 @@ export class CommandCenter {
 
 			case Status.ADDED:
 			case Status.IGNORED:
-			case Status.MISSING:	
+			case Status.MISSING:
 			case Status.MODIFIED:
 			case Status.RENAMED:
 			case Status.UNTRACKED:
@@ -699,6 +697,17 @@ export class CommandCenter {
 
 		if (paths.length === 0) {
 			window.showWarningMessage(localize('no paths to push', "Your repository has no paths configured to push to."));
+			return;
+		}
+
+		// check for branches with 2+ heads		
+		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads();
+		if (multiHeadBranchNames.length === 1) {
+			const [branch] = multiHeadBranchNames;
+			window.showWarningMessage(localize('multi head branch', `Branch '{0}' has multiple heads. Merge required before pushing.`, branch));
+			return;
+		} else if (multiHeadBranchNames.length > 1) {
+			window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, multiHeadBranchNames.join(",")));
 			return;
 		}
 
