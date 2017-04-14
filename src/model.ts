@@ -416,13 +416,7 @@ export class Model implements Disposable {
 			}
 
 			await this.repository.commit(message, { addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
-			try {
-				this._syncCounts.outgoing++;
-				this._onDidChangeResources.fire();
-				this.countOutgoing();
-			} catch (e) {
-				// noop
-			}
+			this.countOutgoing(+1);
 		});
 	}
 
@@ -482,35 +476,60 @@ export class Model implements Disposable {
 	async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
 		return await this.run(Operation.Rollback, async () => {
 			const details = await this.repository.rollback(dryRun);
+			if (!dryRun && details.kind === 'commit') {
+				this.countOutgoing(-1);
+			}
 			return details;
 		});
 	}
 
-	async countIncomingOutgoing() {
-		await this.countIncoming();
-		await this.countOutgoing();
+	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {
+		await this.countIncoming(expectedDeltas && expectedDeltas.incoming);
+		await this.countOutgoing(expectedDeltas && expectedDeltas.outgoing);
 	}
 
-	@throttle
-	async countIncoming(): Promise<void> {
-		await this.run(Operation.CountIncoming, async () => {
-			this._syncCounts.incoming = await this.repository.countIncoming();
-			this._onDidChangeResources.fire();
-		});
+	async countIncoming(expectedDelta: number = 0): Promise<void> {
+		try {
+			// immediate UI update with expected
+			if (expectedDelta) {
+				this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
+				this._onDidChangeResources.fire();
+			}
+
+			// then confirm
+			await this.run(Operation.CountIncoming, async () => {
+				this._syncCounts.incoming = await this.repository.countIncoming();
+				this._onDidChangeResources.fire();
+			});
+		} catch (e) {
+			// no-op
+		}
 	}
 
-	@throttle
-	async countOutgoing(): Promise<void> {
-		await this.run(Operation.CountOutgoing, async () => {
-			this._syncCounts.outgoing = await this.repository.countOutgoing();
-			this._onDidChangeResources.fire();
-		});
+	async countOutgoing(expectedDelta: number = 0): Promise<void> {
+		try {
+			// immediate UI update with expected
+			if (expectedDelta) {
+				this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
+				this._onDidChangeResources.fire();
+			}
+
+			// then confirm
+			await this.run(Operation.CountOutgoing, async () => {
+				this._syncCounts.outgoing = await this.repository.countOutgoing();
+				this._onDidChangeResources.fire();
+			});
+		} catch (e) {
+			// no-op	
+		}
 	}
 
 	@throttle
 	async pull(): Promise<void> {
 		await this.run(Operation.Pull, () => this.repository.pull());
-		this.countIncomingOutgoing();
+
+		const delta = -this._syncCounts.incoming
+		this.countIncoming(delta);
 	}
 
 	@throttle
@@ -519,9 +538,7 @@ export class Model implements Disposable {
 			await this.run(Operation.Push, () => this.repository.push(path, options));
 
 			if (!path || path === "default") {
-				this._syncCounts.outgoing = 0;
-				this._onDidChangeResources.fire();
-				this.countIncomingOutgoing();
+				this.countOutgoing(-this._syncCounts.outgoing);
 			}
 		}
 		catch (e) {
@@ -534,8 +551,7 @@ export class Model implements Disposable {
 				}
 
 				return;
-			}
-			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
+			} else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
 				const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
 				const allowOption = localize('allow', 'Allow');
 				const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);

@@ -106,10 +106,10 @@ class SyncStatusBar {
 		}
 
 		const branch = this.state.branch;
-		let icon = '$(sync)';
+		let icon = '$(sync) $(check)';
 		let text = '';
 		let command = '';
-		let tooltip = '';
+		let tooltip = 'Sync is up to date';
 		let syncCounts = this.state.syncCounts;
 
 		if (branch) {

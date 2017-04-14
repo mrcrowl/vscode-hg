@@ -36,7 +36,7 @@ export class AutoIncomingOutgoing {
 			return;
 		}
 
-		this.refresh();
+		setTimeout(() => this.refresh(), 250); // small delay to let first status run before
 		this.timer = setInterval(() => this.refresh(), AutoIncomingOutgoing.Period);
 	}
 

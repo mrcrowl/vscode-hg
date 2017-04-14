@@ -389,15 +389,6 @@ export class Hg {
 			} else if (/no such file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoSuchFile;
 			}
-			/*else if (/bad config file/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.BadConfigFile;
-			} else if (/cannot make pipe for command substitution|cannot create standard input pipe/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.CantCreatePipe;
-			} else if (/Repository not found/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.RepositoryNotFound;
-			} else if (/unable to access/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.CantAccessRemote;
-			}*/
 
 			if (options.log !== false && result.stderr) {
 				this.log(`${result.stderr}\n`);
