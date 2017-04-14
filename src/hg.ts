@@ -451,7 +451,9 @@ export class Hg {
 }
 
 export interface Commit {
+	revision: number;
 	hash: string;
+	branch: string;
 	message: string;
 }
 
@@ -962,13 +964,13 @@ export class Repository {
 	}
 
 	async getParents(): Promise<Commit[]> {
-		const result = await this.run(['log', '-r', 'parents()', `--template={node}/{strip(desc,'\n')}\n`]);
+		const result = await this.run(['log', '-r', 'parents()', '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`]);
 		const parents = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
-				let match = line.match(/^([^\/]+)\/(.*)/);
+				let match = line.match(/^(\d+):([^:]+):([^:]+):(.*)/);
 				if (match) {
-					return { hash: match[1], message: match[2] };
+					return { revision: parseInt(match[1]), hash: match[2], branch: match[3], message: match[4] };
 				}
 				return null;
 			})
@@ -1061,17 +1063,6 @@ export class Repository {
 		} catch (err) {
 			return { name, type: RefType.Branch, commit };
 		}
-	}
-
-	async getCommit(ref: string): Promise<Commit> {
-		const result = await this.run(['show', '-s', '--format=%H\n%B', ref]);
-		const match = /^([0-9a-f]{40})\n([^]*)$/m.exec(result.stdout.trim());
-
-		if (!match) {
-			return Promise.reject<Commit>('bad commit format');
-		}
-
-		return { hash: match[1], message: match[2] };
 	}
 }
 

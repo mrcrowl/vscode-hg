@@ -479,12 +479,6 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async getCommit(ref: string): Promise<Commit> {
-		let commit = await this.repository.getCommit(ref);
-		return commit;
-	}
-
-	@throttle
 	async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
 		return await this.run(Operation.Rollback, async () => {
 			const details = await this.repository.rollback(dryRun);

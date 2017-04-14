@@ -37,11 +37,14 @@ class UpdateRefItem implements QuickPickItem {
 	}
 }
 
+const SHORT_HASH_LENGTH = 12;
+
 class UpdateCommitItem implements QuickPickItem {
 
-	protected get shortCommit(): string { return (this.commit.hash || '').substr(0, 8); }
-	get label(): string { return this.commit.message; }
-	get description(): string { return this.shortCommit; }
+	protected get shortHash(): string { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
+	get label(): string { return this.commit.branch; }
+	get detail(): string { return `${this.commit.revision} (${this.shortHash})`; }
+	get description(): string { return this.commit.message; }
 
 	constructor(protected commit: Commit, private opts: { discard: boolean }) { }
 
@@ -466,9 +469,9 @@ export class CommandCenter {
 	async cleanAll(): Promise<void> {
 		const parents = await this.model.getParents();
 		if (parents.length > 1) {
-			const message = localize('clean 2 parents', "")
+			const placeHolder = localize('clean 2 parents', "Choose parent to update to:")
 			const picks = parents.map(p => new UpdateCommitItem(p, { discard: true }));
-			const choice = await window.showQuickPick(picks, { placeHolder: "Choose parent to update to:" });
+			const choice = await window.showQuickPick(picks, { placeHolder });
 			if (choice) {
 				await choice.run(this.model);
 			}
@@ -598,6 +601,7 @@ export class CommandCenter {
 
 				if (kind === "commit") {
 					scm.inputBox.value = commitMessage;
+					commands.executeCommand("workbench.view.scm");
 				}
 			}
 		} catch (e) {
