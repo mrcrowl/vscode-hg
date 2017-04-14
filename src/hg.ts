@@ -842,14 +842,14 @@ export class Repository {
 	}
 
 	async getStatus(): Promise<IFileStatus[]> {
-		const executionResult = await this.run(['status']);
+		const executionResult = await this.run(['status', '-C']); // quiet, include renames/copies
 		const status = executionResult.stdout;
 		return this.parseStatusLines(status);
 	}
 
 	parseStatusLines(status: string): IFileStatus[] {
 		const result: IFileStatus[] = [];
-		let current: IFileStatus;
+		let current: IFileStatus | undefined;
 		let i = 0;
 
 		function readName(): string {
@@ -868,14 +868,24 @@ export class Repository {
 		}
 
 		while (i < status.length) {
+			const code = status.charAt(i++);
+			const gap = status.charAt(i++);
+
+			// copy/rename line?
+			if (code === ' ' &&
+				gap === ' ' &&
+				current) {
+				[current.path, current.rename] = [readName(), current.path];
+				continue;
+			}
+
 			current = {
-				status: status.charAt(i++),
+				status: code,
 				path: ''
 			};
 
-			let gap = status.charAt(i++);
-			if (gap != ' ') {
-				// message line: skip
+			// message line: skip?
+			if (gap !== ' ') {
 				readName();
 				continue;
 			}

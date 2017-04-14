@@ -6,7 +6,7 @@
 'use strict';
 
 import { scm, Uri, Disposable, SourceControl, SourceControlResourceGroup, Event, workspace, commands } from 'vscode';
-import { Model, State, StagingGroup } from "./model";
+import { Model, State } from "./model";
 import { StatusBarCommands } from './statusbar';
 import { CommandCenter } from './commands';
 import { mapEvent } from './util';

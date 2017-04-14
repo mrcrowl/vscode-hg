@@ -13,6 +13,7 @@ import { watch } from './watch';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as nls from 'vscode-nls';
+import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup } from "./resourceGroups";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
@@ -22,14 +23,6 @@ const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'ico
 
 function getIconUri(iconName: string, theme: string): Uri {
 	return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
-}
-
-function toMergeStatus(this: void, status: string): MergeStatus {
-	switch (status) {
-		case 'R': return MergeStatus.RESOLVED;
-		case 'U': return MergeStatus.UNRESOLVED;
-		case '': default: return MergeStatus.NONE;
-	}
 }
 
 export enum State {
@@ -59,10 +52,15 @@ export class Resource implements SourceControlResourceState {
 
 	@memoize
 	get resourceUri(): Uri {
-		if (this.renameResourceUri && (this._status === Status.MODIFIED || this._status === Status.DELETED)) {
-			return this.renameResourceUri;
-		}
+		if (this.renameResourceUri) {
+			if (this._status === Status.MODIFIED ||
+				this._status === Status.RENAMED ||
+				this._status === Status.ADDED) {
+				return this.renameResourceUri;
+			}
 
+			throw new Error(`Renamed resource with unexpected status: ${this._status}`);
+		}
 		return this._resourceUri;
 	}
 
@@ -86,7 +84,7 @@ export class Resource implements SourceControlResourceState {
 			case Status.DELETED:
 			case Status.MISSING:
 			case Status.MODIFIED:
-			case Status.RENAMED:	
+			case Status.RENAMED:
 			default:
 				return true;
 		}
@@ -162,104 +160,6 @@ export class Resource implements SourceControlResourceState {
 		private _mergeStatus: MergeStatus,
 		private _renameResourceUri?: Uri
 	) { }
-}
-
-export abstract class ResourceGroup {
-
-	get id(): string { return this._id; }
-	get contextKey(): string { return this._id; }
-	get label(): string { return this._label; }
-	get resources(): Resource[] { return this._resources; }
-
-	private _resourceUriIndex: Map<string, boolean>;
-
-	constructor(
-		private _id: string,
-		private _label: string,
-		private _resources: Resource[]) {
-		this._resourceUriIndex = ResourceGroup.indexResources(_resources);
-	}
-
-	private static indexResources(resources: Resource[]): Map<string, boolean> {
-		const index = new Map<string, boolean>();
-		resources.forEach(r => index.set(r.resourceUri.toString(), true));
-		return index;
-	}
-
-	getResource(uri: Uri): Resource | undefined {
-		const uriString = uri.toString();
-		return this.resources.filter(r => r.resourceUri.toString() === uriString)[0];
-	}
-
-	includes(resource: Resource): boolean {
-		return this.includesUri(resource.resourceUri);
-	}
-
-	includesUri(uri: Uri): boolean {
-		return this._resourceUriIndex.has(uri.toString());
-	}
-
-	intersect(resources: Resource[]): this {
-		const newUniqueResources = resources.filter(r => !this.includes(r)).map(r => new Resource(this, r.resourceUri, r.status, r.mergeStatus));
-		const intersectionResources: Resource[] = [...this.resources, ...newUniqueResources];
-		return this.newResourceGroup(intersectionResources);
-	}
-
-	except(resources: Resource[]): this {
-		const excludeIndex = StagingGroup.indexResources(resources);
-		const remainingResources = this.resources.filter(r => !excludeIndex.has(r.resourceUri.toString()));
-		return this.newResourceGroup(remainingResources);
-	}
-
-	private newResourceGroup(resources: Resource[]): this {
-		const SubClassConstructor = Object.getPrototypeOf(this).constructor;
-		return new SubClassConstructor(resources);
-	}
-}
-
-export class MergeGroup extends ResourceGroup {
-
-	static readonly ID = 'merge';
-
-	constructor(resources: Resource[] = []) {
-		super(MergeGroup.ID, localize('merged changes', "Merged Changes"), resources);
-	}
-}
-
-export class ConflictGroup extends ResourceGroup {
-
-	static readonly ID = 'conflict';
-
-	constructor(resources: Resource[] = []) {
-		super(ConflictGroup.ID, localize('merge conflicts', "Unresolved Conflicts"), resources);
-	}
-}
-
-export class StagingGroup extends ResourceGroup {
-
-	static readonly ID = 'staging';
-
-	constructor(resources: Resource[] = []) {
-		super(StagingGroup.ID, localize('staged changes', "Staged Changes"), resources);
-	}
-}
-
-export class UntrackedGroup extends ResourceGroup {
-
-	static readonly ID = 'untracked';
-
-	constructor(resources: Resource[] = []) {
-		super(UntrackedGroup.ID, localize('untracked files', "Untracked Files"), resources);
-	}
-}
-
-export class WorkingDirectoryGroup extends ResourceGroup {
-
-	static readonly ID = 'working';
-
-	constructor(resources: Resource[] = []) {
-		super(WorkingDirectoryGroup.ID, localize('changes', "Changes"), resources);
-	}
 }
 
 export enum Operation {
@@ -361,20 +261,12 @@ export class Model implements Disposable {
 		return anyEvent(this.onRunOperation as Event<any>, this.onDidRunOperation as Event<any>);
 	}
 
-	private _mergeGroup = new MergeGroup([]);
-	get mergeGroup(): MergeGroup { return this._mergeGroup; }
-
-	private _conflictGroup = new ConflictGroup([]);
-	get conflictGroup(): ConflictGroup { return this._conflictGroup; }
-
-	private _stagingGroup = new StagingGroup([]);
-	get stagingGroup(): StagingGroup { return this._stagingGroup; }
-
-	private _workingDirectory = new WorkingDirectoryGroup([]);
-	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._workingDirectory; }
-
-	private _untrackedGroup = new UntrackedGroup([]);
-	get untrackedGroup(): UntrackedGroup { return this._untrackedGroup; }
+	private _groups: IStatusGroups = createEmptyStatusGroups();
+	get mergeGroup(): MergeGroup { return this._groups.merge; }
+	get conflictGroup(): ConflictGroup { return this._groups.conflict; }
+	get stagingGroup(): StagingGroup { return this._groups.staging; }
+	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.workingDirectory; }
+	get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
 
 	private _parent: Branch | undefined;
 	get parent(): Branch | undefined { return this._parent; }
@@ -405,9 +297,7 @@ export class Model implements Disposable {
 		this._parent = undefined;
 		this._refs = [];
 		this._syncCounts = { incoming: 0, outgoing: 0 };
-		this._mergeGroup = new MergeGroup();
-		this._stagingGroup = new StagingGroup();
-		this._workingDirectory = new WorkingDirectoryGroup();
+		this._groups = createEmptyStatusGroups();
 		this._onDidChangeResources.fire();
 	}
 
@@ -465,7 +355,7 @@ export class Model implements Disposable {
 	@throttle
 	async add(...resources: Resource[]): Promise<void> {
 		if (resources.length === 0) {
-			resources = this._untrackedGroup.resources;
+			resources = this._groups.untracked.resources;
 		}
 		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
 		await this.run(Operation.Add, () => this.repository.add(relativePaths));
@@ -474,10 +364,10 @@ export class Model implements Disposable {
 	@throttle
 	async stage(...resources: Resource[]): Promise<void> {
 		if (resources.length === 0) {
-			resources = this._workingDirectory.resources;
+			resources = this._groups.workingDirectory.resources;
 		}
-		this._stagingGroup = this._stagingGroup.intersect(resources);
-		this._workingDirectory = this._workingDirectory.except(resources);
+		this._groups.staging = this._groups.staging.intersect(resources);
+		this._groups.workingDirectory = this._groups.workingDirectory.except(resources);
 		this._onDidChangeResources.fire();
 	}
 
@@ -501,10 +391,10 @@ export class Model implements Disposable {
 	@throttle
 	async unstage(...resources: Resource[]): Promise<void> {
 		if (resources.length === 0) {
-			resources = this._stagingGroup.resources;
+			resources = this._groups.staging.resources;
 		}
-		this._stagingGroup = this._stagingGroup.except(resources);
-		this._workingDirectory = this._workingDirectory.intersect(resources);
+		this._groups.staging = this._groups.staging.except(resources);
+		this._groups.workingDirectory = this._groups.workingDirectory.intersect(resources);
 		this._onDidChangeResources.fire();
 	}
 
@@ -770,70 +660,29 @@ export class Model implements Disposable {
 
 	// @throttle 
 	// public getLogEntries(): Promise<LogEntry[]> {
-		
+
 	// }	
 
 	@throttle
 	private async refresh(): Promise<void> {
-		const { isMerge } = await this.repository.getSummary();
-		const resolvePromise: Promise<IFileStatus[] | undefined> = isMerge ?
-			this.repository.getResolveList() :
-			Promise.resolve(undefined);
+		const repoStatus = await this.repository.getSummary();
 
-		const [statuses, branch, resolveList] = await Promise.all([this.repository.getStatus(), this.repository.getCurrentBranch(), resolvePromise])
-		this._parent = branch;
+		const [fileStatuses, currentBranch, resolveStatuses] = await Promise.all([
+			this.repository.getStatus(),
+			this.repository.getCurrentBranch(),
+			repoStatus.isMerge ? this.repository.getResolveList() : Promise.resolve(undefined),
+		]);
+		this._parent = currentBranch;
 
-		const workingDirectory: Resource[] = [];
-		const staging: Resource[] = [];
-		const conflict: Resource[] = [];
-		const merge: Resource[] = [];
-		const untracked: Resource[] = [];
-
-		const chooseResourcesAndGroup = (uriString: string, rawStatus: string, mergeStatus: MergeStatus): [Resource[], ResourceGroup, Status] => {
-			let status: Status;
-			switch (rawStatus) {
-				case 'M': status = Status.MODIFIED; break;
-				case 'A': status = Status.ADDED; break;
-				case 'R': status = Status.DELETED; break;
-				case 'C': status = Status.CONFLICT; break;
-				case 'I': status = Status.IGNORED; break;
-				case '?': status = Status.UNTRACKED; break;
-				case '!': status = Status.MISSING; break;
-				default: throw new HgError({ message: "Unknown rawStatus: " + rawStatus })
-			}
-
-			if (status === Status.IGNORED || status === Status.UNTRACKED) {
-				return [untracked, this.untrackedGroup, status]
-			}
-
-			if (isMerge) {
-				if (mergeStatus === MergeStatus.UNRESOLVED) {
-					return [conflict, this.conflictGroup, status];
-				}
-				return [merge, this.mergeGroup, status];
-			}
-
-			const isStaged = this._stagingGroup.resources.some(resource => resource.resourceUri.toString() === uriString);
-			const targetResources: Resource[] = isStaged ? staging : workingDirectory;
-			const targetGroup: ResourceGroup = isStaged ? this.stagingGroup : this.workingDirectoryGroup;
-			return [targetResources, targetGroup, status];
+		const groupInput: IGroupStatusesParams = {
+			respositoryRoot: this.repository.root,
+			fileStatuses: fileStatuses,
+			repoStatus: repoStatus,
+			resolveStatuses: resolveStatuses,
+			statusGroups: this._groups
 		};
 
-		for (let raw of statuses) {
-			const uri = Uri.file(path.join(this.repository.root, raw.path));
-			const uriString = uri.toString();
-			const renameUri = raw.rename ? Uri.file(path.join(this.repository.root, raw.rename)) : undefined;
-			const resolveFile = resolveList && resolveList.filter(res => res.path === raw.path)[0];
-			const mergeStatus = resolveFile ? toMergeStatus(resolveFile.status) : MergeStatus.NONE;
-			const [resources, group, status] = chooseResourcesAndGroup(uriString, raw.status, mergeStatus);
-			resources.push(new Resource(group, uri, status, mergeStatus));
-		}
-
-		this._conflictGroup = new ConflictGroup(conflict);
-		this._mergeGroup = new MergeGroup(merge);
-		this._stagingGroup = new StagingGroup(staging);
-		this._workingDirectory = new WorkingDirectoryGroup(workingDirectory);
-		this._untrackedGroup = new UntrackedGroup(untracked);
+		this._groups = groupStatuses(groupInput);
 		this._onDidChangeResources.fire();
 	}
 

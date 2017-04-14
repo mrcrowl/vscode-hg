@@ -7,12 +7,13 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions } from "./hg";
-import { Model, Resource, Status, CommitOptions, CommitScope, WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, MergeStatus } from "./model";
+import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import * as nls from 'vscode-nls';
+import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 
 const localize = nls.loadMessageBundle();
 
@@ -151,13 +152,24 @@ export class CommandCenter {
 
 	private getLeftResource(resource: Resource): Uri | undefined {
 		switch (resource.status) {
+			case Status.MODIFIED:
+			case Status.CONFLICT:
+				return resource.original.with({ scheme: 'hg', query: '.' });
+
+			case Status.RENAMED:
+				if (resource.renameResourceUri) {
+					return resource.original.with({ scheme: 'hg', query: '.' })
+				}
+				return undefined;
+
 			case Status.ADDED:
+			case Status.DELETED:
 			case Status.UNTRACKED:
 			case Status.IGNORED:
+			case Status.MISSING:
 				return undefined;
 
 			default:
-				return resource.original.with({ scheme: 'hg', query: '.' });
 		}
 	}
 
@@ -170,6 +182,7 @@ export class CommandCenter {
 			case Status.UNTRACKED:
 			case Status.IGNORED:
 			case Status.ADDED:
+			case Status.RENAMED:
 				return resource.resourceUri;
 		}
 	}
@@ -178,8 +191,10 @@ export class CommandCenter {
 		const basename = path.basename(resource.resourceUri.fsPath);
 
 		switch (resource.status) {
-			case Status.MODIFIED:
-				return `${basename} (Working Folder)`;
+			case Status.MODIFIED: return `${basename} (Working Folder)`;
+			case Status.RENAMED: return `${basename} (Renamed)`;
+			case Status.ADDED: return `${basename} (Working Folder)`;
+			case Status.DELETED: return `${basename} (Deleted)`;
 		}
 
 		return '';
