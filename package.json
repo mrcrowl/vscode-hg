@@ -164,6 +164,11 @@
         }
       },
       {
+        "command": "hg.forget",
+        "title": "%command.forget%",
+        "category": "Mercurial"
+      },
+      {
         "command": "hg.addAll",
         "title": "%command.addAll%",
         "category": "Mercurial"
@@ -179,8 +184,8 @@
         "category": "Mercurial"
       },
       {
-        "command": "hg.undoCommit",
-        "title": "%command.undoCommit%",
+        "command": "hg.undoRollback",
+        "title": "%command.undoRollback%",
         "category": "Mercurial"
       },
       {
@@ -281,7 +286,7 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.undoCommit",
+          "command": "hg.undoRollback",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
@@ -351,7 +356,7 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.undoCommit",
+          "command": "hg.undoRollback",
           "group": "3_commit",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
@@ -408,6 +413,16 @@
           "command": "hg.resolve",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
           "group": "inline"
+        },
+        {
+          "command": "hg.openFile",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "group": "navigation"
+        },
+        {
+          "command": "hg.openFile",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
+          "group": "navigation"
         },
         {
           "command": "hg.unresolve",
@@ -473,6 +488,16 @@
           "command": "hg.add",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
           "group": "1_modification"
+        },
+        {
+          "command": "hg.openFile",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "group": "navigation"
+        },
+        {
+          "command": "hg.forget",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "group": "2_modification"
         }
       ],
       "editor/title": [

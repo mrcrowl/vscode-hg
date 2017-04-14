@@ -151,9 +151,12 @@ export class CommandCenter {
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
+		if (resource.mergeStatus === MergeStatus.UNRESOLVED) {
+			return resource.resourceUri.with({ scheme: 'file', path: `${resource.original.path}.orig` });
+		}
+
 		switch (resource.status) {
 			case Status.MODIFIED:
-			case Status.CONFLICT:
 				return resource.original.with({ scheme: 'hg', query: '.' });
 
 			case Status.RENAMED:
@@ -317,6 +320,18 @@ export class CommandCenter {
 		}
 
 		return await this.model.add(...resources);
+	}
+
+	@command('hg.forget')
+	async forget(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		const resources = resourceStates
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
+
+		if (!resources.length) {
+			return;
+		}
+
+		return await this.model.forget(...resources);
 	}
 
 	@command('hg.stage')
@@ -567,17 +582,29 @@ export class CommandCenter {
 		await this.commitWithAnyInput({ scope: CommitScope.ALL_WITH_ADD_REMOVE });
 	}
 
-	@command('hg.undoCommit')
-	async undoCommit(): Promise<void> {
-		const HEAD = this.model.parent;
+	@command('hg.undoRollback')
+	async undoRollback(): Promise<void> {
+		try {
+			// dry-run
+			const { revision, kind, commitMessage } = await this.model.rollback(true);
 
-		if (!HEAD || !HEAD.commit) {
-			return;
+			// prompt
+			const rollback = "Rollback";
+			const message = localize('rollback', `Rollback to revision {0}? (undo {1})`, revision, kind);
+			const choice = await window.showInformationMessage(message, { modal: true }, rollback);
+
+			if (choice === rollback) {
+				await this.model.rollback();
+
+				if (kind === "commit") {
+					scm.inputBox.value = commitMessage;
+				}
+			}
+		} catch (e) {
+			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.NoRollbackInformationAvailable) {
+				await window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
+			}
 		}
-
-		const commit = await this.model.getCommit('HEAD');
-		await this.model.reset('HEAD~');
-		scm.inputBox.value = commit.message;
 	}
 
 	@command('hg.update')

@@ -6,7 +6,7 @@
 'use strict';
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose } from './util';
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -38,7 +38,6 @@ export enum Status {
 	UNTRACKED,
 	IGNORED,
 	MISSING,
-	CONFLICT,
 	RENAMED,
 }
 
@@ -49,21 +48,6 @@ export enum MergeStatus {
 }
 
 export class Resource implements SourceControlResourceState {
-
-	@memoize
-	get resourceUri(): Uri {
-		if (this.renameResourceUri) {
-			if (this._status === Status.MODIFIED ||
-				this._status === Status.RENAMED ||
-				this._status === Status.ADDED) {
-				return this.renameResourceUri;
-			}
-
-			throw new Error(`Renamed resource with unexpected status: ${this._status}`);
-		}
-		return this._resourceUri;
-	}
-
 	@memoize
 	get command(): Command {
 		return {
@@ -80,7 +64,6 @@ export class Resource implements SourceControlResourceState {
 				return false;
 
 			case Status.ADDED:
-			case Status.CONFLICT:
 			case Status.DELETED:
 			case Status.MISSING:
 			case Status.MODIFIED:
@@ -89,11 +72,25 @@ export class Resource implements SourceControlResourceState {
 				return true;
 		}
 	}
+
+	get original(): Uri { return this._resourceUri; }
+	get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
+	@memoize
+	get resourceUri(): Uri {
+		if (this.renameResourceUri) {
+			if (this._status === Status.MODIFIED ||
+				this._status === Status.RENAMED ||
+				this._status === Status.ADDED) {
+				return this.renameResourceUri;
+			}
+
+			throw new Error(`Renamed resource with unexpected status: ${this._status}`);
+		}
+		return this._resourceUri;
+	}
 	get resourceGroup(): ResourceGroup { return this._resourceGroup; }
 	get status(): Status { return this._status; }
-	get original(): Uri { return this._resourceUri; }
 	get mergeStatus(): MergeStatus { return this._mergeStatus; }
-	get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
 
 	private static Icons = {
 		light: {
@@ -170,7 +167,7 @@ export enum Operation {
 	Clean = 1 << 4,
 	Branch = 1 << 5,
 	Update = 1 << 6,
-	Reset = 1 << 7,
+	Rollback = 1 << 7,
 	CountIncoming = 1 << 8,
 	Pull = 1 << 9,
 	Push = 1 << 10,
@@ -183,6 +180,7 @@ export enum Operation {
 	Resolve = 1 << 17,
 	Unresolve = 1 << 18,
 	Parents = 1 << 19,
+	Forget = 1 << 20,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -362,6 +360,12 @@ export class Model implements Disposable {
 	}
 
 	@throttle
+	async forget(...resources: Resource[]): Promise<void> {
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		await this.run(Operation.Forget, () => this.repository.forget(relativePaths));
+	}
+
+	@throttle
 	async stage(...resources: Resource[]): Promise<void> {
 		if (resources.length === 0) {
 			resources = this._groups.workingDirectory.resources;
@@ -481,8 +485,11 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async reset(treeish: string, hard?: boolean): Promise<void> {
-		await this.run(Operation.Reset, () => this.repository.reset(treeish, hard));
+	async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
+		return await this.run(Operation.Rollback, async () => {
+			const details = await this.repository.rollback(dryRun);
+			return details;
+		});
 	}
 
 	async countIncomingOutgoing() {

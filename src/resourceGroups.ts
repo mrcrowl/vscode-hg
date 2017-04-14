@@ -142,7 +142,6 @@ export function groupStatuses(this: void, {
 		switch (rawStatus) {
 			case 'M': status = Status.MODIFIED; break;
 			case 'R': status = Status.DELETED; break;
-			case 'C': status = Status.CONFLICT; break;
 			case 'I': status = Status.IGNORED; break;
 			case '?': status = Status.UNTRACKED; break;
 			case '!': status = Status.MISSING; break;

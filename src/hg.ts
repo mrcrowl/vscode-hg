@@ -214,6 +214,12 @@ export interface IHgErrorData {
 	hgCommand?: string;
 }
 
+export class HgRollbackDetails {
+	revision: number;
+	kind: string;
+	commitMessage: string;
+}
+
 export class HgError {
 
 	error?: Error;
@@ -286,6 +292,7 @@ export const HgErrorCodes = {
 	RepositoryNotFound: 'RepositoryNotFound',
 	NoSuchFile: 'NoSuchFile',
 	BranchAlreadyExists: 'BranchAlreadyExists',
+	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 };
 
 export class Hg {
@@ -677,16 +684,49 @@ export class Repository {
 		}
 	}
 
-	async reset(treeish: string, hard: boolean = false): Promise<void> {
-		const args = ['reset'];
+	async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
+		const args = ['rollback'];
 
-		if (hard) {
-			args.push('--hard');
+		if (dryRun) {
+			args.push('--dry-run');
 		}
 
-		args.push(treeish);
+		try {
+			const result = await this.run(args);
+			if (dryRun) {
+				const match = /back to revision (\d+) \(undo (.*)\)/.exec(result.stdout);
+				if (!match) {
+					throw new HgError({
+						message: `Unexpected rollback result: ${JSON.stringify(result.stdout)}`,
+						stdout: result.stdout,
+						stderr: result.stderr,
+						exitCode: result.exitCode,
+						hgCommand: "rollback"
+					})
+				}
+				const [_, revision, kind] = match;
+				let commitMessage: string = "";
+				if (kind === "commit") {
+					try {
+						commitMessage = await this.getLastCommitMessage();
+					} catch (e) {
+						// no-op
+					}
+				}
+				return {
+					revision: parseInt(revision),
+					commitMessage,
+					kind,
+				};
+			}
 
-		await this.run(args);
+			return { revision: NaN, kind: "", commitMessage: "" };
+		} catch (error) {
+			if (error instanceof HgError && /no rollback information available/.test(error.stderr || '')) {
+				error.hgErrorCode = HgErrorCodes.NoRollbackInformationAvailable;
+			}
+			throw error;
+		}
 	}
 
 	async revertFiles(treeish: string, paths: string[]): Promise<void> {
@@ -833,6 +873,11 @@ export class Repository {
 		}
 
 		return { isMerge: false };
+	}
+
+	async getLastCommitMessage(): Promise<string> {
+		const { stdout: message } = await this.run(['log', '-r', '.', '-T', '{desc}']);
+		return message;
 	}
 
 	async getResolveList(): Promise<IFileStatus[]> {
