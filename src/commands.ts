@@ -169,13 +169,11 @@ export class CommandCenter {
 				return undefined;
 
 			case Status.ADDED:
-			case Status.DELETED:
-			case Status.UNTRACKED:
 			case Status.IGNORED:
+			case Status.DELETED:
 			case Status.MISSING:
+			case Status.UNTRACKED:
 				return undefined;
-
-			default:
 		}
 	}
 
@@ -184,23 +182,32 @@ export class CommandCenter {
 			case Status.DELETED:
 				return resource.resourceUri.with({ scheme: 'hg', query: '.' });
 
-			case Status.MODIFIED:
-			case Status.UNTRACKED:
-			case Status.IGNORED:
 			case Status.ADDED:
+			case Status.IGNORED:
+			case Status.MISSING:	
+			case Status.MODIFIED:
 			case Status.RENAMED:
+			case Status.UNTRACKED:
 				return resource.resourceUri;
 		}
 	}
 
 	private getTitle(resource: Resource): string {
 		const basename = path.basename(resource.resourceUri.fsPath);
+		if (resource.mergeStatus === MergeStatus.UNRESOLVED) {
+			return `${basename} (Merge)`
+		}
 
 		switch (resource.status) {
-			case Status.MODIFIED: return `${basename} (Working Folder)`;
-			case Status.RENAMED: return `${basename} (Renamed)`;
-			case Status.ADDED: return `${basename} (Working Folder)`;
-			case Status.DELETED: return `${basename} (Deleted)`;
+			case Status.MODIFIED:
+			case Status.ADDED:
+				return `${basename} (Working Directory)`;
+
+			case Status.RENAMED:
+				return `${basename} (Renamed)`;
+
+			case Status.DELETED:
+				return `${basename} (Deleted)`;
 		}
 
 		return '';
