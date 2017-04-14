@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
 import { Disposable, Command, EventEmitter, Event } from 'vscode';
 import { RefType, Branch } from './hg';
 import { Model, Operation } from './model';

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
+
 
 import { window, workspace, Disposable, TextEditor, TextDocument, Range } from 'vscode';
 import { Model, Status } from './model';

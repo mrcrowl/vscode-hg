@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
 import { workspace, Disposable } from 'vscode';
 import { HgErrorCodes } from './hg';
 import { Model } from './model';
