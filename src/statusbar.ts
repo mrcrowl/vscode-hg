@@ -22,15 +22,16 @@ class BranchStatusBar {
 	}
 
 	get command(): Command | undefined {
-		const branch = this.model.parent;
+		const { currentBranch: branch, repoStatus } = this.model;
 
 		if (!branch) {
 			return undefined;
 		}
 
-		const branchName = branch.name || (branch.commit || '').substr(0, 8);
-		const title = '$(hg-branch) '
-			+ branchName
+		const icon = repoStatus && repoStatus.isMerge ? '$(git-merge) ': '$(git-branch) '
+
+		const title = icon
+			+ branch.name
 			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '')
 			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
@@ -93,7 +94,7 @@ class SyncStatusBar {
 		this.state = {
 			...this.state,
 			hasPaths: this.model.paths.length > 0,
-			branch: this.model.parent,
+			branch: this.model.currentBranch,
 			syncCounts: this.model.syncCounts
 		};
 	}
@@ -104,7 +105,7 @@ class SyncStatusBar {
 		}
 
 		const branch = this.state.branch;
-		let icon = '$(sync) $(check)';
+		let icon = '$(sync)';
 		let text = '';
 		let command = '';
 		let tooltip = 'Sync is up to date';

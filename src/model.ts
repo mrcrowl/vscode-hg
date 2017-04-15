@@ -6,7 +6,7 @@
 
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -233,7 +233,6 @@ export interface CommitOptions {
 }
 
 export class Model implements Disposable {
-
 	private _onDidChangeRepository = new EventEmitter<Uri>();
 	readonly onDidChangeRepository: Event<Uri> = this._onDidChangeRepository.event;
 
@@ -266,8 +265,11 @@ export class Model implements Disposable {
 	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.workingDirectory; }
 	get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
 
-	private _parent: Branch | undefined;
-	get parent(): Branch | undefined { return this._parent; }
+	private _currentBranch	: Branch | undefined;
+	get currentBranch(): Branch | undefined { return this._currentBranch; }
+
+	private _repoStatus: IRepoStatus | undefined;
+	get repoStatus(): IRepoStatus | undefined { return this._repoStatus; }
 
 	private _refs: Ref[] = [];
 	get refs(): Ref[] { return this._refs; }
@@ -292,7 +294,7 @@ export class Model implements Disposable {
 		this._state = state;
 		this._onDidChangeState.fire(state);
 
-		this._parent = undefined;
+		this._currentBranch = undefined;
 		this._refs = [];
 		this._syncCounts = { incoming: 0, outgoing: 0 };
 		this._groups = createEmptyStatusGroups();
@@ -702,19 +704,19 @@ export class Model implements Disposable {
 
 	@throttle
 	private async refresh(): Promise<void> {
-		const repoStatus = await this.repository.getSummary();
+		this._repoStatus = await this.repository.getSummary();
 
 		const [fileStatuses, currentBranch, resolveStatuses] = await Promise.all([
 			this.repository.getStatus(),
 			this.repository.getCurrentBranch(),
-			repoStatus.isMerge ? this.repository.getResolveList() : Promise.resolve(undefined),
+			this._repoStatus.isMerge ? this.repository.getResolveList() : Promise.resolve(undefined),
 		]);
-		this._parent = currentBranch;
+		this._currentBranch = currentBranch;
 
 		const groupInput: IGroupStatusesParams = {
 			respositoryRoot: this.repository.root,
 			fileStatuses: fileStatuses,
-			repoStatus: repoStatus,
+			repoStatus: this._repoStatus,
 			resolveStatuses: resolveStatuses,
 			statusGroups: this._groups
 		};
