@@ -214,6 +214,16 @@
         "category": "Mercurial"
       },
       {
+        "command": "hg.mergeHeads",
+        "title": "%command.mergeHeads%",
+        "category": "Mercurial"
+      },
+      {
+        "command": "hg.mergeWithLocal",
+        "title": "%command.mergeWithLocal%",
+        "category": "Mercurial"
+      },
+      {
         "command": "hg.showOutput",
         "title": "%command.showOutput%",
         "category": "Mercurial"
@@ -310,6 +320,14 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
+          "command": "hg.mergeHeads",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.mergeWithLocal",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
           "command": "hg.showOutput",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         }
@@ -371,8 +389,18 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
+          "command": "hg.mergeHeads",
+          "group": "5_merge",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.mergeWithLocal",
+          "group": "5_merge",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
           "command": "hg.showOutput",
-          "group": "5_output",
+          "group": "6_output",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         }
       ],

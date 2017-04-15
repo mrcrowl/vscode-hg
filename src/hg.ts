@@ -25,6 +25,10 @@ export interface PushOptions {
 	allowPushNewBranches?: boolean;
 }
 
+export interface IMergeResult {
+	unresolvedCount: number;
+}
+
 export interface IRepoStatus {
 	isMerge: boolean;
 }
@@ -387,7 +391,7 @@ export class Hg {
 		const startTimeHR = process.hrtime();
 
 		let result: IExecutionResult;
-		if (this.server) {
+		if (this.server && options.commandMode !== 'cmdline') {
 			result = await this.runServerCommand(this.server, args, options);
 		} else {
 			const child = this.spawn(args, options);
@@ -599,7 +603,7 @@ export class Repository {
 		await this.run(['update-index', '--cacheinfo', '100644', stdout, path]);
 	}
 
-	async update(treeish: string, paths: string[], opts?: { discard: boolean }): Promise<void> {
+	async update(treeish: string, opts?: { discard: boolean }): Promise<void> {
 		const args = ['update', '-q'];
 
 		if (treeish) {
@@ -878,6 +882,26 @@ export class Repository {
 		}
 	}
 
+	async merge(revQuery): Promise<IMergeResult> {
+		try {
+			await this.run(['merge', '-r', revQuery, '-t', 'internal:merge', '--config', 'ui.interactive=False'], { commandMode: "cmdline" });
+			return {
+				unresolvedCount: 0
+			}
+		}
+		catch (e) {
+			if (e instanceof HgError && e.exitCode === 1) {
+				const match = (e.stdout || "").match(/(\d+) files unresolved/);
+				if (match) {
+					return {
+						unresolvedCount: parseInt(match[1])
+					}
+				}
+			}
+			throw e;
+		}
+	}
+
 	async getSummary(): Promise<IRepoStatus> {
 		const summaryResult = await this.run(['summary', '-q']);
 		const summary = summaryResult.stdout;
@@ -978,8 +1002,12 @@ export class Repository {
 		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
-	async getLogResults(revQuery: string): Promise<Commit[]> {
-		const result = await this.run(['log', '-r', revQuery, '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`]);
+	async getLogResults(revQuery: string, branch?: string): Promise<Commit[]> {
+		const args = ['log', '-r', revQuery, '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`];
+		if (branch) {
+			args.push('-b', branch)
+		}
+		const result = await this.run(args);
 		const parents = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
@@ -990,7 +1018,6 @@ export class Repository {
 				return null;
 			})
 			.filter(ref => !!ref) as Commit[];
-
 		return parents;
 	}
 
@@ -998,8 +1025,9 @@ export class Repository {
 		return this.getLogResults('parents()');
 	}
 
-	async getHeads(): Promise<Commit[]> {
-		return this.getLogResults('head()');
+	async getHeads(branch?: string, excludeSelf?: boolean): Promise<Commit[]> {
+		const revQuery = excludeSelf ? 'head() - .' : 'head()';
+		return this.getLogResults(revQuery, branch);
 	}
 
 	async getTags(): Promise<Ref[]> {

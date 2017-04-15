@@ -118,7 +118,9 @@ export class Resource implements SourceControlResourceState {
 	};
 
 	private getIconPath(theme: string): Uri | undefined {
-		if (this.mergeStatus === MergeStatus.UNRESOLVED) {
+		if (this.mergeStatus === MergeStatus.UNRESOLVED &&
+			this.status !== Status.MISSING &&
+			this.status !== Status.DELETED) { 
 			return Resource.Icons[theme].Conflict;
 		}
 
@@ -181,6 +183,7 @@ export enum Operation {
 	Unresolve = 1 << 18,
 	Parents = 1 << 19,
 	Forget = 1 << 20,
+	Merge = 1 << 21,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -265,7 +268,7 @@ export class Model implements Disposable {
 	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.workingDirectory; }
 	get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
 
-	private _currentBranch	: Branch | undefined;
+	private _currentBranch: Branch | undefined;
 	get currentBranch(): Branch | undefined { return this._currentBranch; }
 
 	private _repoStatus: IRepoStatus | undefined;
@@ -285,6 +288,11 @@ export class Model implements Disposable {
 
 	private _numOutgoing: number;
 	get numOutgoingCommits(): number { return this._numOutgoing; }
+
+	get isClean() {
+		const groups = [this.workingDirectoryGroup, this.mergeGroup, this.conflictGroup, this.stagingGroup];
+		return groups.every(g => g.resources.length === 0);
+	}
 
 	private repository: Repository;
 
@@ -422,6 +430,15 @@ export class Model implements Disposable {
 		});
 	}
 
+	async cleanOrUpdate(...resources) {
+		const parents = await this.getParents();
+		if (parents.length > 1) {
+			return this.update(".", { discard: true });
+		}
+
+		return this.clean(...resources);
+	}
+
 	@throttle
 	async clean(...resources: Resource[]): Promise<void> {
 		await this.run(Operation.Clean, async () => {
@@ -471,7 +488,7 @@ export class Model implements Disposable {
 
 	@throttle
 	async update(treeish: string, opts?: { discard: boolean }): Promise<void> {
-		await this.run(Operation.Update, () => this.repository.update(treeish, [], opts));
+		await this.run(Operation.Update, () => this.repository.update(treeish, opts));
 	}
 
 	@throttle
@@ -566,6 +583,11 @@ export class Model implements Disposable {
 
 			throw e;
 		}
+	}
+
+	@throttle
+	merge(revQuery) {
+		return this.run(Operation.Merge, () => this.repository.merge(revQuery));
 	}
 
 	async show(ref: string, uri: Uri): Promise<string> {
@@ -684,23 +706,18 @@ export class Model implements Disposable {
 		const headsPerBranch = groupBy(allHeads, h => h.branch)
 		for (const branch in headsPerBranch) {
 			const branchHeads = headsPerBranch[branch];
-			if (branchHeads.length > 1)
-			{
+			if (branchHeads.length > 1) {
 				multiHeadBranches.push(branch);
-			}	
+			}
 		}
 		return multiHeadBranches;
 	}
 
 	@throttle
-	public getHeads(): Promise<Commit[]> {
-		return this.repository.getHeads();
+	public getHeads(options: { branch?: string; excludeSelf?: boolean } = {}): Promise<Commit[]> {
+		const { branch, excludeSelf } = options;
+		return this.repository.getHeads(branch, excludeSelf);
 	}
-
-	// @throttle 
-	// public getLogEntries(): Promise<LogEntry[]> {
-
-	// }	
 
 	@throttle
 	private async refresh(): Promise<void> {

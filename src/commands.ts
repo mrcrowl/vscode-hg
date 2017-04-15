@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
 import * as staging from './staging';
 import * as path from 'path';
@@ -14,10 +14,36 @@ import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, Confli
 
 const localize = nls.loadMessageBundle();
 
+const SHORT_HASH_LENGTH = 12;
+
+class CommitItem {
+	constructor(protected commit: Commit) { }
+	get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
+	get label() { return this.commit.branch; }
+	get detail() { return `${this.commit.revision} (${this.shortHash})`; }
+	get description() { return this.commit.message; }
+}
+
+class MergeCommitItem extends CommitItem {
+	constructor(commit: Commit) { super(commit); }
+	async run(model): Promise<IMergeResult> {
+		return await model.merge(this.commit.hash);
+	}
+}
+
+class UpdateCommitItem extends CommitItem {
+	constructor(commit: Commit, private opts?: { discard: boolean }) {
+		super(commit);
+	}
+	async run(model: Model) {
+		await model.update(this.commit.hash, this.opts);
+	}
+}
+
 class UpdateRefItem implements QuickPickItem {
-	protected get shortCommit(): string { return (this.ref.commit || '').substr(0, 8); }
+	protected get shortCommit(): string { return (this.ref.commit || '').substr(0, SHORT_HASH_LENGTH); }
 	protected get treeish(): string | undefined { return this.ref.name; }
-	protected get icon(): string { return this.ref.type === RefType.Branch ? '' : '$(tag) ' }
+	protected get icon(): string { return '' }
 	get label(): string { return `${this.icon}${this.ref.name || this.shortCommit}`; }
 	get description(): string { return this.shortCommit; }
 
@@ -34,42 +60,10 @@ class UpdateRefItem implements QuickPickItem {
 	}
 }
 
-const SHORT_HASH_LENGTH = 12;
-
-class UpdateCommitItem implements QuickPickItem {
-
-	protected get shortHash(): string { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
-	get label(): string { return this.commit.branch; }
-	get detail(): string { return `${this.commit.revision} (${this.shortHash})`; }
-	get description(): string { return this.commit.message; }
-
-	constructor(protected commit: Commit, private opts: { discard: boolean }) { }
-
-	async run(model: Model): Promise<void> {
-		await model.update(this.commit.hash, this.opts);
-	}
-}
-
 class UpdateTagItem extends UpdateRefItem {
-
+	protected get icon(): string { return '$(tag) ' }
 	get description(): string {
 		return localize('tag at', "Tag at {0}", this.shortCommit);
-	}
-}
-
-class CheckoutRemoteHeadItem extends UpdateRefItem {
-
-	get description(): string {
-		return localize('remote branch at', "Remote branch at {0}", this.shortCommit);
-	}
-
-	protected get treeish(): string | undefined {
-		if (!this.ref.name) {
-			return;
-		}
-
-		const match = /^[^/]+\/(.*)$/.exec(this.ref.name);
-		return match ? match[1] : this.ref.name;
 	}
 }
 
@@ -150,7 +144,9 @@ export class CommandCenter {
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
-		if (resource.mergeStatus === MergeStatus.UNRESOLVED) {
+		if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
+			resource.status !== Status.MISSING &&
+			resource.status !== Status.DELETED) {
 			return resource.resourceUri.with({ scheme: 'file', path: `${resource.original.path}.orig` });
 		}
 
@@ -457,22 +453,11 @@ export class CommandCenter {
 			}
 		}
 
-		await this.model.clean(...resources);
+		await this.model.cleanOrUpdate(...resources);
 	}
 
 	@command('hg.cleanAll')
 	async cleanAll(): Promise<void> {
-		const parents = await this.model.getParents();
-		if (parents.length > 1) {
-			const placeHolder = localize('clean 2 parents', "Choose parent to update to:")
-			const picks = parents.map(p => new UpdateCommitItem(p, { discard: true }));
-			const choice = await window.showQuickPick(picks, { placeHolder });
-			if (choice) {
-				await choice.run(this.model);
-			}
-			return;
-		}
-
 		const message = localize('confirm discard all', "Are you sure you want to discard ALL changes?");
 		const yes = localize('discard', "Discard Changes");
 		const pick = await window.showWarningMessage(message, { modal: true }, yes);
@@ -482,7 +467,7 @@ export class CommandCenter {
 		}
 
 		const resources = this.model.workingDirectoryGroup.resources;
-		await this.model.clean(...resources);
+		await this.model.cleanOrUpdate(...resources);
 	}
 
 	private async smartCommit(getCommitMessage: () => Promise<string>, opts?: CommitOptions): Promise<boolean> {
@@ -580,6 +565,10 @@ export class CommandCenter {
 		await this.commitWithAnyInput({ scope: CommitScope.ALL_WITH_ADD_REMOVE });
 	}
 
+	private focusScm() {
+		commands.executeCommand("workbench.view.scm");
+	}
+
 	@command('hg.undoRollback')
 	async undoRollback(): Promise<void> {
 		try {
@@ -596,7 +585,7 @@ export class CommandCenter {
 
 				if (kind === "commit") {
 					scm.inputBox.value = commitMessage;
-					commands.executeCommand("workbench.view.scm");
+					this.focusScm();
 				}
 			}
 		} catch (e) {
@@ -608,6 +597,10 @@ export class CommandCenter {
 
 	@command('hg.update')
 	async update(): Promise<void> {
+		if (!this.model.isClean) {
+			await window.showErrorMessage(localize('not clean', "There are uncommited changes in your working directory. Use Discard All Changes to abandon merge."));
+			return this.focusScm();
+		}
 		const config = workspace.getConfiguration('hg');
 		const checkoutType = config.get<string>('updateType') || 'all';
 		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
@@ -679,6 +672,61 @@ export class CommandCenter {
 		return allowPushNewBranches ?
 			{ allowPushNewBranches: true } :
 			undefined;
+	}
+
+	@command('hg.mergeWithLocal')
+	async mergeWithLocal() {
+	}
+
+	@command('hg.mergeHeads')
+	async mergeHeads() {
+		if (!this.model.isClean) {
+			await window.showErrorMessage(localize('not clean', "There are uncommited changes in your working directory. Use Discard All Changes to abandon merge."));
+			return this.focusScm();
+		}
+
+		const { repoStatus, currentBranch } = this.model;
+		if (repoStatus && repoStatus.isMerge) {
+			await window.showWarningMessage(localize('outstanding merge', "There is an outstanding merge in your working directory."));
+			return this.focusScm();
+		}
+
+		if (!currentBranch) {
+			return;
+		}
+
+		const otherBranchHeads = await this.model.getHeads({ branch: currentBranch.name, excludeSelf: true });
+		if (otherBranchHeads.length === 0) {
+			// 1 head
+			window.showWarningMessage(localize('only one head', "There is only 1 head for branch '{0}'. Nothing to merge.", currentBranch.name));
+			return;
+		}
+		else if (otherBranchHeads.length === 1) {
+			// 2 heads
+			const [otherHead] = otherBranchHeads;
+			const mergeResult = await this.model.merge(otherHead.hash);
+			this.afterMerge(mergeResult);
+			return;
+		}
+		else { 
+			// 3+ heads
+			const heads = otherBranchHeads.map(head => new MergeCommitItem(head));
+			const placeHolder = `Branch '${currentBranch.name} has ${otherBranchHeads.length + 1} heads. Choose which to merge:`;
+			const choice = await window.showQuickPick(heads, { placeHolder });
+			if (!choice) {
+				return;
+			}
+			const mergeResult = await choice.run(this.model);
+			this.afterMerge(mergeResult);
+			return;
+		}
+	}
+
+	private async afterMerge({ unresolvedCount }: IMergeResult) {
+		if (unresolvedCount > 0) {
+			const fileOrFiles = unresolvedCount === 1 ? localize('file', 'file') : localize('files', 'files');
+			window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
+		}
 	}
 
 	@command('hg.push')
@@ -772,7 +820,7 @@ export class CommandCenter {
 				if (choice === openOutputChannelChoice) {
 					this.outputChannel.show();
 				} else {
-					commands.executeCommand("workbench.view.scm");
+					this.focusScm();
 				}
 			});
 		};

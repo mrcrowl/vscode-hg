@@ -18,7 +18,7 @@ export function defer<T>(): Deferred<T> {
 }
 
 const defaults = {
-    hgOpts: ['serve', '--cmdserver', 'pipe', '-R', 'c:/wf/lp/web']
+    hgOpts: ['serve', '--cmdserver', 'pipe']
 };
 
 export interface IExecutionResult {
@@ -51,7 +51,7 @@ export class HgCommandServer {
 
     public static async start(hgPath: string, repository: string) {
         const config = {
-            hgOpts: ['--config', 'ui.interactive=True', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
+            hgOpts: ['--config', 'ui.interactive=False', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
         };
         const commandServer = new HgCommandServer(config);
         return await commandServer.start(hgPath);
