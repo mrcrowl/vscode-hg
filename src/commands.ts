@@ -15,10 +15,10 @@ import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, Confli
 const localize = nls.loadMessageBundle();
 
 class UpdateRefItem implements QuickPickItem {
-
 	protected get shortCommit(): string { return (this.ref.commit || '').substr(0, 8); }
 	protected get treeish(): string | undefined { return this.ref.name; }
-	get label(): string { return this.ref.name || this.shortCommit; }
+	protected get icon(): string { return this.ref.type === RefType.Branch ? '' : '$(tag) ' }
+	get label(): string { return `${this.icon}${this.ref.name || this.shortCommit}`; }
 	get description(): string { return this.shortCommit; }
 
 	constructor(protected ref: Ref) { }
