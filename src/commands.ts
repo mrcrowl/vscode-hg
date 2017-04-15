@@ -9,7 +9,6 @@ import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from
 import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
-import TelemetryReporter from 'vscode-extension-telemetry';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 
@@ -101,8 +100,7 @@ export class CommandCenter {
 	constructor(
 		private hg: Hg,
 		model: Model | undefined,
-		private outputChannel: OutputChannel,
-		private telemetryReporter: TelemetryReporter
+		private outputChannel: OutputChannel
 	) {
 		if (model) {
 			this.model = model;
@@ -219,7 +217,6 @@ export class CommandCenter {
 		});
 
 		if (!url) {
-			this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'no_URL' });
 			return;
 		}
 
@@ -230,7 +227,6 @@ export class CommandCenter {
 		});
 
 		if (!parentPath) {
-			this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'no_directory' });
 			return;
 		}
 
@@ -244,16 +240,10 @@ export class CommandCenter {
 			const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
 
 			const openFolder = result === open;
-			this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'success' }, { openFolder: openFolder ? 1 : 0 });
 			if (openFolder) {
 				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 			}
 		} catch (err) {
-			if (/already exists and is not an empty directory/.test(err && err.stderr || '')) {
-				this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'directory_not_empty' });
-			} else {
-				this.telemetryReporter.sendTelemetryEvent('clone', { outcome: 'error' });
-			}
 			throw err;
 		}
 	}
@@ -745,8 +735,6 @@ export class CommandCenter {
 				window.showInformationMessage(localize('disabled', "Hg is either disabled or not supported in this workspace"));
 				return;
 			}
-
-			this.telemetryReporter.sendTelemetryEvent('hg.command', { command: id });
 
 			const result = Promise.resolve(method.apply(this, args));
 

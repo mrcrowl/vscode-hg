@@ -14,15 +14,12 @@ import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
 import { AutoIncomingOutgoing } from './autoinout';
 import { MergeDecorator } from './merge';
-import TelemetryReporter from 'vscode-extension-telemetry';
 import * as nls from 'vscode-nls';
 
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
 
 async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
 	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string, version: string, aiKey: string };
-	const telemetryReporter: TelemetryReporter = new TelemetryReporter(name, version, aiKey);
-	disposables.push(telemetryReporter);
 
 	const outputChannel = window.createOutputChannel('Hg');
 	disposables.push(outputChannel);
@@ -37,7 +34,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
 	
 	if (!workspaceRootPath || !enabled) {
-		const commandCenter = new CommandCenter(hg, undefined, outputChannel, telemetryReporter);
+		const commandCenter = new CommandCenter(hg, undefined, outputChannel);
 		disposables.push(commandCenter);
 		return;
 	}
@@ -47,7 +44,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
 
-	const commandCenter = new CommandCenter(hg, model, outputChannel, telemetryReporter);
+	const commandCenter = new CommandCenter(hg, model, outputChannel);
 	const statusBarCommands = new StatusBarCommands(model);
 	const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
 	const contentProvider = new HgContentProvider(model);
