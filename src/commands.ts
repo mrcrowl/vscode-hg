@@ -6,13 +6,11 @@
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
-import * as staging from './staging';
 import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { warnOutstandingMerge, warnUnclean, WarnScenario } from "./warnings";
-import { ago } from 's-ago';
 import { humanise } from "./humanise";
 
 const localize = nls.loadMessageBundle();

@@ -740,7 +740,8 @@ export class Model implements Disposable {
 
 	@throttle
 	public chooseLogAction(commit: Commit) {
-		window.showInformationMessage(`You picked #${commit.revision}`)
+		// window.showInformationMessage(`You picked #${commit.revision}`)
+		
 	}
 
 	@throttle
