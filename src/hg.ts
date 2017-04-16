@@ -21,6 +21,13 @@ export interface IHg {
 	version: string;
 }
 
+export interface LogEntryOptions {
+	revQuery?: string;
+	branch?: string;
+	filePaths?: string[];
+	follow?: boolean;
+}
+
 export interface PushOptions {
 	allowPushNewBranches?: boolean;
 }
@@ -478,6 +485,8 @@ export interface Commit {
 	hash: string;
 	branch: string;
 	message: string;
+	author: string;
+	date: Date;
 }
 
 export class Repository {
@@ -1008,32 +1017,51 @@ export class Repository {
 		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
-	async getLogResults(revQuery: string, branch?: string): Promise<Commit[]> {
-		const args = ['log', '-r', revQuery, '-T', `{rev}:{node}:{branch}:{sub('[\n\r]+',' ',desc)}\n`];
-		if (branch) {
-			args.push('-b', branch)
+	async getLogEntries({ revQuery, branch, filePaths, follow }: LogEntryOptions = {}): Promise<Commit[]> {
+		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|user}:{branch}:{sub('[\n\r]+',' ',desc)}\n`;
+		const args = ['log', '-T', templateFormat]
+
+		if (revQuery) {
+			args.push('-r', revQuery);
 		}
+
+		if (branch) {
+			args.push('-b', branch);
+		}
+
+		if (follow)
+		{
+			args.push('-f');
+		}	
+
+		if (filePaths) {
+			args.push(...filePaths);
+		}
+
 		const result = await this.run(args);
-		const parents = result.stdout.trim().split('\n')
+		const logEntries = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
-				let match = line.match(/^(\d+):([^:]+):([^:]+):(.*)/);
-				if (match) {
-					return { revision: parseInt(match[1]), hash: match[2], branch: match[3], message: match[4] };
+				const [revision, hash, hgDate, author, branch, message] = line.split(":", 6);
+				const [unixDateSeconds, _] = hgDate.split(' ').map(part => parseFloat(part));
+				return {
+					revision: parseInt(revision),
+					date: new Date(unixDateSeconds * 1e3),
+					hash, branch, message, author
 				}
-				return null;
 			})
 			.filter(ref => !!ref) as Commit[];
-		return parents;
+		return logEntries;
 	}
 
 	async getParents(): Promise<Commit[]> {
-		return this.getLogResults('parents()');
+		return this.getLogEntries({ revQuery: 'parents()' });
 	}
 
 	async getHeads(branch?: string, excludeSelf?: boolean): Promise<Commit[]> {
 		const revQuery = excludeSelf ? 'head() - .' : 'head()';
-		return this.getLogResults(revQuery, branch);
+		return this.getLogEntries({ revQuery, branch });
 	}
 
 	async getTags(): Promise<Ref[]> {

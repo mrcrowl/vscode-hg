@@ -12,12 +12,14 @@ import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { warnOutstandingMerge, warnUnclean, WarnScenario } from "./warnings";
+import { ago } from 's-ago';
+import { humanise } from "./humanise";
 
 const localize = nls.loadMessageBundle();
 
 const SHORT_HASH_LENGTH = 12;
 
-class CommitItem {
+class CommitItem implements QuickPickItem {
 	constructor(protected commit: Commit) { }
 	get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
 	get label() { return this.commit.branch; }
@@ -39,6 +41,24 @@ class UpdateCommitItem extends CommitItem {
 	async run(model: Model) {
 		await model.update(this.commit.hash, this.opts);
 	}
+}
+
+class LogEntryItem extends CommitItem {
+	get description() {
+		return ``;
+	}
+	get label() { return this.commit.message; }
+	get detail() {
+		const branch = this.commit.branch === 'default' ? '' : `$(git-branch) ${this.commit.branch}: `;
+		return `${branch} #${this.commit.revision} ${this.commit.author} ${this.age}`;
+	}
+	protected get age(): string {
+		return humanise.ageFromNow(this.commit.date);
+	}
+	async run(model: Model) {
+		await model.chooseLogAction(this.commit);
+	}
+
 }
 
 class UpdateRefItem implements QuickPickItem {
@@ -241,7 +261,7 @@ export class CommandCenter {
 				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 			}
 		}
-catch (err) {
+		catch (err) {
 			throw err;
 		}
 	}
@@ -592,7 +612,7 @@ catch (err) {
 				}
 			}
 		}
-catch (e) {
+		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.NoRollbackInformationAvailable) {
 				await window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
 			}
@@ -647,7 +667,7 @@ catch (e) {
 		try {
 			await this.model.branch(name);
 		}
-catch (e) {
+		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.BranchAlreadyExists) {
 				const updateTo = "Update";
 				const reopen = "Re-open";
@@ -797,6 +817,32 @@ catch (e) {
 	@command('hg.showOutput')
 	showOutput(): void {
 		this.outputChannel.show();
+	}
+
+	@command('hg.fileLog')
+	async fileLog(uri?: Uri) {
+		if (!uri) {
+			if (window.activeTextEditor) {
+				uri = window.activeTextEditor.document.uri;
+			}
+
+			if (!uri || uri.scheme !== 'file') {
+				return;
+			}
+		}
+
+		const logEntries = await this.model.getLogEntries(uri);
+		const quickPickItems = logEntries.map(le => new LogEntryItem(le));
+		const choice = await window.showQuickPick<LogEntryItem>(quickPickItems, {
+			matchOnDescription: true,
+			matchOnDetail: true,
+			placeHolder: localize('file history', "File History"),
+			onDidSelectItem: (x) => console.log(x)
+		});
+
+		if (choice) {
+			choice.run(this.model);
+		}
 	}
 
 	private createCommand(id: string, key: string, method: Function, skipModelCheck: boolean): (...args: any[]) => any {

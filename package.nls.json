@@ -25,6 +25,8 @@
 	"command.resolve": "Mark Resolved",
 	"command.unresolve": "Mark Unresolved",
 	"command.showOutput": "Show Mercurial Output",
+	"command.fileLog": "Show file history...",
+	"command.log": "Show history...",
 	"config.enabled": "Whether mercurial is enabled",
 	"config.path": "Path to the mercurial executable",
 	"config.autorefresh": "Whether auto refreshing is enabled",

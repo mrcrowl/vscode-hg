@@ -227,6 +227,16 @@
         "command": "hg.showOutput",
         "title": "%command.showOutput%",
         "category": "Mercurial"
+      },
+      {
+        "command": "hg.fileLog",
+        "title": "%command.fileLog%",
+        "category": "Mercurial"
+      },
+      {
+        "command": "hg.log",
+        "title": "%command.log%",
+        "category": "Mercurial"
       }
     ],
     "menus": {
@@ -329,6 +339,14 @@
         },
         {
           "command": "hg.showOutput",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.fileLog",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.log",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         }
       ],
@@ -538,6 +556,10 @@
           "command": "hg.openChangeFromUri",
           "group": "navigation",
           "when": "config.hg.enabled && scmProvider == hg && !isInDiffEditor && resourceScheme != extension"
+        },
+        {
+          "command": "hg.fileLog",
+          "when": "config.hg.enabled && scmProvider == hg && !isInDiffEditor"
         }
       ]
     },

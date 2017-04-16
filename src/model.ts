@@ -386,7 +386,12 @@ export class Model implements Disposable {
 	}
 
 	private mapResourceToRelativePath(resource: Resource): string {
-		const relativePath = path.relative(this.repository.root, resource.resourceUri.fsPath).replace(/\\/g, '/');
+		const relativePath = this.mapFileUriToRelativePath(resource.resourceUri);
+		return relativePath;
+	}
+
+	private mapFileUriToRelativePath(fileUri: Uri): string {
+		const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/\\/g, '/');
 		return relativePath;
 	}
 
@@ -721,6 +726,21 @@ export class Model implements Disposable {
 	public getHeads(options: { branch?: string; excludeSelf?: boolean } = {}): Promise<Commit[]> {
 		const { branch, excludeSelf } = options;
 		return this.repository.getHeads(branch, excludeSelf);
+	}
+
+	@throttle
+	public getLogEntries(file?: Uri): Promise<Commit[]> {
+		let filePaths: string[] | undefined = undefined;
+		if (file) {
+			filePaths = [this.mapFileUriToRelativePath(file)];
+		}
+
+		return this.repository.getLogEntries({ filePaths })
+	}
+
+	@throttle
+	public chooseLogAction(commit: Commit) {
+		window.showInformationMessage(`You picked #${commit.revision}`)
 	}
 
 	@throttle
