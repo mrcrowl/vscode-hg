@@ -120,7 +120,7 @@ export class Resource implements SourceControlResourceState {
 	private getIconPath(theme: string): Uri | undefined {
 		if (this.mergeStatus === MergeStatus.UNRESOLVED &&
 			this.status !== Status.MISSING &&
-			this.status !== Status.DELETED) { 
+			this.status !== Status.DELETED) {
 			return Resource.Icons[theme].Conflict;
 		}
 
@@ -520,7 +520,8 @@ export class Model implements Disposable {
 				this._syncCounts.incoming = await this.repository.countIncoming();
 				this._onDidChangeResources.fire();
 			});
-		} catch (e) {
+		}
+		catch (e) {
 			// no-op
 		}
 	}
@@ -538,7 +539,8 @@ export class Model implements Disposable {
 				this._syncCounts.outgoing = await this.repository.countOutgoing();
 				this._onDidChangeResources.fire();
 			});
-		} catch (e) {
+		}
+		catch (e) {
 			// no-op	
 		}
 	}
@@ -570,7 +572,8 @@ export class Model implements Disposable {
 				}
 
 				return;
-			} else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
+			}
+			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
 				const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
 				const allowOption = localize('allow', 'Allow');
 				const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);
@@ -624,7 +627,8 @@ export class Model implements Disposable {
 				}
 
 				return result;
-			} catch (err) {
+			}
+			catch (err) {
 				if (err.hgErrorCode === HgErrorCodes.NoRespositoryFound) {
 					this.repositoryDisposable.dispose();
 

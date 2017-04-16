@@ -115,7 +115,8 @@ export async function mkdirp(path: string, mode?: number): Promise<boolean> {
 	const mkdir = async () => {
 		try {
 			await nfcall(fs.mkdir, path, mode);
-		} catch (err) {
+		}
+		catch (err) {
 			if (err.code === 'EEXIST') {
 				const stat = await nfcall<fs.Stats>(fs.stat, path);
 
@@ -137,7 +138,8 @@ export async function mkdirp(path: string, mode?: number): Promise<boolean> {
 
 	try {
 		await mkdir();
-	} catch (err) {
+	}
+	catch (err) {
 		if (err.code !== 'ENOENT') {
 			throw err;
 		}

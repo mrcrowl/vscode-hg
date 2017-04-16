@@ -24,7 +24,8 @@ export class AutoIncomingOutgoing {
 
 		if (hgConfig.get<boolean>('autoinout') === false) {
 			this.disable();
-		} else {
+		}
+		else {
 			this.enable();
 		}
 	}
@@ -46,7 +47,8 @@ export class AutoIncomingOutgoing {
 	private async refresh(): Promise<void> {
 		try {
 			await this.model.countIncomingOutgoing();
-		} catch (err) {
+		}
+		catch (err) {
 			if (err.hgErrorCode === HgErrorCodes.AuthenticationFailed) {
 				this.disable();
 			}

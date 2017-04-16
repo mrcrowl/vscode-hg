@@ -64,12 +64,13 @@ export class HgContentProvider {
 			uri = new Uri().with({ scheme: 'hg', path: uri.query });
 		}
 
-		let ref = uri.query; 
+		let ref = uri.query;
 
 		try {
 			const result = await this.model.show(ref, uri);
 			return result;
-		} catch (err) {
+		}
+		catch (err) {
 			return '';
 		}
 	}

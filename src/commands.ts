@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
+import { warnOutstandingMerge, warnUnclean, WarnScenario } from "./warnings";
 
 const localize = nls.loadMessageBundle();
 
@@ -239,7 +240,8 @@ export class CommandCenter {
 			if (openFolder) {
 				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 			}
-		} catch (err) {
+		}
+catch (err) {
 			throw err;
 		}
 	}
@@ -482,7 +484,8 @@ export class CommandCenter {
 		if (isMergeCommit) {
 			// merge-commit
 			opts = { scope: CommitScope.ALL };
-		} else {
+		}
+		else {
 			// validate non-merge commit
 			const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
 			const numStagingResources = this.model.stagingGroup.resources.length;
@@ -588,19 +591,24 @@ export class CommandCenter {
 					this.focusScm();
 				}
 			}
-		} catch (e) {
+		}
+catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.NoRollbackInformationAvailable) {
 				await window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
 			}
 		}
 	}
 
+
 	@command('hg.update')
 	async update(): Promise<void> {
-		if (!this.model.isClean) {
-			await window.showErrorMessage(localize('not clean', "There are uncommited changes in your working directory. Use Discard All Changes to abandon merge."));
-			return this.focusScm();
+		if (await warnOutstandingMerge(this.model, WarnScenario.Update) ||
+			await warnUnclean(this.model, WarnScenario.Update)) {
+			this.focusScm();
+			return;
 		}
+
+		const { currentBranch } = this.model;
 		const config = workspace.getConfiguration('hg');
 		const checkoutType = config.get<string>('updateType') || 'all';
 		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
@@ -638,7 +646,8 @@ export class CommandCenter {
 		const name = result.replace(/^\.|\/\.|\.\.|~|\^|:|\/$|\.lock$|\.lock\/|\\|\*|\s|^\s*$|\.$/g, '-');
 		try {
 			await this.model.branch(name);
-		} catch (e) {
+		}
+catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.BranchAlreadyExists) {
 				const updateTo = "Update";
 				const reopen = "Re-open";
@@ -676,21 +685,33 @@ export class CommandCenter {
 
 	@command('hg.mergeWithLocal')
 	async mergeWithLocal() {
+		if (await warnOutstandingMerge(this.model, WarnScenario.Merge) ||
+			await warnUnclean(this.model, WarnScenario.Merge)) {
+			this.focusScm();
+			return;
+		}
+
+		const otherHeads = await this.model.getHeads({ excludeSelf: true });
+		const heads = otherHeads.map(head => new MergeCommitItem(head));
+		const placeHolder = localize('choose head', `Choose head to merge into working directory:`);
+		const choice = await window.showQuickPick(heads, { placeHolder });
+		if (!choice) {
+			return;
+		}
+		const mergeResult = await choice.run(this.model);
+		this.afterMerge(mergeResult);
+		return;
 	}
 
 	@command('hg.mergeHeads')
 	async mergeHeads() {
-		if (!this.model.isClean) {
-			await window.showErrorMessage(localize('not clean', "There are uncommited changes in your working directory. Use Discard All Changes to abandon merge."));
-			return this.focusScm();
+		if (await warnOutstandingMerge(this.model, WarnScenario.Merge) ||
+			await warnUnclean(this.model, WarnScenario.Merge)) {
+			this.focusScm();
+			return;
 		}
 
-		const { repoStatus, currentBranch } = this.model;
-		if (repoStatus && repoStatus.isMerge) {
-			await window.showWarningMessage(localize('outstanding merge', "There is an outstanding merge in your working directory."));
-			return this.focusScm();
-		}
-
+		const { currentBranch } = this.model;
 		if (!currentBranch) {
 			return;
 		}
@@ -708,10 +729,10 @@ export class CommandCenter {
 			this.afterMerge(mergeResult);
 			return;
 		}
-		else { 
+		else {
 			// 3+ heads
 			const heads = otherBranchHeads.map(head => new MergeCommitItem(head));
-			const placeHolder = `Branch '${currentBranch.name} has ${otherBranchHeads.length + 1} heads. Choose which to merge:`;
+			const placeHolder = localize('choose branch head', "Branch {0} has {1} heads. Choose which to merge:", currentBranch.name, otherBranchHeads.length + 1);
 			const choice = await window.showQuickPick(heads, { placeHolder });
 			if (!choice) {
 				return;
@@ -744,7 +765,8 @@ export class CommandCenter {
 			const [branch] = multiHeadBranchNames;
 			window.showWarningMessage(localize('multi head branch', `Branch '{0}' has multiple heads. Merge required before pushing.`, branch));
 			return;
-		} else if (multiHeadBranchNames.length > 1) {
+		}
+		else if (multiHeadBranchNames.length > 1) {
 			window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, multiHeadBranchNames.join(",")));
 			return;
 		}
@@ -819,7 +841,8 @@ export class CommandCenter {
 
 				if (choice === openOutputChannelChoice) {
 					this.outputChannel.show();
-				} else {
+				}
+				else {
 					this.focusScm();
 				}
 			});

@@ -236,7 +236,8 @@ export class HgError {
 		if (data.error) {
 			this.error = data.error;
 			this.message = data.error.message;
-		} else {
+		}
+		else {
 			this.error = void 0;
 		}
 
@@ -393,7 +394,8 @@ export class Hg {
 		let result: IExecutionResult;
 		if (this.server) {
 			result = await this.runServerCommand(this.server, args, options);
-		} else {
+		}
+		else {
 			const child = this.spawn(args, options);
 			if (options.input) {
 				child.stdin.end(options.input, 'utf8');
@@ -413,9 +415,11 @@ export class Hg {
 
 			if (/Authentication failed/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.AuthenticationFailed;
-			} else if (/no repository found/.test(result.stderr)) {
+			}
+			else if (/no repository found/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoRespositoryFound;
-			} else if (/no such file/.test(result.stderr)) {
+			}
+			else if (/no such file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoSuchFile;
 			}
 
@@ -521,32 +525,6 @@ export class Repository {
 		return result.stdout;
 	}
 
-	async buffer(object: string): Promise<string> {
-		const child = this.stream(['show', object]);
-
-		if (!child.stdout) {
-			return Promise.reject<string>(localize('errorBuffer', "Can't open file from hg"));
-		}
-
-		return await this.doBuffer(object);
-
-		// TODO@joao
-		// return new Promise((c, e) => {
-		// detectMimesFromStream(child.stdout, null, (err, result) => {
-		// 	if (err) {
-		// 		e(err);
-		// 	} else if (isBinaryMime(result.mimes)) {
-		// 		e(<IFileOperationResult>{
-		// 			message: localize('fileBinaryError', "File seems to be binary and cannot be opened as text"),
-		// 			fileOperationResult: FileOperationResult.FILE_IS_BINARY
-		// 		});
-		// 	} else {
-		// c(this.doBuffer(object));
-		// 	}
-		// });
-		// });
-	}
-
 	private async doBuffer(object: string): Promise<string> {
 		const child = this.stream(['show', object]);
 		const { exitCode, stdout } = await exec(child);
@@ -566,7 +544,8 @@ export class Repository {
 
 		if (paths && paths.length) {
 			args.push.apply(args, paths);
-		} else {
+		}
+		else {
 			// args.push('.'); 
 		}
 
@@ -577,7 +556,16 @@ export class Repository {
 		const args = ['resolve'];
 		args.push.apply(args, paths);
 
-		await this.run(args);
+		try {
+			await this.run(args);
+		}
+		catch (e) {
+			if (e instanceof HgError && e.exitCode === 1 && !e.stderr) {
+				return;
+			}
+
+			throw e;
+		}
 	}
 
 	async unresolve(paths: string[]): Promise<void> {
@@ -616,7 +604,8 @@ export class Repository {
 
 		try {
 			await this.run(args);
-		} catch (err) {
+		}
+		catch (err) {
 			if (/uncommitted changes/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.DirtyWorkingDirectory;
 			}
@@ -638,7 +627,8 @@ export class Repository {
 
 		try {
 			await this.run([...args, '-m', message || ""]);
-		} catch (err) {
+		}
+		catch (err) {
 			if (/not possible because you have unmerged files/.test(err.stderr)) {
 				err.hgErrorCode = HgErrorCodes.UnmergedChanges;
 				throw err;
@@ -662,7 +652,8 @@ export class Repository {
 
 		try {
 			await this.run(args);
-		} catch (err) {
+		}
+		catch (err) {
 			if (err instanceof HgError && /a branch of the same name already exists/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.BranchAlreadyExists;
 			}
@@ -696,7 +687,8 @@ export class Repository {
 
 		try {
 			await this.run(['checkout', '--', '.']);
-		} catch (err) {
+		}
+		catch (err) {
 			if (/did not match any file\(s\) known to hg\./.test(err.stderr || '')) {
 				return;
 			}
@@ -730,7 +722,8 @@ export class Repository {
 				if (kind === "commit") {
 					try {
 						commitMessage = await this.getLastCommitMessage();
-					} catch (e) {
+					}
+					catch (e) {
 						// no-op
 					}
 				}
@@ -742,7 +735,8 @@ export class Repository {
 			}
 
 			return { revision: NaN, kind: "", commitMessage: "" };
-		} catch (error) {
+		}
+		catch (error) {
 			if (error instanceof HgError && /no rollback information available/.test(error.stderr || '')) {
 				error.hgErrorCode = HgErrorCodes.NoRollbackInformationAvailable;
 			}
@@ -757,19 +751,22 @@ export class Repository {
 		// In case there are no branches, we must use rm --cached
 		if (!result.stdout) {
 			args = ['rm', '--cached', '-r', '--'];
-		} else {
+		}
+		else {
 			args = ['reset', '-q', treeish, '--'];
 		}
 
 		if (paths && paths.length) {
 			args.push.apply(args, paths);
-		} else {
+		}
+		else {
 			args.push('.');
 		}
 
 		try {
 			await this.run(args);
-		} catch (err) {
+		}
+		catch (err) {
 			// In case there are merge conflicts to be resolved, hg reset will output
 			// some "needs merge" data. We try to get around that.
 			if (/([^:]+: needs merge\n)+/m.test(err.stdout || '')) {
@@ -789,15 +786,16 @@ export class Repository {
 
 			const numIncoming = incomingResult.stdout.trim().split("\n").length;
 			return numIncoming;
-		} catch (err) {
-			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
-			{
+		}
+		catch (err) {
+			if (err instanceof HgError && err.exitCode === 1) { // expected result from hg when none
 				return 0;
 			}
 
 			if (/repository default not found\./.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.NoRemoteRepositorySpecified;
-			} else if (/abort/.test(err.stderr || '')) {
+			}
+			else if (/abort/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
 
@@ -814,7 +812,8 @@ export class Repository {
 			}
 
 			return result.stdout.trim().split("\n").length;
-		} catch (err) {
+		}
+		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
 			{
 				return 0;
@@ -829,18 +828,22 @@ export class Repository {
 
 		try {
 			await this.run(args);
-		} catch (err) {
+		}
+		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) {
 				return;
 			}
 
 			if (/^CONFLICT \([^)]+\): \b/m.test(err.stdout || '')) {
 				err.hgErrorCode = HgErrorCodes.Conflict;
-			} else if (/Please tell me who you are\./.test(err.stderr || '')) {
+			}
+			else if (/Please tell me who you are\./.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
-			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
+			}
+			else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
-			} else if (/Pull is not possible because you have unmerged files|Cannot pull with rebase: You have unstaged changes|Your local changes to the following files would be overwritten|Please, commit your changes before you can merge/.test(err.stderr)) {
+			}
+			else if (/Pull is not possible because you have unmerged files|Cannot pull with rebase: You have unstaged changes|Your local changes to the following files would be overwritten|Please, commit your changes before you can merge/.test(err.stderr)) {
 				err.hgErrorCode = HgErrorCodes.DirtyWorkingDirectory;
 			}
 
@@ -861,20 +864,23 @@ export class Repository {
 
 		try {
 			await this.run(args);
-		} catch (err) {
+		}
+		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) {
 				return;
 			}
 
 			if (/push creates new remote head/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteHead;
-			} else if (err instanceof HgError && err.stderr && /push creates new remote branches/.test(err.stderr)) {
+			}
+			else if (err instanceof HgError && err.stderr && /push creates new remote branches/.test(err.stderr)) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteBranches;
 				const branchMatch = err.stderr.match(/: (.*)!/)
 				if (branchMatch) {
 					err.hgBranches = branchMatch[1];
 				}
-			} else if (/Could not read from remote repository/.test(err.stderr || '')) {
+			}
+			else if (/Could not read from remote repository/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
 
@@ -884,7 +890,7 @@ export class Repository {
 
 	async merge(revQuery): Promise<IMergeResult> {
 		try {
-			await this.run(['merge', '-r', revQuery, '-t', 'internal:merge']);
+			await this.run(['merge', '-r', revQuery]);
 			return {
 				unresolvedCount: 0
 			}
@@ -1111,7 +1117,8 @@ export class Repository {
 			}
 
 			return { name, type: RefType.Branch, commit, upstream, ahead, behind };
-		} catch (err) {
+		}
+		catch (err) {
 			return { name, type: RefType.Branch, commit };
 		}
 	}

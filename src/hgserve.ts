@@ -123,7 +123,8 @@ export class HgCommandServer {
                 let body: string | number;
                 if (chan === 'r') {
                     body = bodyData.readInt32BE(0);
-                } else {
+                }
+                else {
                     body = bodyData.toString(this.encoding).replace(/\0/g, "");
                 }
                 const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(<string>body);
@@ -191,10 +192,6 @@ export class HgCommandServer {
         // return this.emit("error", data);
     };
 
-    cancelCommand() {
-        //TODO:
-    }
-
 	/*
 	  Send the raw command strings to the cmdserver over `stdin`
 	 */
@@ -223,23 +220,27 @@ export class HgCommandServer {
         server.stderr.on("data", data => errorBuffers.push(data));
 
         server.stdout.on("data", async (data: Buffer) => {
-            let pos = 0;
-            while (pos < data.length) {
-                const chan = String.fromCharCode(data.readUInt8(pos)); // +1
-                const bodyLength = data.readUInt32BE(pos + 1); // +4
-                if (chan === RESULT_CHANNEL) { // result
-                    exitCode = data.readUInt32BE(pos + 5);
-                } else if (chan === LINE_CHANNEL) {
+            let offset = 0;
+            while (offset < data.length) {
+                const chan = String.fromCharCode(data.readUInt8(offset)); // +1
+                const length = data.readUInt32BE(offset + 1); // +4
+                offset += 5;
+
+                if (chan === RESULT_CHANNEL) {
+                    // result channel
+                    exitCode = data.readUInt32BE(offset);
+                    offset += length;
+                }
+                else if (chan === LINE_CHANNEL) {
+                    // line channel
                     const stdout = outputBodies.join("");
-                    const response = await handleInteraction(stdout);
-                    if (response) {
-                        await serverSendLineInput(server, this.encoding, response);
-                    } else {
-                        this.cancelCommand();
-                    }
-                } else {
-                    const bodyPos = pos + 5;
-                    const bodySlice = data.slice(bodyPos, bodyPos + bodyLength);
+                    const response = await handleInteraction(stdout, length);
+                    serverSendLineInput(server, this.encoding, response);
+                    offset += 0;
+                }
+                else {
+                    // output or error channel
+                    const bodySlice = data.slice(offset, offset + length);
                     const body = bodySlice.toString(this.encoding); //.replace(/\0/g, "");
                     if (chan === OUTPUT_CHANNEL) {
                         outputBodies.push(body);
@@ -247,8 +248,8 @@ export class HgCommandServer {
                     else if (chan === ERROR_CHANNEL) {
                         errorBodies.push(body);
                     }
+                    offset += length;
                 }
-                pos += bodyLength + 5;
 
                 if (exitCode !== undefined) {
                     // server.stdout.removeAllListeners();
