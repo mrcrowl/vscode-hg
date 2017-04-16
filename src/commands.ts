@@ -43,12 +43,11 @@ class UpdateCommitItem extends CommitItem {
 
 class LogEntryItem extends CommitItem {
 	get description() {
-		return ``;
+		return `\u00a0\u2022\u00a0\u00a0#${this.commit.revision} \u2014 ${this.commit.branch}`;
 	}
 	get label() { return this.commit.message; }
 	get detail() {
-		const branch = this.commit.branch === 'default' ? '' : `$(git-branch) ${this.commit.branch}: `;
-		return `${branch} #${this.commit.revision} ${this.commit.author} ${this.age}`;
+		return `\u00a0\u00a0\u00a0${this.commit.author}, ${this.age}`;
 	}
 	protected get age(): string {
 		return humanise.ageFromNow(this.commit.date);
