@@ -391,7 +391,7 @@ export class Hg {
 		const startTimeHR = process.hrtime();
 
 		let result: IExecutionResult;
-		if (this.server && options.commandMode !== 'cmdline') {
+		if (this.server) {
 			result = await this.runServerCommand(this.server, args, options);
 		} else {
 			const child = this.spawn(args, options);
@@ -884,7 +884,7 @@ export class Repository {
 
 	async merge(revQuery): Promise<IMergeResult> {
 		try {
-			await this.run(['merge', '-r', revQuery, '-t', 'internal:merge', '--config', 'ui.interactive=False'], { commandMode: "cmdline" });
+			await this.run(['merge', '-r', revQuery, '-t', 'internal:merge']);
 			return {
 				unresolvedCount: 0
 			}

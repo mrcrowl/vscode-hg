@@ -1,6 +1,8 @@
 
 import { EventEmitter } from "events";
 import { spawn, ChildProcess } from "child_process";
+import { window, InputBoxOptions } from "vscode";
+import { handleInteraction, serverSendLineInput, serverSendCommand } from "./interactive";
 
 export interface Deferred<T> {
     resolve: (c: T) => any,
@@ -51,7 +53,7 @@ export class HgCommandServer {
 
     public static async start(hgPath: string, repository: string) {
         const config = {
-            hgOpts: ['--config', 'ui.interactive=False', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
+            hgOpts: ['--config', 'ui.interactive=True', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
         };
         const commandServer = new HgCommandServer(config);
         return await commandServer.start(hgPath);
@@ -96,7 +98,7 @@ export class HgCommandServer {
                 result: defer<IExecutionResult>()
             }
             this.commandQueue.push(command);
-            serverSend(this.server, this.encoding, cmd, args);
+            serverSendCommand(this.server, this.encoding, cmd, args);
             return command.result.promise;
         }
 
@@ -188,6 +190,11 @@ export class HgCommandServer {
         console.error(data);
         // return this.emit("error", data);
     };
+
+    cancelCommand() {
+        //TODO:
+    }
+
 	/*
 	  Send the raw command strings to the cmdserver over `stdin`
 	 */
@@ -215,13 +222,21 @@ export class HgCommandServer {
 
         server.stderr.on("data", data => errorBuffers.push(data));
 
-        server.stdout.on("data", (data: Buffer) => {
+        server.stdout.on("data", async (data: Buffer) => {
             let pos = 0;
             while (pos < data.length) {
                 const chan = String.fromCharCode(data.readUInt8(pos)); // +1
                 const bodyLength = data.readUInt32BE(pos + 1); // +4
                 if (chan === RESULT_CHANNEL) { // result
                     exitCode = data.readUInt32BE(pos + 5);
+                } else if (chan === LINE_CHANNEL) {
+                    const stdout = outputBodies.join("");
+                    const response = await handleInteraction(stdout);
+                    if (response) {
+                        await serverSendLineInput(server, this.encoding, response);
+                    } else {
+                        this.cancelCommand();
+                    }
                 } else {
                     const bodyPos = pos + 5;
                     const bodySlice = data.slice(bodyPos, bodyPos + bodyLength);
@@ -273,25 +288,7 @@ function getChanName(chan: string) {
     }
 };
 
+const LINE_CHANNEL = 'L';
 const RESULT_CHANNEL = 'r';
 const OUTPUT_CHANNEL = 'o';
 const ERROR_CHANNEL = 'e';
-
-async function serverSend(this: void, server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
-    if (!server) {
-        throw new Error("Must start the command server before issuing commands");
-    }
-    const cmdLength = cmd.length + 1;
-    const argsJoined = args.join("\0");
-    const argsJoinedLength = argsJoined.length;
-    const int32Size = 4;
-    const totalBufferSize = cmdLength + int32Size + argsJoinedLength;
-    const toWrite = new Buffer(totalBufferSize);
-    toWrite.write(cmd + "\n", 0, cmdLength, encoding);
-    toWrite.writeUInt32BE(argsJoinedLength, cmdLength);
-    toWrite.write(argsJoined, cmdLength + int32Size, argsJoinedLength, encoding);
-    // console.log(toWrite.toString("utf-8").replace(/\0/g, '\\0'));
-    return new Promise((c, _) => {
-        server.stdin.write(toWrite, c);
-    });
-};

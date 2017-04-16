@@ -478,7 +478,7 @@ export class CommandCenter {
 			return false;
 		}
 
-		const isMergeCommit = this.model.mergeGroup.resources.length > 0;
+		const isMergeCommit = this.model.repoStatus && this.model.repoStatus.isMerge;
 		if (isMergeCommit) {
 			// merge-commit
 			opts = { scope: CommitScope.ALL };
