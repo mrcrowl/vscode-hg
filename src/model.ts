@@ -735,13 +735,7 @@ export class Model implements Disposable {
 			filePaths = [this.mapFileUriToRelativePath(file)];
 		}
 
-		return this.repository.getLogEntries({ filePaths })
-	}
-
-	@throttle
-	public chooseLogAction(commit: Commit) {
-		// window.showInformationMessage(`You picked #${commit.revision}`)
-		
+		return this.repository.getLogEntries({ filePaths, follow: true })
 	}
 
 	@throttle

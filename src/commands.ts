@@ -18,7 +18,7 @@ const localize = nls.loadMessageBundle();
 const SHORT_HASH_LENGTH = 12;
 
 class CommitItem implements QuickPickItem {
-	constructor(protected commit: Commit) { }
+	constructor(public readonly commit: Commit) { }
 	get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
 	get label() { return this.commit.branch; }
 	get detail() { return `${this.commit.revision} (${this.shortHash})`; }
@@ -53,10 +53,6 @@ class LogEntryItem extends CommitItem {
 	protected get age(): string {
 		return humanise.ageFromNow(this.commit.date);
 	}
-	async run(model: Model) {
-		await model.chooseLogAction(this.commit);
-	}
-
 }
 
 class UpdateRefItem implements QuickPickItem {
@@ -831,15 +827,26 @@ export class CommandCenter {
 
 		const logEntries = await this.model.getLogEntries(uri);
 		const quickPickItems = logEntries.map(le => new LogEntryItem(le));
-		const choice = await window.showQuickPick<LogEntryItem>(quickPickItems, {
+		const logEntry = await window.showQuickPick<LogEntryItem>(quickPickItems, {
 			matchOnDescription: true,
 			matchOnDetail: true,
 			placeHolder: localize('file history', "File History"),
 			onDidSelectItem: (x) => console.log(x)
 		});
 
-		if (choice) {
-			choice.run(this.model);
+		if (logEntry) {
+			this.diff(logEntry.commit, uri);
+		}
+	}
+
+	private async diff(commit: Commit, uri: Uri) {
+		const left = uri.with({ scheme: 'hg', query: commit.hash });
+		const right = uri;
+		const baseName = path.basename(uri.fsPath);
+		const title = `${baseName} (#${commit.revision} vs. local)`;
+
+		if (left && right) {
+			return await commands.executeCommand<void>('vscode.diff', left, right, title);
 		}
 	}
 
