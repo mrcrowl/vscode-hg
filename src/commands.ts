@@ -10,76 +10,9 @@ import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
-import { warnOutstandingMerge, warnUnclean, WarnScenario } from "./warnings";
-import { humanise } from "./humanise";
+import { interaction, BranchExistsAction, WarnScenario } from "./interaction";
 
 const localize = nls.loadMessageBundle();
-
-const SHORT_HASH_LENGTH = 12;
-
-class CommitItem implements QuickPickItem {
-	constructor(public readonly commit: Commit) { }
-	get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
-	get label() { return this.commit.branch; }
-	get detail() { return `${this.commit.revision} (${this.shortHash})`; }
-	get description() { return this.commit.message; }
-}
-
-class MergeCommitItem extends CommitItem {
-	constructor(commit: Commit) { super(commit); }
-	async run(model): Promise<IMergeResult> {
-		return await model.merge(this.commit.hash);
-	}
-}
-
-class UpdateCommitItem extends CommitItem {
-	constructor(commit: Commit, private opts?: { discard: boolean }) {
-		super(commit);
-	}
-	async run(model: Model) {
-		await model.update(this.commit.hash, this.opts);
-	}
-}
-
-class LogEntryItem extends CommitItem {
-	get description() {
-		return `\u00a0\u2022\u00a0\u00a0#${this.commit.revision} \u2014 ${this.commit.branch}`;
-	}
-	get label() { return this.commit.message; }
-	get detail() {
-		return `\u00a0\u00a0\u00a0${this.commit.author}, ${this.age}`;
-	}
-	protected get age(): string {
-		return humanise.ageFromNow(this.commit.date);
-	}
-}
-
-class UpdateRefItem implements QuickPickItem {
-	protected get shortCommit(): string { return (this.ref.commit || '').substr(0, SHORT_HASH_LENGTH); }
-	protected get treeish(): string | undefined { return this.ref.name; }
-	protected get icon(): string { return '' }
-	get label(): string { return `${this.icon}${this.ref.name || this.shortCommit}`; }
-	get description(): string { return this.shortCommit; }
-
-	constructor(protected ref: Ref) { }
-
-	async run(model: Model): Promise<void> {
-		const ref = this.treeish;
-
-		if (!ref) {
-			return;
-		}
-
-		await model.update(ref);
-	}
-}
-
-class UpdateTagItem extends UpdateRefItem {
-	protected get icon(): string { return '$(tag) ' }
-	get description(): string {
-		return localize('tag at', "Tag at {0}", this.shortCommit);
-	}
-}
 
 interface Command {
 	commandId: string;
@@ -120,14 +53,6 @@ export class CommandCenter {
 				return commands.registerCommand(commandId, command);
 			});
 	}
-
-	// @command('hg.log')
-	// async refresh(): Promise<void> {
-	// 			return commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'CSS Property Preview').then((success) => {
-	// 	}, (reason) => {
-	// 		vscode.window.showErrorMessage(reason);
-	// 	});
-	// }	
 
 	@command('hg.refresh')
 	async refresh(): Promise<void> {
@@ -221,36 +146,23 @@ export class CommandCenter {
 
 	@command('hg.clone', true)
 	async clone(): Promise<void> {
-		const url = await window.showInputBox({
-			prompt: localize('repourl', "Repository URL"),
-			ignoreFocusOut: true
-		});
-
+		const url = await interaction.inputRepoUrl();
 		if (!url) {
 			return;
 		}
 
-		const parentPath = await window.showInputBox({
-			prompt: localize('parent', "Parent Directory"),
-			value: os.homedir(),
-			ignoreFocusOut: true
-		});
-
+		const parentPath = await interaction.inputCloneParentPath();
 		if (!parentPath) {
 			return;
 		}
 
 		const clonePromise = this.hg.clone(url, parentPath);
-		window.setStatusBarMessage(localize('cloning', "Cloning hg repository..."), clonePromise);
+		interaction.statusCloning(clonePromise);
 
 		try {
 			const repositoryPath = await clonePromise;
-
-			const open = localize('openrepo', "Open Repository");
-			const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
-
-			const openFolder = result === open;
-			if (openFolder) {
+			const openClonedRepo = await interaction.promptOpenClonedRepo();
+			if (openClonedRepo) {
 				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 			}
 		}
@@ -370,7 +282,25 @@ export class CommandCenter {
 		return await this.model.stage();
 	}
 
-	@command('hg.resolve')
+	@command('hg.markResolved')
+	async markResolved(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			return;
+		}
+
+		const resources = resourceStates.filter(s =>
+			s instanceof Resource &&
+			s.resourceGroup instanceof ConflictGroup &&
+			s.mergeStatus === MergeStatus.UNRESOLVED) as Resource[];
+
+		if (!resources.length) {
+			return;
+		}
+
+		return await this.model.resolve(resources, { mark: true });
+	}
+
+	@command('hg.resolveAgain')
 	async resolve(...resourceStates: SourceControlResourceState[]): Promise<void> {
 		if (resourceStates.length === 0) {
 			return;
@@ -385,7 +315,7 @@ export class CommandCenter {
 			return;
 		}
 
-		return await this.model.resolve(...resources);
+		return await this.model.resolve(resources);
 	}
 
 	@command('hg.unresolve')
@@ -403,7 +333,7 @@ export class CommandCenter {
 			return;
 		}
 
-		return await this.model.unresolve(...resources);
+		return await this.model.unresolve(resources);
 	}
 
 	@command('hg.unstage')
@@ -454,16 +384,10 @@ export class CommandCenter {
 			return;
 		}
 
-		const resourcesNeedingConfirmation = resources.filter(s => s.status !== Status.ADDED);
-		if (resourcesNeedingConfirmation.length > 0) {
-			const message = resourcesNeedingConfirmation.length === 1
-				? localize('confirm discard', "Are you sure you want to discard changes in {0}?", path.basename(resourcesNeedingConfirmation[0].resourceUri.fsPath))
-				: localize('confirm discard multiple', "Are you sure you want to discard changes in {0} files?", resourcesNeedingConfirmation.length);
-
-			const yes = localize('discard', "Discard Changes");
-			const pick = await window.showWarningMessage(message, { modal: true }, yes);
-
-			if (pick !== yes) {
+		const resourcesToConfirm: Resource[] = resources.filter(s => s.status !== Status.ADDED);
+		if (resourcesToConfirm.length > 0) {
+			const confirmed = await interaction.confirmDiscardChanges(resourcesToConfirm);
+			if (!confirmed) {
 				return;
 			}
 		}
@@ -473,23 +397,17 @@ export class CommandCenter {
 
 	@command('hg.cleanAll')
 	async cleanAll(): Promise<void> {
-		const message = localize('confirm discard all', "Are you sure you want to discard ALL changes?");
-		const yes = localize('discard', "Discard Changes");
-		const pick = await window.showWarningMessage(message, { modal: true }, yes);
-
-		if (pick !== yes) {
-			return;
+		if (await interaction.confirmDiscardAllChanges()) {
+			const resources = this.model.workingDirectoryGroup.resources;
+			await this.model.cleanOrUpdate(...resources);
 		}
-
-		const resources = this.model.workingDirectoryGroup.resources;
-		await this.model.cleanOrUpdate(...resources);
 	}
 
 	private async smartCommit(getCommitMessage: () => Promise<string>, opts?: CommitOptions): Promise<boolean> {
 		// validate no conflicts
 		const numConflictResources = this.model.conflictGroup.resources.length;
 		if (numConflictResources > 0) {
-			window.showWarningMessage(localize('conflicts', "Resolve conflicts before committing."));
+			interaction.warnResolveConflicts();
 			return false;
 		}
 
@@ -519,7 +437,7 @@ export class CommandCenter {
 				|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
 				|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
 			) {
-				window.showInformationMessage(localize('no changes', "There are no changes to commit."));
+				interaction.informNoChangesToCommit();
 				return false;
 			}
 		}
@@ -538,22 +456,10 @@ export class CommandCenter {
 
 	private async commitWithAnyInput(opts?: CommitOptions): Promise<void> {
 		const message = scm.inputBox.value;
-		const getCommitMessage = async () => {
-			if (message) {
-				return message;
-			}
-
-			return await window.showInputBox({
-				placeHolder: localize('commit message', "Commit message"),
-				prompt: localize('provide commit message', "Please provide a commit message"),
-				ignoreFocusOut: true
-			});
-		};
-
-		const didCommit = await this.smartCommit(getCommitMessage, opts);
+		const didCommit = await this.smartCommit(() => interaction.inputCommitMessage(message), opts);
 
 		if (message && didCommit) {
-			scm.inputBox.value = ""; //await this.model.getCommitTemplate();
+			scm.inputBox.value = ""; 
 		}
 	}
 
@@ -567,7 +473,7 @@ export class CommandCenter {
 		const didCommit = await this.smartCommit(async () => scm.inputBox.value);
 
 		if (didCommit) {
-			scm.inputBox.value = ""; //await this.model.getCommitTemplate();
+			scm.inputBox.value = ""; 
 		}
 	}
 
@@ -589,25 +495,19 @@ export class CommandCenter {
 	async undoRollback(): Promise<void> {
 		try {
 			// dry-run
-			const { revision, kind, commitMessage } = await this.model.rollback(true);
-
-			// prompt
-			const rollback = "Rollback";
-			const message = localize('rollback', `Rollback to revision {0}? (undo {1})`, revision, kind);
-			const choice = await window.showInformationMessage(message, { modal: true }, rollback);
-
-			if (choice === rollback) {
+			const rollbackDetails = await this.model.rollback(true);
+			if (await interaction.confirmRollback(rollbackDetails)) {
 				await this.model.rollback();
 
-				if (kind === "commit") {
-					scm.inputBox.value = commitMessage;
+				if (rollbackDetails.kind === "commit") {
+					scm.inputBox.value = rollbackDetails.commitMessage;
 					this.focusScm();
 				}
 			}
 		}
 		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.NoRollbackInformationAvailable) {
-				await window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
+				await interaction.warnNoRollback();
 			}
 		}
 	}
@@ -615,43 +515,23 @@ export class CommandCenter {
 
 	@command('hg.update')
 	async update(): Promise<void> {
-		if (await warnOutstandingMerge(this.model, WarnScenario.Update) ||
-			await warnUnclean(this.model, WarnScenario.Update)) {
+		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update) ||
+			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)) {
 			this.focusScm();
 			return;
 		}
 
-		const { currentBranch } = this.model;
-		const config = workspace.getConfiguration('hg');
-		const checkoutType = config.get<string>('updateType') || 'all';
-		const includeTags = checkoutType === 'all' || checkoutType === 'tags';
+		const refs = await this.model.getRefs();
+		const choice = await interaction.pickBranchOrTag(refs);
 
-		let refs = await this.model.getRefs();
-		const branches = refs.filter(ref => ref.type === RefType.Branch)
-			.map(ref => new UpdateRefItem(ref));
-
-		const tags = (includeTags ? refs.filter(ref => ref.type === RefType.Tag) : [])
-			.map(ref => new UpdateTagItem(ref));
-
-		const picks = [...branches, ...tags];
-		const placeHolder = 'Select a branch/tag to update to:';
-		const choice = await window.showQuickPick<UpdateRefItem>(picks, { placeHolder });
-
-		if (!choice) {
-			return;
+		if (choice) {
+			await choice.run(this.model);
 		}
-
-		await choice.run(this.model);
 	}
 
 	@command('hg.branch')
 	async branch(): Promise<void> {
-		const result = await window.showInputBox({
-			placeHolder: localize('branch name', "Branch name"),
-			prompt: localize('provide branch name', "Please provide a branch name"),
-			ignoreFocusOut: true
-		});
-
+		const result = await interaction.inputBranchName();
 		if (!result) {
 			return;
 		}
@@ -662,14 +542,11 @@ export class CommandCenter {
 		}
 		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.BranchAlreadyExists) {
-				const updateTo = "Update";
-				const reopen = "Re-open";
-				const message = localize('branch already exists', `Branch '{0}' already exists. Update or Re-open?`, name);
-				const choice = await window.showWarningMessage(message, { modal: true }, updateTo, reopen);
-				if (choice === reopen) {
+				const action = await interaction.warnBranchAlreadyExists(name);
+				if (action === BranchExistsAction.Reopen) {
 					await this.model.branch(name, { allowBranchReuse: true });
 				}
-				else if (choice === updateTo) {
+				else if (action === BranchExistsAction.UpdateTo) {
 					await this.model.update(name);
 				}
 			}
@@ -681,7 +558,7 @@ export class CommandCenter {
 		const paths = this.model.paths;
 
 		if (paths.length === 0) {
-			window.showWarningMessage(localize('no paths to pull', "Your repository has no paths configured to pull from."));
+			interaction.warnNoPaths(false);
 			return;
 		}
 
@@ -698,28 +575,24 @@ export class CommandCenter {
 
 	@command('hg.mergeWithLocal')
 	async mergeWithLocal() {
-		if (await warnOutstandingMerge(this.model, WarnScenario.Merge) ||
-			await warnUnclean(this.model, WarnScenario.Merge)) {
+		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Merge) ||
+			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Merge)) {
 			this.focusScm();
 			return;
 		}
 
 		const otherHeads = await this.model.getHeads({ excludeSelf: true });
-		const heads = otherHeads.map(head => new MergeCommitItem(head));
-		const placeHolder = localize('choose head', `Choose head to merge into working directory:`);
-		const choice = await window.showQuickPick(heads, { placeHolder });
-		if (!choice) {
-			return;
+		const placeholder = localize('choose head', `Choose head to merge into working directory:`);
+		const head = await interaction.pickHead(otherHeads, placeholder);
+		if (head) {
+			return await this.doMerge(head.hash);
 		}
-		const mergeResult = await choice.run(this.model);
-		this.afterMerge(mergeResult);
-		return;
 	}
 
 	@command('hg.mergeHeads')
 	async mergeHeads() {
-		if (await warnOutstandingMerge(this.model, WarnScenario.Merge) ||
-			await warnUnclean(this.model, WarnScenario.Merge)) {
+		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Merge) ||
+			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Merge)) {
 			this.focusScm();
 			return;
 		}
@@ -732,34 +605,39 @@ export class CommandCenter {
 		const otherBranchHeads = await this.model.getHeads({ branch: currentBranch.name, excludeSelf: true });
 		if (otherBranchHeads.length === 0) {
 			// 1 head
-			window.showWarningMessage(localize('only one head', "There is only 1 head for branch '{0}'. Nothing to merge.", currentBranch.name));
+			interaction.warnMergeOnlyOneHead(currentBranch.name);
 			return;
 		}
 		else if (otherBranchHeads.length === 1) {
 			// 2 heads
 			const [otherHead] = otherBranchHeads;
-			const mergeResult = await this.model.merge(otherHead.hash);
-			this.afterMerge(mergeResult);
-			return;
+			return await this.doMerge(otherHead.hash);
 		}
 		else {
 			// 3+ heads
-			const heads = otherBranchHeads.map(head => new MergeCommitItem(head));
 			const placeHolder = localize('choose branch head', "Branch {0} has {1} heads. Choose which to merge:", currentBranch.name, otherBranchHeads.length + 1);
-			const choice = await window.showQuickPick(heads, { placeHolder });
-			if (!choice) {
-				return;
+			const head = await interaction.pickHead(otherBranchHeads, placeHolder);
+			if (head) {
+				return await this.doMerge(head.hash);
 			}
-			const mergeResult = await choice.run(this.model);
-			this.afterMerge(mergeResult);
-			return;
 		}
 	}
 
-	private async afterMerge({ unresolvedCount }: IMergeResult) {
-		if (unresolvedCount > 0) {
-			const fileOrFiles = unresolvedCount === 1 ? localize('file', 'file') : localize('files', 'files');
-			window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
+	private async doMerge(revisionOrHash: string) {
+		try {
+			const result = await this.model.merge(revisionOrHash);
+
+			if (result.unresolvedCount > 0) {
+				interaction.warnUnresolvedFiles(result.unresolvedCount);
+			}
+		}
+		catch (e) {
+			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.UntrackedFilesDiffer && e.hgFilenames) {
+				interaction.errorUntrackedFilesDiffer(e.hgFilenames);
+				return;
+			}
+
+			throw e;
 		}
 	}
 
@@ -768,7 +646,7 @@ export class CommandCenter {
 		const paths = this.model.paths;
 
 		if (paths.length === 0) {
-			window.showWarningMessage(localize('no paths to push', "Your repository has no paths configured to push to."));
+			interaction.warnNoPaths(true);
 			return;
 		}
 
@@ -776,11 +654,11 @@ export class CommandCenter {
 		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads();
 		if (multiHeadBranchNames.length === 1) {
 			const [branch] = multiHeadBranchNames;
-			window.showWarningMessage(localize('multi head branch', `Branch '{0}' has multiple heads. Merge required before pushing.`, branch));
+			interaction.warnBranchMultipleHeads(branch);
 			return;
 		}
 		else if (multiHeadBranchNames.length > 1) {
-			window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, multiHeadBranchNames.join(",")));
+			interaction.warnMultipleBranchMultipleHeads(multiHeadBranchNames);
 			return;
 		}
 
@@ -792,19 +670,14 @@ export class CommandCenter {
 		const paths = this.model.paths;
 
 		if (paths.length === 0) {
-			window.showWarningMessage(localize('no remotes to push', "Your repository has no paths configured to push to."));
+			interaction.warnNoPaths(true);
 			return;
 		}
 
-		const picks = paths.map(p => ({ label: p.name, description: p.url }));
-		const placeHolder = localize('pick remote', "Pick a remote to push to:");
-		const pick = await window.showQuickPick(picks, { placeHolder });
-
-		if (!pick) {
-			return;
+		const chosenPath = await interaction.pickRemotePath(paths);
+		if (chosenPath) {
+			this.model.push(chosenPath, this.createPushOptions());
 		}
-
-		this.model.push(pick.label, this.createPushOptions());
 	}
 
 	@command('hg.showOutput')
@@ -825,13 +698,7 @@ export class CommandCenter {
 		}
 
 		const logEntries = await this.model.getLogEntries(uri);
-		const quickPickItems = logEntries.map(le => new LogEntryItem(le));
-		const logEntry = await window.showQuickPick<LogEntryItem>(quickPickItems, {
-			matchOnDescription: true,
-			matchOnDetail: true,
-			placeHolder: localize('file history', "File History"),
-			onDidSelectItem: (x) => console.log(x)
-		});
+		const logEntry = await interaction.pickLogEntry(logEntries);
 
 		if (logEntry) {
 			this.diff(logEntry.commit, uri);
@@ -849,47 +716,18 @@ export class CommandCenter {
 		}
 	}
 
-	private createCommand(id: string, key: string, method: Function, skipModelCheck: boolean): (...args: any[]) => any {
+	private createCommand(id: string, key: string, method: Function, skipModelCheck: boolean): (...args: any[]) => Promise<any> | undefined {
 		const result = (...args) => {
 			if (!skipModelCheck && !this.model) {
-				window.showInformationMessage(localize('disabled', "Hg is either disabled or not supported in this workspace"));
+				interaction.informHgNotSupported();
 				return;
 			}
 
 			const result = Promise.resolve(method.apply(this, args));
 
 			return result.catch(async err => {
-				let message: string;
-
-				switch (err.hgErrorCode) {
-					case 'DirtyWorkingDirectory':
-						message = localize('clean repo', "Please clean your repository working directory before updating.");
-						break;
-
-					default:
-						const hint = (err.stderr || err.message || String(err))
-							.replace(/^abort: /mi, '')
-							.replace(/^> husky.*$/mi, '')
-							.split(/[\r\n]/)
-							.filter(line => !!line)
-						[0];
-
-						message = hint
-							? localize('hg error details', "Hg: {0}", hint)
-							: localize('hg error', "Hg error");
-
-						break;
-				}
-
-				if (!message) {
-					console.error(err);
-					return;
-				}
-
-				const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
-				const choice = await window.showErrorMessage(message, openOutputChannelChoice);
-
-				if (choice === openOutputChannelChoice) {
+				const openLog = await interaction.errorPromptOpenLog(err);
+				if (openLog) {
 					this.outputChannel.show();
 				}
 				else {

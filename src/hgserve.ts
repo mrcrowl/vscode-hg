@@ -2,7 +2,7 @@
 import { EventEmitter } from "events";
 import { spawn, ChildProcess } from "child_process";
 import { window, InputBoxOptions } from "vscode";
-import { handleInteraction, serverSendLineInput, serverSendCommand } from "./interactive";
+import { interaction } from "./interaction";
 
 export interface Deferred<T> {
     resolve: (c: T) => any,
@@ -98,7 +98,7 @@ export class HgCommandServer {
                 result: defer<IExecutionResult>()
             }
             this.commandQueue.push(command);
-            serverSendCommand(this.server, this.encoding, cmd, args);
+            interaction.serverSendCommand(this.server, this.encoding, cmd, args);
             return command.result.promise;
         }
 
@@ -234,8 +234,8 @@ export class HgCommandServer {
                 else if (chan === LINE_CHANNEL) {
                     // line channel
                     const stdout = outputBodies.join("");
-                    const response = await handleInteraction(stdout, length);
-                    serverSendLineInput(server, this.encoding, response);
+                    const response = await interaction.handleChoices(stdout, length);
+                    interaction.serverSendLineInput(server, this.encoding, response);
                     offset += 0;
                 }
                 else {

@@ -238,6 +238,7 @@ export class HgError {
 	hgErrorCode?: string;
 	hgCommand?: string;
 	hgBranches?: string;
+	hgFilenames?: string[];
 
 	constructor(data: IHgErrorData) {
 		if (data.error) {
@@ -301,6 +302,7 @@ export const HgErrorCodes = {
 	NoSuchFile: 'NoSuchFile',
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
+	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
 };
 
 export class Hg {
@@ -561,9 +563,14 @@ export class Repository {
 		await this.run(args);
 	}
 
-	async resolve(paths: string[]): Promise<void> {
+	async resolve(paths: string[], opts: { mark?: boolean } = {}): Promise<void> {
 		const args = ['resolve'];
-		args.push.apply(args, paths);
+
+		if (opts.mark) {
+			args.push('--mark')
+		}
+
+		args.push(...paths);
 
 		try {
 			await this.run(args);
@@ -897,6 +904,18 @@ export class Repository {
 		}
 	}
 
+	private parseUntrackedFilenames(stderr: string): string[] {
+		const untrackedFilesPattern = /([^:]+): untracked file differs\n/g;
+		let match: RegExpExecArray | null;
+		const files: string[] = [];
+		while (match = untrackedFilesPattern.exec(stderr)) {
+			if (match !== null) {
+				files.push(match[1]);
+			}
+		}
+		return files;
+	}
+
 	async merge(revQuery): Promise<IMergeResult> {
 		try {
 			await this.run(['merge', '-r', revQuery]);
@@ -905,6 +924,11 @@ export class Repository {
 			}
 		}
 		catch (e) {
+			if (e instanceof HgError && e.stderr && e.stderr.match(/untracked files in working directory differ/)) {
+				e.hgErrorCode = HgErrorCodes.UntrackedFilesDiffer;
+				e.hgFilenames = this.parseUntrackedFilenames(e.stderr);
+			}
+
 			if (e instanceof HgError && e.exitCode === 1) {
 				const match = (e.stdout || "").match(/(\d+) files unresolved/);
 				if (match) {
@@ -913,6 +937,7 @@ export class Repository {
 					}
 				}
 			}
+			
 			throw e;
 		}
 	}
@@ -1030,10 +1055,9 @@ export class Repository {
 			args.push('-b', branch);
 		}
 
-		if (follow)
-		{
+		if (follow) {
 			args.push('-f');
-		}	
+		}
 
 		if (filePaths) {
 			args.push(...filePaths);

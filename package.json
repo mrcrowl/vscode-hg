@@ -78,12 +78,21 @@
         }
       },
       {
-        "command": "hg.resolve",
-        "title": "%command.resolve%",
+        "command": "hg.markResolved",
+        "title": "%command.markResolved%",
         "category": "Mercurial",
         "icon": {
           "light": "resources/icons/light/check.svg",
           "dark": "resources/icons/dark/check.svg"
+        }
+      },
+      {
+        "command": "hg.resolveAgain",
+        "title": "%command.resolveAgain%",
+        "category": "Mercurial",
+        "icon": {
+          "light": "resources/icons/light/refresh.svg",
+          "dark": "resources/icons/dark/refresh.svg"
         }
       },
       {
@@ -456,9 +465,24 @@
       ],
       "scm/resourceState/context": [
         {
-          "command": "hg.resolve",
+          "command": "hg.resolveAgain",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
           "group": "inline"
+        },
+        {
+          "command": "hg.markResolved",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "group": "inline"
+        },
+        {
+          "command": "hg.resolveAgain",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "group": "0_resolution"
+        },
+        {
+          "command": "hg.markResolved",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "group": "0_resolution"
         },
         {
           "command": "hg.openFile",

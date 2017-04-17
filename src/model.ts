@@ -6,7 +6,7 @@
 
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -14,6 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as nls from 'vscode-nls';
 import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup } from "./resourceGroups";
+import { interaction, PushCreatesNewHeadAction } from "./interaction";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
@@ -395,14 +396,20 @@ export class Model implements Disposable {
 		return relativePath;
 	}
 
-	@throttle
-	async resolve(...resources: Resource[]): Promise<void> {
-		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
-		await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths));
+	private mapRepositoryRelativePathToWorkspaceRelativePath(filepath: string): string {
+		const fsPath = path.join(this.repository.root, filepath);
+		const relativePath = path.relative(this.workspaceRootPath, fsPath).replace(/\\/g, '/');
+		return relativePath;
 	}
 
 	@throttle
-	async unresolve(...resources: Resource[]): Promise<void> {
+	async resolve(resources: Resource[], opts: { mark?: boolean } = {}): Promise<void> {
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths, opts));
+	}
+
+	@throttle
+	async unresolve(resources: Resource[]): Promise<void> {
 		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
 		await this.run(Operation.Unresolve, () => this.repository.unresolve(relativePaths));
 	}
@@ -569,20 +576,15 @@ export class Model implements Disposable {
 		}
 		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
-				const warningMessage = localize('pullandmerge', "Push would create new head. Try Pull and Merge first.");
-				const pullOption = localize('pull', 'Pull');
-				const choice = await window.showErrorMessage(warningMessage, pullOption);
-				if (choice === pullOption) {
+				const action = await interaction.warnPushCreatesNewHead();
+				if (action === PushCreatesNewHeadAction.Pull) {
 					commands.executeCommand("hg.pull");
 				}
-
 				return;
 			}
 			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
-				const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
-				const allowOption = localize('allow', 'Allow');
-				const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);
-				if (choice === allowOption) {
+				const allow = interaction.warnPushCreatesNewBranchesAllow();
+				if (allow) {
 					return this.push(path, { allowPushNewBranches: true })
 				}
 
@@ -594,8 +596,18 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	merge(revQuery) {
-		return this.run(Operation.Merge, () => this.repository.merge(revQuery));
+	merge(revQuery): Promise<IMergeResult> {
+		return this.run(Operation.Merge, async () => {
+			try {
+				return await this.repository.merge(revQuery)
+			}
+			catch (e) {
+				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.UntrackedFilesDiffer && e.hgFilenames) {
+					e.hgFilenames = e.hgFilenames.map(filename => this.mapRepositoryRelativePathToWorkspaceRelativePath(filename));
+				}
+				throw e;
+			}
+		});
 	}
 
 	async show(ref: string, uri: Uri): Promise<string> {
