@@ -303,6 +303,7 @@ export const HgErrorCodes = {
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
+	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured'
 };
 
 export class Hg {
@@ -886,7 +887,10 @@ export class Repository {
 				return;
 			}
 
-			if (/push creates new remote head/.test(err.stderr || '')) {
+			if (err instanceof HgError && err.stderr && /default repository not configured/.test(err.stderr)) {
+				err.hgErrorCode = HgErrorCodes.DefaultRepositoryNotConfigured;
+			}			
+			else if (/push creates new remote head/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteHead;
 			}
 			else if (err instanceof HgError && err.stderr && /push creates new remote branches/.test(err.stderr)) {
@@ -1044,7 +1048,7 @@ export class Repository {
 
 	async getLogEntries({ revQuery, branch, filePaths, follow }: LogEntryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\n\r]+',' ',desc)}\n`;
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\n`;
 		const args = ['log', '-T', templateFormat]
 
 		if (revQuery) {

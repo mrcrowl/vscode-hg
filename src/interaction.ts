@@ -19,6 +19,7 @@ const BULLET = "\u2022";
 export const enum BranchExistsAction { None, Reopen, UpdateTo }
 export const enum PushCreatesNewHeadAction { None, Pull }
 export const enum WarnScenario { Merge, Update }
+export const enum DefaultRepoNotConfiguredAction { None, OpenHGRC }
 
 export namespace interaction {
 
@@ -89,12 +90,22 @@ export namespace interaction {
         return window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, branchesWithMultipleHeads.join(",")));
     }
 
+    export async function warnDefaultRepositoryNotConfigured(message?: string): Promise<DefaultRepoNotConfiguredAction> {
+        const defaultMessage = localize('no default repo', "No default repository is configured.");
+        const hgrcOption = localize('open hgrc', 'Open hgrc file');
+        const choice = await window.showErrorMessage(message || defaultMessage, hgrcOption);
+        if (choice === hgrcOption) {
+            return DefaultRepoNotConfiguredAction.OpenHGRC;
+        }
+        return DefaultRepoNotConfiguredAction.None;
+    }
+
     export function warnNoPaths(push: boolean) {
         if (push) {
-            return window.showWarningMessage(localize('no paths to push', "Your repository has no paths configured to push to."));
+            return warnDefaultRepositoryNotConfigured(localize('no paths to push', "Your repository has no paths configured to push to."));
         }
         else {
-            return window.showWarningMessage(localize('no paths to pull', "Your repository has no paths configured to pull from."));
+            return warnDefaultRepositoryNotConfigured(localize('no paths to pull', "Your repository has no paths configured to pull from."));
         }
     }
 

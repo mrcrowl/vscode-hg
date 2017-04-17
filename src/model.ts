@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as nls from 'vscode-nls';
 import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup } from "./resourceGroups";
-import { interaction, PushCreatesNewHeadAction } from "./interaction";
+import { interaction, PushCreatesNewHeadAction, DefaultRepoNotConfiguredAction } from "./interaction";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
@@ -356,6 +356,28 @@ export class Model implements Disposable {
 		await this.status();
 	}
 
+	async hgrcPathIfExists(): Promise<string | undefined> {
+		const filePath: string = this.hgrcPath;
+		const exists = await new Promise((c, e) => fs.exists(filePath, c));
+		if (exists)
+		{
+			return filePath;
+		}	
+	}
+
+	async createHgrc(): Promise<string> {
+		const filePath: string = this.hgrcPath;
+		const fd = fs.openSync(filePath, 'w');
+		fs.writeSync(fd, `[paths]
+; Uncomment line below to add a path:
+; default = https://bitbucket.org/<yourname>/<repo>
+`, 0, 'utf-8');
+		fs.closeSync(fd);
+		return filePath;
+	}
+
+	private get hgrcPath(): string { return path.join(this.repository.root, ".hg", "hgrc"); }
+
 	@throttle
 	async status(): Promise<void> {
 		await this.run(Operation.Status);
@@ -570,12 +592,19 @@ export class Model implements Disposable {
 		try {
 			await this.run(Operation.Push, () => this.repository.push(path, options));
 
-			if (!path || path === "default") {
+			if (!path || path === "default" || path === "default-push") {
 				this.countOutgoing(-this._syncCounts.outgoing);
 			}
 		}
 		catch (e) {
-			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
+			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
+				const action = await interaction.warnDefaultRepositoryNotConfigured();
+				if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
+					commands.executeCommand("hg.openhgrc");
+				}
+				return;
+			}
+			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
 				const action = await interaction.warnPushCreatesNewHead();
 				if (action === PushCreatesNewHeadAction.Pull) {
 					commands.executeCommand("hg.pull");
@@ -698,14 +727,25 @@ export class Model implements Disposable {
 	}
 
 	private async updateRepositoryPaths() {
-		let paths: Path[] | undefined;
 		try {
-			paths = await this.repository.getPaths();
-			this._paths = paths;
+			this._paths = await this.repository.getPaths();
 		}
 		catch (e) {
 			// noop
 		}
+	}
+
+	@throttle
+	public async getPaths(): Promise<Path[]> {
+		try {
+			this._paths = await this.repository.getPaths();
+			return this._paths;
+		}
+		catch (e) {
+			// noop
+		}
+
+		return [];
 	}
 
 	@throttle

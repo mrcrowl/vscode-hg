@@ -11,6 +11,7 @@ import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario } from "./interaction";
+import * as vscode from "vscode";
 
 const localize = nls.loadMessageBundle();
 
@@ -174,6 +175,21 @@ export class CommandCenter {
 	@command('hg.init')
 	async init(): Promise<void> {
 		await this.model.init();
+	
+	}
+	@command('hg.openhgrc')
+	async openhgrc(): Promise<void> {
+		let hgrcPath = await this.model.hgrcPathIfExists();
+		if (!hgrcPath)
+		{
+			hgrcPath = await this.model.createHgrc();
+		}	
+
+		const hgrcUri = new vscode.Uri().with({
+			scheme: 'file',
+			path: hgrcPath
+		})
+		commands.executeCommand("vscode.open", hgrcUri);
 	}
 
 	@command('hg.openFile')
@@ -555,7 +571,7 @@ export class CommandCenter {
 
 	@command('hg.pull')
 	async pull(): Promise<void> {
-		const paths = this.model.paths;
+		const paths = await this.model.getPaths();
 
 		if (paths.length === 0) {
 			interaction.warnNoPaths(false);
@@ -643,7 +659,7 @@ export class CommandCenter {
 
 	@command('hg.push')
 	async push(): Promise<void> {
-		const paths = this.model.paths;
+		const paths = await this.model.getPaths();
 
 		if (paths.length === 0) {
 			interaction.warnNoPaths(true);
@@ -667,7 +683,7 @@ export class CommandCenter {
 
 	@command('hg.pushTo')
 	async pushTo(): Promise<void> {
-		const paths = this.model.paths;
+		const paths = await this.model.getPaths();
 
 		if (paths.length === 0) {
 			interaction.warnNoPaths(true);

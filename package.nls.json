@@ -1,6 +1,7 @@
 {
 	"command.clone": "Clone",
 	"command.init": "Initialize Repository",
+	"command.openhgrc": "Open hgrc file",
 	"command.refresh": "Refresh",
 	"command.openChange": "Open Changes",
 	"command.openFile": "Open File",
@@ -25,7 +26,7 @@
 	"command.markResolved": "Mark Resolved",
 	"command.unresolve": "Mark Unresolved",
 	"command.resolveAgain": "Resolve again",
-	"command.showOutput": "Show Mercurial Output",
+	"command.showOutput": "Show hg output",
 	"command.fileLog": "Show file history...",
 	"command.log": "Show history...",
 	"config.enabled": "Whether mercurial is enabled",

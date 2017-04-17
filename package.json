@@ -1,8 +1,8 @@
 {
   "name": "vscode-hg-scm",
   "publisher": "mrcrowl",
-  "displayName": "Mercurial",
-  "description": "Mercurial Source Control Management",
+  "displayName": "Hg SCM",
+  "description": "Integrated Mercurial Source Control Management",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.11.0"
@@ -21,12 +21,17 @@
       {
         "command": "hg.clone",
         "title": "%command.clone%",
-        "category": "Mercurial"
+        "category": "Hg"
+      },
+      {
+        "command": "hg.openhgrc",
+        "title": "%command.openhgrc%",
+        "category": "Hg"
       },
       {
         "command": "hg.init",
         "title": "%command.init%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/hg.svg",
           "dark": "resources/icons/dark/hg.svg"
@@ -35,7 +40,7 @@
       {
         "command": "hg.refresh",
         "title": "%command.refresh%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/refresh.svg",
           "dark": "resources/icons/dark/refresh.svg"
@@ -44,7 +49,7 @@
       {
         "command": "hg.openChange",
         "title": "%command.openChange%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/open-change.svg",
           "dark": "resources/icons/dark/open-change.svg"
@@ -53,7 +58,7 @@
       {
         "command": "hg.openFile",
         "title": "%command.openFile%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/open-file.svg",
           "dark": "resources/icons/dark/open-file.svg"
@@ -62,7 +67,7 @@
       {
         "command": "hg.openChangeFromUri",
         "title": "%command.openChange%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/open-change.svg",
           "dark": "resources/icons/dark/open-change.svg"
@@ -71,7 +76,7 @@
       {
         "command": "hg.openFileFromUri",
         "title": "%command.openFile%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/open-file.svg",
           "dark": "resources/icons/dark/open-file.svg"
@@ -80,7 +85,7 @@
       {
         "command": "hg.markResolved",
         "title": "%command.markResolved%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/check.svg",
           "dark": "resources/icons/dark/check.svg"
@@ -89,7 +94,7 @@
       {
         "command": "hg.resolveAgain",
         "title": "%command.resolveAgain%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/refresh.svg",
           "dark": "resources/icons/dark/refresh.svg"
@@ -98,12 +103,12 @@
       {
         "command": "hg.unresolve",
         "title": "%command.unresolve%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.stage",
         "title": "%command.stage%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/stage.svg",
           "dark": "resources/icons/dark/stage.svg"
@@ -112,7 +117,7 @@
       {
         "command": "hg.stageAll",
         "title": "%command.stageAll%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/stage.svg",
           "dark": "resources/icons/dark/stage.svg"
@@ -121,7 +126,7 @@
       {
         "command": "hg.unstage",
         "title": "%command.unstage%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/unstage.svg",
           "dark": "resources/icons/dark/unstage.svg"
@@ -130,7 +135,7 @@
       {
         "command": "hg.unstageAll",
         "title": "%command.unstageAll%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/unstage.svg",
           "dark": "resources/icons/dark/unstage.svg"
@@ -139,7 +144,7 @@
       {
         "command": "hg.clean",
         "title": "%command.clean%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/clean.svg",
           "dark": "resources/icons/dark/clean.svg"
@@ -148,7 +153,7 @@
       {
         "command": "hg.cleanAll",
         "title": "%command.cleanAll%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/clean.svg",
           "dark": "resources/icons/dark/clean.svg"
@@ -157,7 +162,7 @@
       {
         "command": "hg.commit",
         "title": "%command.commit%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/check.svg",
           "dark": "resources/icons/dark/check.svg"
@@ -166,7 +171,7 @@
       {
         "command": "hg.add",
         "title": "%command.add%",
-        "category": "Mercurial",
+        "category": "Hg",
         "icon": {
           "light": "resources/icons/light/add.svg",
           "dark": "resources/icons/dark/add.svg"
@@ -175,77 +180,77 @@
       {
         "command": "hg.forget",
         "title": "%command.forget%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.addAll",
         "title": "%command.addAll%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.commitStaged",
         "title": "%command.commitStaged%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.commitAll",
         "title": "%command.commitAll%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.undoRollback",
         "title": "%command.undoRollback%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.update",
         "title": "%command.update%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.branch",
         "title": "%command.branch%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.pull",
         "title": "%command.pull%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.push",
         "title": "%command.push%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.pushTo",
         "title": "%command.pushTo%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.mergeHeads",
         "title": "%command.mergeHeads%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.mergeWithLocal",
         "title": "%command.mergeWithLocal%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.showOutput",
         "title": "%command.showOutput%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.fileLog",
         "title": "%command.fileLog%",
-        "category": "Mercurial"
+        "category": "Hg"
       },
       {
         "command": "hg.log",
         "title": "%command.log%",
-        "category": "Mercurial"
+        "category": "Hg"
       }
     ],
     "menus": {
@@ -257,6 +262,10 @@
         {
           "command": "hg.init",
           "when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
+        },
+        {
+          "command": "hg.openhgrc",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
           "command": "hg.refresh",
@@ -588,7 +597,7 @@
       ]
     },
     "configuration": {
-      "title": "Mercurial",
+      "title": "Hg (Mercurial)",
       "properties": {
         "hg.enabled": {
           "type": "boolean",
