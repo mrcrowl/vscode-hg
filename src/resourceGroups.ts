@@ -146,6 +146,7 @@ export function groupStatuses(this: void, {
 			case '?': status = Status.UNTRACKED; break;
 			case '!': status = Status.MISSING; break;
 			case 'A': status = renamed ? Status.RENAMED : Status.ADDED; break;
+			case 'C': status = Status.CLEAN; break;
 			default: throw new HgError({ message: "Unknown rawStatus: " + rawStatus })
 		}
 
@@ -166,14 +167,32 @@ export function groupStatuses(this: void, {
 		return [targetResources, targetGroup, status];
 	};
 
-	for (let raw of fileStatuses) {
+	const seenUriStrings: Map<string, boolean> = new Map();
+
+	for (const raw of fileStatuses) {
 		const uri = Uri.file(path.join(respositoryRoot, raw.path));
 		const uriString = uri.toString();
+		seenUriStrings.set(uriString, true);
 		const renameUri = raw.rename ? Uri.file(path.join(respositoryRoot, raw.rename)) : undefined;
 		const resolveFile = resolveStatuses && resolveStatuses.filter(res => res.path === raw.path)[0];
 		const mergeStatus = resolveFile ? toMergeStatus(resolveFile.status) : MergeStatus.NONE;
-		const [resources, group, status] = chooseResourcesAndGroup(uriString, raw.status,  mergeStatus, !!raw.rename);
+		const [resources, group, status] = chooseResourcesAndGroup(uriString, raw.status, mergeStatus, !!raw.rename);
 		resources.push(new Resource(group, uri, status, mergeStatus, renameUri));
+	}
+
+	// it is possible for a clean file to need resolved
+	// e.g. when local changed and other deleted
+	if (resolveStatuses) {
+		for (const raw of resolveStatuses) {
+			const uri = Uri.file(path.join(respositoryRoot, raw.path));
+			const uriString = uri.toString();
+			if (seenUriStrings.has(uriString)) {
+				continue; // dealt with by the fileStatuses (this is the norm)
+			}
+			const mergeStatus = toMergeStatus(raw.status);
+			const [resources, group, status] = chooseResourcesAndGroup(uriString, 'C', mergeStatus, !!raw.rename);
+			resources.push(new Resource(group, uri, status, mergeStatus));
+		}
 	}
 
 	return {

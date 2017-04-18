@@ -995,7 +995,9 @@ export class Repository {
 			if (status.charAt(i + 1) == '\n') {
 				i++;
 			}
-			return status.substring(start, i++);
+
+			const name = status.substring(start, i++);
+			return name.replace(/\\/g, '\/');
 		}
 
 		while (i < status.length) {

@@ -11,6 +11,7 @@ const localize = nls.loadMessageBundle();
 const USE_CHANGED = "Use changed version";
 const LEAVE_DELETED = "Leave deleted";
 const LEAVE_UNRESOLVED = "Leave unresolved";
+const DELETE = "Delete";
 
 const INT32_SIZE = 4;
 const SHORT_HASH_LENGTH = 12;
@@ -305,8 +306,11 @@ export namespace interaction {
         if (options.includes("(c)hanged")) {
             choices.push(USE_CHANGED);
         }
-        if (options.includes("(d)eleted")) {
+        if (options.includes("leave (d)eleted")) {
             choices.push(LEAVE_DELETED);
+        }
+        if (options.includes("(d)elete")) {
+            choices.push(DELETE);
         }
         if (options.includes("(u)nresolved")) {
             choices.push(LEAVE_UNRESOLVED);
@@ -314,9 +318,16 @@ export namespace interaction {
 
         const choice = await window.showQuickPick(choices, { ignoreFocusOut: true, placeHolder: prompt });
         switch (choice) {
-            case USE_CHANGED: return "c";
-            case LEAVE_DELETED: return "d";
-            case LEAVE_UNRESOLVED: default: return "u";
+            case USE_CHANGED:
+                return "c";
+
+            case DELETE:
+            case LEAVE_DELETED:
+                return "d";
+
+            case LEAVE_UNRESOLVED:
+            default:
+                return "u";
         }
     }
 

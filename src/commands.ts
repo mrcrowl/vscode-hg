@@ -106,6 +106,7 @@ export class CommandCenter {
 			case Status.DELETED:
 			case Status.MISSING:
 			case Status.UNTRACKED:
+			case Status.CLEAN:	
 				return undefined;
 		}
 	}
@@ -121,6 +122,7 @@ export class CommandCenter {
 			case Status.MODIFIED:
 			case Status.RENAMED:
 			case Status.UNTRACKED:
+			case Status.CLEAN:	
 				return resource.resourceUri;
 		}
 	}
@@ -344,7 +346,7 @@ export class CommandCenter {
 		const resources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.resourceGroup instanceof MergeGroup &&
-			s.mergeStatus === MergeStatus.RESOLVED) as Resource[];
+			s.mergeStatus !== MergeStatus.UNRESOLVED) as Resource[];
 
 		if (!resources.length) {
 			return;

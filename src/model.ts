@@ -39,6 +39,7 @@ export enum Status {
 	IGNORED,
 	MISSING,
 	RENAMED,
+	CLEAN
 }
 
 export enum MergeStatus {
@@ -103,6 +104,7 @@ export class Resource implements SourceControlResourceState {
 			Untracked: getIconUri('status-untracked', 'light'),
 			Ignored: getIconUri('status-ignored', 'light'),
 			Conflict: getIconUri('status-conflict', 'light'),
+			Clean: getIconUri('status-clean', 'light'),
 		},
 		dark: {
 			Modified: getIconUri('status-modified', 'dark'),
@@ -113,7 +115,8 @@ export class Resource implements SourceControlResourceState {
 			Copied: getIconUri('status-copied', 'dark'),
 			Untracked: getIconUri('status-untracked', 'dark'),
 			Ignored: getIconUri('status-ignored', 'dark'),
-			Conflict: getIconUri('status-conflict', 'dark')
+			Conflict: getIconUri('status-conflict', 'dark'),
+			Clean: getIconUri('status-clean', 'dark'),
 		}
 	};
 
@@ -132,6 +135,7 @@ export class Resource implements SourceControlResourceState {
 			case Status.RENAMED: return Resource.Icons[theme].Renamed;
 			case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
 			case Status.IGNORED: return Resource.Icons[theme].Ignored;
+			case Status.CLEAN: return Resource.Icons[theme].Clean;
 			default: return void 0;
 		}
 	}

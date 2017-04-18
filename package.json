@@ -146,8 +146,8 @@
         "title": "%command.clean%",
         "category": "Hg",
         "icon": {
-          "light": "resources/icons/light/clean.svg",
-          "dark": "resources/icons/dark/clean.svg"
+          "light": "resources/icons/light/discard.svg",
+          "dark": "resources/icons/dark/discard.svg"
         }
       },
       {
@@ -155,8 +155,8 @@
         "title": "%command.cleanAll%",
         "category": "Hg",
         "icon": {
-          "light": "resources/icons/light/clean.svg",
-          "dark": "resources/icons/dark/clean.svg"
+          "light": "resources/icons/light/discard.svg",
+          "dark": "resources/icons/dark/discard.svg"
         }
       },
       {
