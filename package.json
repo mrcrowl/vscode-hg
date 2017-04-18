@@ -1,13 +1,13 @@
 {
-  "name": "vscode-hg-scm",
+  "name": "hg",
   "publisher": "mrcrowl",
-  "displayName": "Hg SCM",
-  "description": "Integrated Mercurial Source Control Management",
-  "version": "0.0.1",
+  "displayName": "Hg",
+  "description": "Integrated Mercurial source control",
+  "version": "0.9.0",
   "engines": {
     "vscode": "^1.11.0"
   },
-  "aiKey": "AIF-d9b70cd4-b9f9-4d70-929b-a071c400b218",
+  "icon": "icon.png",
   "enableProposedApi": false,
   "categories": [
     "Other"
@@ -656,7 +656,6 @@
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "dependencies": {
-    "hg": "^0.2.0",
     "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
