@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (c) Ben Crowl. All rights reserved.
+ *  Original Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
@@ -889,7 +890,7 @@ export class Repository {
 
 			if (err instanceof HgError && err.stderr && /default repository not configured/.test(err.stderr)) {
 				err.hgErrorCode = HgErrorCodes.DefaultRepositoryNotConfigured;
-			}			
+			}
 			else if (/push creates new remote head/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.PushCreatesNewRemoteHead;
 			}
@@ -941,7 +942,7 @@ export class Repository {
 					}
 				}
 			}
-			
+
 			throw e;
 		}
 	}
@@ -1088,7 +1089,8 @@ export class Repository {
 	}
 
 	async getHeads(branch?: string, excludeSelf?: boolean): Promise<Commit[]> {
-		const revQuery = excludeSelf ? 'head() - .' : 'head()';
+		const except = excludeSelf ? " - ." : "";
+		const revQuery = `head() and not closed()${except}`;
 		return this.getLogEntries({ revQuery, branch });
 	}
 
