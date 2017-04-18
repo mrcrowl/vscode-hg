@@ -13,6 +13,7 @@ import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario } from "./interaction";
 import * as vscode from "vscode";
+import * as fs from "fs";
 
 const localize = nls.loadMessageBundle();
 
@@ -85,12 +86,6 @@ export class CommandCenter {
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
-		if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
-			resource.status !== Status.MISSING &&
-			resource.status !== Status.DELETED) {
-			return resource.resourceUri.with({ scheme: 'file', path: `${resource.original.path}.orig` });
-		}
-
 		switch (resource.status) {
 			case Status.MODIFIED:
 				return resource.original.with({ scheme: 'hg', query: '.' });
@@ -106,12 +101,18 @@ export class CommandCenter {
 			case Status.DELETED:
 			case Status.MISSING:
 			case Status.UNTRACKED:
-			case Status.CLEAN:	
+			case Status.CLEAN:
 				return undefined;
 		}
 	}
 
 	private getRightResource(resource: Resource): Uri | undefined {
+		if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
+			resource.status !== Status.MISSING &&
+			resource.status !== Status.DELETED) {
+			return resource.resourceUri.with({ scheme: 'hg', query: 'p2()' });
+		}
+
 		switch (resource.status) {
 			case Status.DELETED:
 				return resource.resourceUri.with({ scheme: 'hg', query: '.' });
@@ -122,15 +123,17 @@ export class CommandCenter {
 			case Status.MODIFIED:
 			case Status.RENAMED:
 			case Status.UNTRACKED:
-			case Status.CLEAN:	
+			case Status.CLEAN:
 				return resource.resourceUri;
 		}
 	}
 
 	private getTitle(resource: Resource): string {
 		const basename = path.basename(resource.resourceUri.fsPath);
-		if (resource.mergeStatus === MergeStatus.UNRESOLVED) {
-			return `${basename} (Merge)`
+		if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
+			resource.status !== Status.MISSING &&
+			resource.status !== Status.DELETED) {
+			return `${basename} (local <-> other)`
 		}
 
 		switch (resource.status) {
@@ -178,15 +181,14 @@ export class CommandCenter {
 	@command('hg.init')
 	async init(): Promise<void> {
 		await this.model.init();
-	
+
 	}
 	@command('hg.openhgrc')
 	async openhgrc(): Promise<void> {
 		let hgrcPath = await this.model.hgrcPathIfExists();
-		if (!hgrcPath)
-		{
+		if (!hgrcPath) {
 			hgrcPath = await this.model.createHgrc();
-		}	
+		}
 
 		const hgrcUri = new vscode.Uri().with({
 			scheme: 'file',
@@ -478,7 +480,7 @@ export class CommandCenter {
 		const didCommit = await this.smartCommit(() => interaction.inputCommitMessage(message), opts);
 
 		if (message && didCommit) {
-			scm.inputBox.value = ""; 
+			scm.inputBox.value = "";
 		}
 	}
 
@@ -492,7 +494,7 @@ export class CommandCenter {
 		const didCommit = await this.smartCommit(async () => scm.inputBox.value);
 
 		if (didCommit) {
-			scm.inputBox.value = ""; 
+			scm.inputBox.value = "";
 		}
 	}
 

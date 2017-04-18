@@ -309,7 +309,7 @@ export namespace interaction {
         if (options.includes("leave (d)eleted")) {
             choices.push(LEAVE_DELETED);
         }
-        if (options.includes("(d)elete")) {
+        if (options.match(/\(d\)elete\b/)) {
             choices.push(DELETE);
         }
         if (options.includes("(u)nresolved")) {
@@ -356,10 +356,6 @@ export namespace interaction {
         buffer.writeUInt32BE(textLength, 0);
         buffer.write(`${text}\n`, INT32_SIZE, textLength, encoding);
         await writeBufferToStdIn(server, buffer);
-        const zeroBuffer = new Buffer(INT32_SIZE);
-
-        // buffer.writeUInt32BE(0, 0);
-        // await writeBufferToStdIn(server, zeroBuffer)
     };
 
     function writeBufferToStdIn(this: void, server: ChildProcess, buffer: Buffer): Promise<any> {

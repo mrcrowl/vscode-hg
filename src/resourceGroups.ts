@@ -3,6 +3,7 @@ import { HgError, IFileStatus, IRepoStatus } from "./hg";
 import { Uri } from "vscode";
 import * as path from "path";
 import * as nls from "vscode-nls";
+import * as fs from "fs";
 
 const localize = nls.loadMessageBundle();
 
@@ -190,7 +191,8 @@ export function groupStatuses(this: void, {
 				continue; // dealt with by the fileStatuses (this is the norm)
 			}
 			const mergeStatus = toMergeStatus(raw.status);
-			const [resources, group, status] = chooseResourcesAndGroup(uriString, 'C', mergeStatus, !!raw.rename);
+			const inferredStatus: string = fs.existsSync(uri.fsPath) ? 'C' : 'R';
+			const [resources, group, status] = chooseResourcesAndGroup(uriString, inferredStatus, mergeStatus, !!raw.rename);
 			resources.push(new Resource(group, uri, status, mergeStatus));
 		}
 	}
