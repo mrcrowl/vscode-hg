@@ -119,12 +119,14 @@ export class CommandCenter {
 
 			case Status.ADDED:
 			case Status.IGNORED:
-			case Status.MISSING:
 			case Status.MODIFIED:
 			case Status.RENAMED:
 			case Status.UNTRACKED:
 			case Status.CLEAN:
 				return resource.resourceUri;
+
+			case Status.MISSING:
+				return undefined;	
 		}
 	}
 
