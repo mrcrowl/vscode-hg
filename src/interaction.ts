@@ -259,37 +259,36 @@ export namespace interaction {
     function asBackItem(this: void, description: string, action: RunnableAction): RunnableQuickPickItem {
         const goBack = localize('go back', 'go back');
         const to = localize('to', 'to');
-        return new LiteralRunnableQuickPickItem(`$(arrow-left) ${goBack}`, `${to} ${description}`, action);
+        return new LiteralRunnableQuickPickItem(`$(arrow-left)${NBSP}${NBSP}${goBack}`, `${to} ${description}`, action);
     }
 
-    function asFileStatusQuickPick(this: void, file: IFileStatus, details: CommitDetails): FileStatusQuickPickItem {
-        return new FileStatusQuickPickItem(file, details);
-    }
-
-    export async function presentLogMenu(this: void, commands: LogMenuAPI) {
+    export async function presentLogSourcesMenu(this: void, commands: LogMenuAPI) {
         const repoName = commands.getRepoName();
         const branchName = commands.getBranchName();
-        const logOptions = await interaction.pickLogOptions(repoName, branchName);
-
-        if (logOptions) {
-            const entries = await commands.getLogEntries(logOptions);
+        const source = await interaction.pickLogSource(repoName, branchName);
+        if (source) {
             const historyScope = localize('history scope', 'history scope');
-            const back = asBackItem(historyScope, () => presentLogMenu(commands));
-            let result = await pickCommitAsShowCommitDetailsRunnable(logOptions.kind, entries, commands, back);
-            while (result) {
-                result = await result.run();
-            }
+            const back = asBackItem(historyScope, () => presentLogSourcesMenu(commands));
+            return presentLogMenu(source.source, source.options, commands, back);
         }
     }
 
-    async function pickCommitAsShowCommitDetailsRunnable(this: void, source: CommitSources, entries: Commit[], commands: LogMenuAPI, back: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+    export async function presentLogMenu(this: void, source: CommitSources, logOptions: LogEntryOptions, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
+        const entries = await commands.getLogEntries(logOptions);
+        let result = await pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back);
+        while (result) {
+            result = await result.run();
+        }
+    }
+
+    async function pickCommitAsShowCommitDetailsRunnable(this: void, source: CommitSources, entries: Commit[], commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
         const backhere = asBackItem(
             describeLogEntrySource(source).toLowerCase(),
             () => pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back)
         );
         const commitPickedActionFactory = (commit: Commit) => async () => {
-            const details = await commands.getCommitDetails(commit.revision);
-            return interaction.presentCommitDetails(details, backhere);
+            const details = await commands.getCommitDetails(commit.hash);
+            return interaction.presentCommitDetails(details, backhere, commands);
         };
 
         const choice = await pickCommit(source, entries, commitPickedActionFactory, back);
@@ -301,20 +300,24 @@ export namespace interaction {
         const placeHolder = describeLogEntrySource(source);
         const pickItems = backItem ? [backItem, ...logEntryPickItems] : logEntryPickItems;
         const choice = await window.showQuickPick<RunnableQuickPickItem>(pickItems, {
+            placeHolder,
             matchOnDescription: true,
-            matchOnDetail: true,
-            placeHolder
+            matchOnDetail: true
         });
 
         return choice;
     }
 
-    export async function presentCommitDetails(this: void, details: CommitDetails, back: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+    export async function presentCommitDetails(this: void, details: CommitDetails, back: RunnableQuickPickItem, commands: LogMenuAPI): Promise<RunnableQuickPickItem | undefined> {
         const placeHolder = describeCommitOneLine(details);
-        const filePickItems = details.files.map(f => asFileStatusQuickPick(f, details));
+        const fileActionFactory = (f: IFileStatus) => () => {
+            return commands.diffToParent(f, details);
+        };
+        const filePickItems = details.files.map(f => new FileStatusQuickPickItem(f, details, fileActionFactory(f)));
+        const backToSelfRunnable = () => presentCommitDetails(details, back, commands);
         const items = [
             back,
-            asLabelItem("Files"),
+            asLabelItem("Files", undefined, backToSelfRunnable),
             ...filePickItems
         ];
 
@@ -327,18 +330,16 @@ export namespace interaction {
         return choice;
     }
 
-    export async function pickLogOptions(this: void, repoName: string, branchName: string | undefined): Promise<LogEntryOptionsPickItem | undefined> {
+    export async function pickLogSource(this: void, repoName: string, branchName: string | undefined): Promise<LogSourcePickItem | undefined> {
         const branchLabel: string = '$(git-branch)';//localize('branch', 'branch');
         const repoLabel: string = `$(repo)`;// ${localize('repo', 'repo')}`;
-        const branch: LogEntryOptionsPickItem = { description: branchLabel, label: branchName || "???", kind: CommitSources.Branch, options: { branch: "." } };
-        const default_: LogEntryOptionsPickItem = { description: branchLabel, label: "default", kind: CommitSources.Branch, options: { branch: "default" } };
-        const repo: LogEntryOptionsPickItem = { description: repoLabel, label: "entire repo", kind: CommitSources.Repo, options: {} };
+        const branch: LogSourcePickItem = { description: branchLabel, label: branchName || "???", source: CommitSources.Branch, options: { branch: "." } };
+        const default_: LogSourcePickItem = { description: branchLabel, label: "default", source: CommitSources.Branch, options: { branch: "default" } };
+        const repo: LogSourcePickItem = { description: repoLabel, label: "entire repo", source: CommitSources.Repo, options: {} };
 
         const pickItems = branchName !== "default" ? [branch, default_, repo] : [branch, repo];
 
-        const choice = await window.showQuickPick<LogEntryOptionsPickItem>(pickItems, {
-            matchOnDescription: true,
-            matchOnDetail: true,
+        const choice = await window.showQuickPick<LogSourcePickItem>(pickItems, {
             placeHolder: localize('history for', "Show history for...")
         });
 
@@ -544,16 +545,19 @@ class FileStatusQuickPickItem extends RunnableQuickPickItem {
         }
     }
 
-    constructor(private status: IFileStatus, private commitDetails: CommitDetails) {
+    constructor(private status: IFileStatus, private commitDetails: CommitDetails, private action: RunnableAction) {
         super();
     }
 
     async run(): Promise<void> {
-        console.log(this.status.path);
+        return this.action();
     }
 }
 
-interface LogEntryOptionsPickItem extends QuickPickItem { options: LogEntryOptions, kind: CommitSources }
+interface LogSourcePickItem extends QuickPickItem {
+    options: LogEntryOptions,
+    source: CommitSources
+}
 
 class LiteralRunnableQuickPickItem extends RunnableQuickPickItem {
     constructor(private _label: string, private _description: string, private _action: RunnableAction) {
@@ -574,6 +578,8 @@ export type DescribedBackAction = { description: string, action: RunnableAction 
 export interface LogMenuAPI {
     getRepoName: () => string;
     getBranchName: () => string | undefined;
-    getCommitDetails: (revision: number) => Promise<CommitDetails>;
+    getCommitDetails: (revision: string) => Promise<CommitDetails>;
     getLogEntries(options: LogEntriesOptions): Promise<Commit[]>;
+    diffToLocal: (file: IFileStatus, commit: CommitDetails) => any,
+    diffToParent: (file: IFileStatus, commit: CommitDetails) => any,
 }

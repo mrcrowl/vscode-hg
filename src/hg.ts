@@ -22,7 +22,7 @@ export interface IHg {
 	version: string;
 }
 
-export interface LogEntryRepositoryOptions extends LogEntryOptions{
+export interface LogEntryRepositoryOptions extends LogEntryOptions {
 	filePaths?: string[];
 	follow?: boolean;
 	limit?: number;
@@ -488,9 +488,12 @@ export class Hg {
 	}
 }
 
-export interface Commit {
+export interface Revision {
 	revision: number;
 	hash: string;
+}
+
+export interface Commit extends Revision {
 	branch: string;
 	message: string;
 	author: string;
@@ -499,6 +502,8 @@ export interface Commit {
 
 export interface CommitDetails extends Commit {
 	files: IFileStatus[];
+	parent1: Commit;
+	parent2: Commit | undefined;
 }
 
 export class Repository {
@@ -980,9 +985,9 @@ export class Repository {
 		return this.parseStatusLines(resolve);
 	}
 
-	async getStatus(revision?: number): Promise<IFileStatus[]> {
+	async getStatus(revision?: string): Promise<IFileStatus[]> {
 		const args = ['status', '-C'];
-		
+
 		if (revision) {
 			args.push('--change', `${revision}`);
 		}
@@ -1104,8 +1109,8 @@ export class Repository {
 		return logEntries;
 	}
 
-	async getParents(): Promise<Commit[]> {
-		return this.getLogEntries({ revQuery: 'parents()' });
+	async getParents(revision?: string): Promise<Commit[]> {
+		return this.getLogEntries({ revQuery: `parents(${revision || ""})` });
 	}
 
 	async getHeads(branch?: string, excludeSelf?: boolean): Promise<Commit[]> {

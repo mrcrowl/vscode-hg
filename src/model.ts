@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -305,6 +305,10 @@ export class Model implements Disposable {
 	get isClean() {
 		const groups = [this.workingDirectoryGroup, this.mergeGroup, this.conflictGroup, this.stagingGroup];
 		return groups.every(g => g.resources.length === 0);
+	}
+
+	toUri(rawPath: string): Uri {
+		return Uri.file(path.join(this.repository.root, rawPath));
 	}
 
 	private repository: Repository;
@@ -767,8 +771,8 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	public getParents(): Promise<Commit[]> {
-		return this.repository.getParents();
+	public getParents(revision?: string): Promise<Commit[]> {
+		return this.repository.getParents(revision);
 	}
 
 	@throttle
@@ -792,14 +796,18 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	public async getCommitDetails(revision: number): Promise<CommitDetails> {
-		const commitPromise = this.getLogEntries({ revQuery: `${revision}`, limit: 1 });
-		const fileStatusesPromise = await this.repository.getStatus(revision);
+	public async getCommitDetails(revision: string): Promise<CommitDetails> {
 
-		const [[commit], fileStatuses] = await Promise.all([commitPromise, fileStatusesPromise]);
+		const commitPromise = this.getLogEntries({ revQuery: revision, limit: 1 });
+		const fileStatusesPromise = this.repository.getStatus(revision);
+		const parentsPromise = this.getParents(revision);
+
+		const [[commit], fileStatuses, [parent1, parent2]] = await Promise.all([commitPromise, fileStatusesPromise, parentsPromise]);
 
 		return {
 			...commit,
+			parent1,
+			parent2,
 			files: fileStatuses
 		}
 	}

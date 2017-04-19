@@ -251,6 +251,21 @@
         "command": "hg.log",
         "title": "%command.log%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.logBranch",
+        "title": "%command.logBranch%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.logDefault",
+        "title": "%command.logDefault%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.logRepo",
+        "title": "%command.logRepo%",
+        "category": "Hg"
       }
     ],
     "menus": {
@@ -361,10 +376,18 @@
         },
         {
           "command": "hg.fileLog",
-          "when": "editorFocus && config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
           "command": "hg.log",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.logBranch",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.logDefault",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         }
       ],

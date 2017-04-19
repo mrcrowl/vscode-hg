@@ -23,19 +23,29 @@ export namespace humanise {
         if (elapsed.totalDays > 0) {
             // past
             if (elapsed.totalSeconds < 15) {
-                return "a few moments";
+                return "a few moments ago";
             }
             else if (elapsed.totalSeconds < 60) {
                 let seconds: string = pluraliseQuantity("second", Math.floor(elapsed.totalSeconds), "s");
-                return `${seconds}`;
+                return `${seconds} ago`;
             }
             else if (elapsed.totalMinutes < 60) {
                 let minutes: string = pluraliseQuantity("minute", Math.floor(elapsed.totalMinutes), "s", "");
-                return `${minutes}`;
+                return `${minutes} ago`;
             }
             else if (elapsed.totalHours < 24) {
-                let hours: string = pluraliseQuantity("hour", Math.floor(elapsed.totalHours), "s", "");
-                return `${hours}`;
+                let now: Date = new Date();
+                let today: Date = datePart(now);
+                let startDate: Date = datePart(addSeconds(now, -elapsedSeconds));
+                let yesterday: Date = addDays(today, -1);
+
+                if (startDate.getTime() == yesterday.getTime()) {
+                    return "yesterday";
+                }
+                else {
+                    let hours: string = pluraliseQuantity("hour", Math.floor(elapsed.totalHours), "s", "");
+                    return `${hours} ago`;
+                }
             }
             else if (elapsed.totalDays < 7) {
                 let now: Date = new Date();
@@ -51,7 +61,7 @@ export namespace humanise {
                     let todayWeek: number = getWeek(today);
                     let startWeek: number = getWeek(startDate);
                     if (todayWeek == startWeek) {
-                        return `${Math.round(elapsed.totalDays)} days`;
+                        return `${Math.round(elapsed.totalDays)} days ago`;
                     }
                     else {
                         return "last week";
@@ -63,19 +73,19 @@ export namespace humanise {
             }/*if (elapsed.totalDays < 32) {
                 let weeks: number = Math.round(elapsed.totalWeeks);
                 if (weeks === 1) {
-                    return "1 week";
+                    return "a week ago";
                 }
                 else {
-                    return `${weeks} weeks`;
+                    return `${weeks} weeks ago`;
                 }
             }
             else {
                 let months: number = Math.round(elapsed.totalWeeks / AVERAGE_WEEKS_PER_MONTH);
                 if (months === 1) {
-                    return "1 month";
+                    return "a month ago";
                 }
                 else {
-                    return `${months} months`;
+                    return `${months} months ago`;
                 }
             }*/
         }

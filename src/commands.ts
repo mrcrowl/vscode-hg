@@ -5,13 +5,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions } from "./hg";
-import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision } from "./hg";
+import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
 import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
-import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction } from "./interaction";
+import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, LogMenuAPI } from "./interaction";
 import * as vscode from "vscode";
 import * as fs from "fs";
 
@@ -708,14 +708,35 @@ export class CommandCenter {
 		this.outputChannel.show();
 	}
 
-	@command('hg.log')
-	async log() {
-		interaction.presentLogMenu({
+	createLogMenuAPI(): LogMenuAPI {
+		return {
 			getRepoName: () => this.model.repoName,
 			getBranchName: () => this.model.currentBranch && this.model.currentBranch.name,
-			getCommitDetails: (revision: number) => this.model.getCommitDetails(revision),
-			getLogEntries: options => this.model.getLogEntries(options),
-		});
+			getCommitDetails: (revision: string) => this.model.getCommitDetails(revision),
+			getLogEntries: (options: LogEntriesOptions) => this.model.getLogEntries(options),
+			diffToLocal: (file: IFileStatus, commit: CommitDetails) => { },
+			diffToParent: (file: IFileStatus, commit: CommitDetails) => this.diffFile(commit.parent1, commit, file)
+		}
+	}
+
+	@command('hg.log')
+	async log() {
+		interaction.presentLogSourcesMenu(this.createLogMenuAPI());
+	}
+
+	@command('hg.logBranch')
+	async logBranch() {
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, this.createLogMenuAPI());
+	}
+
+	@command('hg.logDefault')
+	async logDefault() {
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, this.createLogMenuAPI());
+	}
+
+	@command('hg.logRepo')
+	async logRepo() {
+		interaction.presentLogMenu(CommitSources.Repo, {}, this.createLogMenuAPI());
 	}
 
 	@command('hg.fileLog')
@@ -736,9 +757,21 @@ export class CommandCenter {
 				this.diff(commit, uri);
 			}
 		});
-		
+
 		if (choice) {
 			choice.run();
+		}
+	}
+
+	private async diffFile(rev1: Revision, rev2: Revision, file: IFileStatus) {
+		const uri = this.model.toUri(file.path);
+		const left = uri.with({ scheme: 'hg', query: rev1.hash });
+		const right = uri.with({ scheme: 'hg', query: rev2.hash });
+		const baseName = path.basename(uri.fsPath);
+		const title = `${baseName} (#${rev1.revision} vs. ${rev2.revision})`;
+
+		if (left && right) {
+			return await commands.executeCommand<void>('vscode.diff', left, right, title);
 		}
 	}
 
