@@ -5,13 +5,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus } from "./model";
 import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
-import { interaction, BranchExistsAction, WarnScenario } from "./interaction";
+import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction } from "./interaction";
 import * as vscode from "vscode";
 import * as fs from "fs";
 
@@ -126,7 +126,7 @@ export class CommandCenter {
 				return resource.resourceUri;
 
 			case Status.MISSING:
-				return undefined;	
+				return undefined;
 		}
 	}
 
@@ -708,6 +708,16 @@ export class CommandCenter {
 		this.outputChannel.show();
 	}
 
+	@command('hg.log')
+	async log() {
+		interaction.presentLogMenu({
+			getRepoName: () => this.model.repoName,
+			getBranchName: () => this.model.currentBranch && this.model.currentBranch.name,
+			getCommitDetails: (revision: number) => this.model.getCommitDetails(revision),
+			getLogEntries: options => this.model.getLogEntries(options),
+		});
+	}
+
 	@command('hg.fileLog')
 	async fileLog(uri?: Uri) {
 		if (!uri) {
@@ -720,11 +730,15 @@ export class CommandCenter {
 			}
 		}
 
-		const logEntries = await this.model.getLogEntries(uri);
-		const logEntry = await interaction.pickLogEntry(logEntries);
-
-		if (logEntry) {
-			this.diff(logEntry.commit, uri);
+		const logEntries = await this.model.getLogEntries({ file: uri });
+		const choice = await interaction.pickCommit(CommitSources.File, logEntries, commit => () => {
+			if (uri) {
+				this.diff(commit, uri);
+			}
+		});
+		
+		if (choice) {
+			choice.run();
 		}
 	}
 

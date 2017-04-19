@@ -1,9 +1,9 @@
 import * as nls from "vscode-nls";
 import * as path from "path";
-import { window, QuickPickItem, workspace } from "vscode";
+import { window, QuickPickItem, workspace, Uri } from "vscode";
 import { ChildProcess } from "child_process";
-import { Resource, Model } from "./model";
-import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError } from "./hg";
+import { Resource, Model, State, Status, LogEntriesOptions } from "./model";
+import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus } from "./hg";
 import { humanise } from "./humanise";
 import * as os from "os";
 const localize = nls.loadMessageBundle();
@@ -16,11 +16,15 @@ const DELETE = "Delete";
 const INT32_SIZE = 4;
 const SHORT_HASH_LENGTH = 12;
 const BULLET = "\u2022";
+const NBSP = "\u00a0";
+
+const NOOP = function () { }
 
 export const enum BranchExistsAction { None, Reopen, UpdateTo }
 export const enum PushCreatesNewHeadAction { None, Pull }
 export const enum WarnScenario { Merge, Update }
 export const enum DefaultRepoNotConfiguredAction { None, OpenHGRC }
+export const enum CommitSources { File, Branch, Repo }
 
 export namespace interaction {
 
@@ -183,15 +187,16 @@ export namespace interaction {
 
         let formatted = ` ${BULLET} ${filenames.join(`\n ${BULLET} `)}`;
         if (extraCount > 1) {
-            formatted += `\n ${BULLET} and ${extraCount} others`;
+            const andNOthers = localize('and n others', 'and ${0} others', extraCount);
+            formatted += `\n ${BULLET} ${andNOthers}`;
         }
 
         return formatted;
     }
 
     export async function warnBranchAlreadyExists(name: string): Promise<BranchExistsAction> {
-        const updateTo = "Update";
-        const reopen = "Re-open";
+        const updateTo = localize('upadte', "Update");
+        const reopen = localize('reopen', "Re-open");
         const message = localize('branch already exists', `Branch '{0}' already exists. Update or Re-open?`, name);
         const choice = await window.showWarningMessage(message, { modal: true }, updateTo, reopen);
         if (choice === reopen) {
@@ -234,14 +239,109 @@ export namespace interaction {
         return choice;
     }
 
-    export async function pickLogEntry(this: void, logEntries: Commit[]): Promise<LogEntryItem | undefined> {
-        const quickPickItems = logEntries.map(entry => new LogEntryItem(entry));
-        const choice = await window.showQuickPick<LogEntryItem>(quickPickItems, {
+    function describeLogEntrySource(this: void, kind: CommitSources): string {
+        switch (kind) {
+            case CommitSources.Branch: return localize('branch history', "Branch history");
+            case CommitSources.Repo: return localize('repo history', "Repo history");
+            case CommitSources.File: return localize('file history', "File history");
+            default: return localize('history', "History");
+        }
+    }
+
+    function describeCommitOneLine(this: void, commit: Commit): string {
+        return `#${commit.revision} ${BULLET} ${commit.author}, ${humanise.ageFromNow(commit.date)} ${BULLET} ${commit.message}`;
+    }
+
+    function asLabelItem(this: void, label: string, description: string = "", action: RunnableAction = NOOP): RunnableQuickPickItem {
+        return new LiteralRunnableQuickPickItem(label, description, action);
+    }
+
+    function asBackItem(this: void, description: string, action: RunnableAction): RunnableQuickPickItem {
+        const goBack = localize('go back', 'go back');
+        const to = localize('to', 'to');
+        return new LiteralRunnableQuickPickItem(`$(arrow-left) ${goBack}`, `${to} ${description}`, action);
+    }
+
+    function asFileStatusQuickPick(this: void, file: IFileStatus, details: CommitDetails): FileStatusQuickPickItem {
+        return new FileStatusQuickPickItem(file, details);
+    }
+
+    export async function presentLogMenu(this: void, commands: LogMenuAPI) {
+        const repoName = commands.getRepoName();
+        const branchName = commands.getBranchName();
+        const logOptions = await interaction.pickLogOptions(repoName, branchName);
+
+        if (logOptions) {
+            const entries = await commands.getLogEntries(logOptions);
+            const historyScope = localize('history scope', 'history scope');
+            const back = asBackItem(historyScope, () => presentLogMenu(commands));
+            let result = await pickCommitAsShowCommitDetailsRunnable(logOptions.kind, entries, commands, back);
+            while (result) {
+                result = await result.run();
+            }
+        }
+    }
+
+    async function pickCommitAsShowCommitDetailsRunnable(this: void, source: CommitSources, entries: Commit[], commands: LogMenuAPI, back: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+        const backhere = asBackItem(
+            describeLogEntrySource(source).toLowerCase(),
+            () => pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back)
+        );
+        const commitPickedActionFactory = (commit: Commit) => async () => {
+            const details = await commands.getCommitDetails(commit.revision);
+            return interaction.presentCommitDetails(details, backhere);
+        };
+
+        const choice = await pickCommit(source, entries, commitPickedActionFactory, back);
+        return choice;
+    }
+
+    export async function pickCommit(this: void, source: CommitSources, logEntries: Commit[], actionFactory: (commit) => RunnableAction, backItem?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+        const logEntryPickItems = logEntries.map(entry => new LogEntryItem(entry, actionFactory(entry)));
+        const placeHolder = describeLogEntrySource(source);
+        const pickItems = backItem ? [backItem, ...logEntryPickItems] : logEntryPickItems;
+        const choice = await window.showQuickPick<RunnableQuickPickItem>(pickItems, {
             matchOnDescription: true,
             matchOnDetail: true,
-            placeHolder: localize('file history', "File History"),
-            onDidSelectItem: (x) => console.log(x)
+            placeHolder
         });
+
+        return choice;
+    }
+
+    export async function presentCommitDetails(this: void, details: CommitDetails, back: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+        const placeHolder = describeCommitOneLine(details);
+        const filePickItems = details.files.map(f => asFileStatusQuickPick(f, details));
+        const items = [
+            back,
+            asLabelItem("Files"),
+            ...filePickItems
+        ];
+
+        const choice = await window.showQuickPick<RunnableQuickPickItem>(items, {
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder
+        });
+
+        return choice;
+    }
+
+    export async function pickLogOptions(this: void, repoName: string, branchName: string | undefined): Promise<LogEntryOptionsPickItem | undefined> {
+        const branchLabel: string = '$(git-branch)';//localize('branch', 'branch');
+        const repoLabel: string = `$(repo)`;// ${localize('repo', 'repo')}`;
+        const branch: LogEntryOptionsPickItem = { description: branchLabel, label: branchName || "???", kind: CommitSources.Branch, options: { branch: "." } };
+        const default_: LogEntryOptionsPickItem = { description: branchLabel, label: "default", kind: CommitSources.Branch, options: { branch: "default" } };
+        const repo: LogEntryOptionsPickItem = { description: repoLabel, label: "entire repo", kind: CommitSources.Repo, options: {} };
+
+        const pickItems = branchName !== "default" ? [branch, default_, repo] : [branch, repo];
+
+        const choice = await window.showQuickPick<LogEntryOptionsPickItem>(pickItems, {
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder: localize('history for', "Show history for...")
+        });
+
         return choice;
     }
 
@@ -376,35 +476,32 @@ Either track these files, move them, or delete them before merging.`, fileList);
     }
 }
 
+abstract class RunnableQuickPickItem implements QuickPickItem {
+    abstract get label();
+    abstract get description();
+    abstract run(): RunnableReturnType;
+}
 
-class CommitItem implements QuickPickItem {
+class CommitItem implements RunnableQuickPickItem {
     constructor(public readonly commit: Commit) { }
     get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
     get label() { return this.commit.branch; }
     get detail() { return `${this.commit.revision} (${this.shortHash})`; }
     get description() { return this.commit.message; }
-}
-
-class UpdateCommitItem extends CommitItem {
-    constructor(commit: Commit, private opts?: { discard: boolean }) {
-        super(commit);
-    }
-    async run(model: Model) {
-        await model.update(this.commit.hash, this.opts);
-    }
+    run() { }
 }
 
 class LogEntryItem extends CommitItem {
-    get description() {
-        return `\u00a0\u2022\u00a0\u00a0#${this.commit.revision} \u2014 ${this.commit.branch}`;
-    }
-    get label() { return this.commit.message; }
-    get detail() {
-        return `\u00a0\u00a0\u00a0${this.commit.author}, ${this.age}`;
+    constructor(commit: Commit, private action: RunnableAction) {
+        super(commit);
     }
     protected get age(): string {
         return humanise.ageFromNow(this.commit.date);
     }
+    get description() { return `${NBSP}${BULLET}${NBSP}${NBSP}#${this.commit.revision} \u2014 ${this.commit.branch}`; }
+    get label() { return this.commit.message; }
+    get detail() { return `${NBSP}${NBSP}${NBSP}${this.commit.author}, ${this.age}`; }
+    run() { return this.action(); }
 }
 
 class UpdateRefItem implements QuickPickItem {
@@ -432,4 +529,51 @@ class UpdateTagItem extends UpdateRefItem {
     get description(): string {
         return localize('tag at', "Tag at {0}", this.shortCommit);
     }
+}
+
+class FileStatusQuickPickItem extends RunnableQuickPickItem {
+    get basename(): string { return path.basename(this.status.path); }
+    get label(): string { return `${NBSP}${NBSP}${NBSP}${NBSP}${this.icon}${NBSP}${NBSP}${this.basename}` }
+    get description(): string { return path.dirname(this.status.path); }
+    get icon(): string {
+        switch (this.status.status) {
+            case 'A': return 'Ａ'//'$(diff-added)';
+            case 'M': return 'Ｍ'//'$(diff-modified)';
+            case 'R': return 'Ｒ'//'$(diff-removed)';
+            default: return '';
+        }
+    }
+
+    constructor(private status: IFileStatus, private commitDetails: CommitDetails) {
+        super();
+    }
+
+    async run(): Promise<void> {
+        console.log(this.status.path);
+    }
+}
+
+interface LogEntryOptionsPickItem extends QuickPickItem { options: LogEntryOptions, kind: CommitSources }
+
+class LiteralRunnableQuickPickItem extends RunnableQuickPickItem {
+    constructor(private _label: string, private _description: string, private _action: RunnableAction) {
+        super();
+    }
+
+    get label() { return this._label; }
+    get description() { return this._description; }
+
+    run(): RunnableReturnType {
+        return this._action();
+    }
+}
+
+type RunnableReturnType = Promise<any> | any;
+export type RunnableAction = () => RunnableReturnType;
+export type DescribedBackAction = { description: string, action: RunnableAction }
+export interface LogMenuAPI {
+    getRepoName: () => string;
+    getBranchName: () => string | undefined;
+    getCommitDetails: (revision: number) => Promise<CommitDetails>;
+    getLogEntries(options: LogEntriesOptions): Promise<Commit[]>;
 }

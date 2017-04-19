@@ -22,11 +22,15 @@ export interface IHg {
 	version: string;
 }
 
+export interface LogEntryRepositoryOptions extends LogEntryOptions{
+	filePaths?: string[];
+	follow?: boolean;
+	limit?: number;
+}
+
 export interface LogEntryOptions {
 	revQuery?: string;
 	branch?: string;
-	filePaths?: string[];
-	follow?: boolean;
 }
 
 export interface PushOptions {
@@ -491,6 +495,10 @@ export interface Commit {
 	message: string;
 	author: string;
 	date: Date;
+}
+
+export interface CommitDetails extends Commit {
+	files: IFileStatus[];
 }
 
 export class Repository {
@@ -972,8 +980,14 @@ export class Repository {
 		return this.parseStatusLines(resolve);
 	}
 
-	async getStatus(): Promise<IFileStatus[]> {
-		const executionResult = await this.run(['status', '-C']); // quiet, include renames/copies
+	async getStatus(revision?: number): Promise<IFileStatus[]> {
+		const args = ['status', '-C'];
+		
+		if (revision) {
+			args.push('--change', `${revision}`);
+		}
+
+		const executionResult = await this.run(args); // quiet, include renames/copies
 		const status = executionResult.stdout;
 		return this.parseStatusLines(status);
 	}
@@ -1049,7 +1063,7 @@ export class Repository {
 		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
-	async getLogEntries({ revQuery, branch, filePaths, follow }: LogEntryOptions = {}): Promise<Commit[]> {
+	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
 		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\n`;
 		const args = ['log', '-T', templateFormat]
@@ -1064,6 +1078,10 @@ export class Repository {
 
 		if (follow) {
 			args.push('-f');
+		}
+
+		if (limit) {
+			args.push('-l', `${limit}`);
 		}
 
 		if (filePaths) {

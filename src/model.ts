@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -20,6 +20,13 @@ const exists = (path: string) => new Promise(c => fs.exists(path, c));
 
 const localize = nls.loadMessageBundle();
 const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
+
+export interface LogEntriesOptions {
+	file?: Uri;
+	revQuery?: string;
+	branch?: string;
+	limit?: number;
+}
 
 function getIconUri(iconName: string, theme: string): Uri {
 	return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
@@ -293,6 +300,8 @@ export class Model implements Disposable {
 	private _numOutgoing: number;
 	get numOutgoingCommits(): number { return this._numOutgoing; }
 
+	get repoName(): string { return path.basename(this.repository.root); }
+
 	get isClean() {
 		const groups = [this.workingDirectoryGroup, this.mergeGroup, this.conflictGroup, this.stagingGroup];
 		return groups.every(g => g.resources.length === 0);
@@ -362,10 +371,9 @@ export class Model implements Disposable {
 	async hgrcPathIfExists(): Promise<string | undefined> {
 		const filePath: string = this.hgrcPath;
 		const exists = await new Promise((c, e) => fs.exists(filePath, c));
-		if (exists)
-		{
+		if (exists) {
 			return filePath;
-		}	
+		}
 	}
 
 	async createHgrc(): Promise<string> {
@@ -784,13 +792,33 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	public getLogEntries(file?: Uri): Promise<Commit[]> {
+	public async getCommitDetails(revision: number): Promise<CommitDetails> {
+		const commitPromise = this.getLogEntries({ revQuery: `${revision}`, limit: 1 });
+		const fileStatusesPromise = await this.repository.getStatus(revision);
+
+		const [[commit], fileStatuses] = await Promise.all([commitPromise, fileStatusesPromise]);
+
+		return {
+			...commit,
+			files: fileStatuses
+		}
+	}
+
+	@throttle
+	public getLogEntries(options: LogEntriesOptions = {}): Promise<Commit[]> {
 		let filePaths: string[] | undefined = undefined;
-		if (file) {
-			filePaths = [this.mapFileUriToRelativePath(file)];
+		if (options.file) {
+			filePaths = [this.mapFileUriToRelativePath(options.file)];
 		}
 
-		return this.repository.getLogEntries({ filePaths, follow: true })
+		const opts: LogEntryRepositoryOptions = {
+			revQuery: options.revQuery || ".:0",
+			branch: options.branch,
+			filePaths: filePaths,
+			follow: true,
+			limit: options.limit || 200
+		};
+		return this.repository.getLogEntries(opts)
 	}
 
 	@throttle
