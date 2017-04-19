@@ -28,15 +28,15 @@ export const enum CommitSources { File, Branch, Repo }
 
 export namespace interaction {
 
-    export function statusCloning(clonePromise: Promise<any>) {
+    export function statusCloning(this: void, clonePromise: Promise<any>) {
         return window.setStatusBarMessage(localize('cloning', "Cloning hg repository..."), clonePromise);
     }
 
-    export function informHgNotSupported() {
+    export function informHgNotSupported(this: void) {
         return window.showInformationMessage(localize('disabled', "Hg is either disabled or not supported in this workspace"));
     }
 
-    export function informNoChangesToCommit() {
+    export function informNoChangesToCommit(this: void) {
         return window.showInformationMessage(localize('no changes', "There are no changes to commit."));
     }
 
@@ -63,15 +63,15 @@ export namespace interaction {
         return false;
     }
 
-    export function warnBranchMultipleHeads(branchWithMultipleHeads: string) {
+    export function warnBranchMultipleHeads(this: void, branchWithMultipleHeads: string) {
         return window.showWarningMessage(localize('multi head branch', `Branch '{0}' has multiple heads. Merge required before pushing.`, branchWithMultipleHeads));
     }
 
-    export function warnMergeOnlyOneHead(branch: string | undefined) {
+    export function warnMergeOnlyOneHead(this: void, branch: string | undefined) {
         return window.showWarningMessage(localize('only one head', "There is only 1 head for branch '{0}'. Nothing to merge.", branch));
     }
 
-    export async function warnPushCreatesNewHead(): Promise<PushCreatesNewHeadAction> {
+    export async function warnPushCreatesNewHead(this: void): Promise<PushCreatesNewHeadAction> {
         const warningMessage = localize('pullandmerge', "Push would create new head. Try Pull and Merge first.");
         const pullOption = localize('pull', 'Pull');
         const choice = await window.showErrorMessage(warningMessage, pullOption);
@@ -81,7 +81,7 @@ export namespace interaction {
         return PushCreatesNewHeadAction.None;
     }
 
-    export async function warnPushCreatesNewBranchesAllow(): Promise<boolean> {
+    export async function warnPushCreatesNewBranchesAllow(this: void): Promise<boolean> {
         const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
         const allowOption = localize('allow', 'Allow');
         const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);
@@ -91,11 +91,11 @@ export namespace interaction {
         return false;
     }
 
-    export function warnMultipleBranchMultipleHeads(branchesWithMultipleHeads: string[]) {
+    export function warnMultipleBranchMultipleHeads(this: void, branchesWithMultipleHeads: string[]) {
         return window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, branchesWithMultipleHeads.join(",")));
     }
 
-    export async function warnDefaultRepositoryNotConfigured(message?: string): Promise<DefaultRepoNotConfiguredAction> {
+    export async function warnDefaultRepositoryNotConfigured(this: void, message?: string): Promise<DefaultRepoNotConfiguredAction> {
         const defaultMessage = localize('no default repo', "No default repository is configured.");
         const hgrcOption = localize('open hgrc', 'Open hgrc file');
         const choice = await window.showErrorMessage(message || defaultMessage, hgrcOption);
@@ -105,7 +105,7 @@ export namespace interaction {
         return DefaultRepoNotConfiguredAction.None;
     }
 
-    export function warnNoPaths(push: boolean) {
+    export function warnNoPaths(this: void, push: boolean) {
         if (push) {
             return warnDefaultRepositoryNotConfigured(localize('no paths to push', "Your repository has no paths configured to push to."));
         }
@@ -114,15 +114,15 @@ export namespace interaction {
         }
     }
 
-    export function warnResolveConflicts() {
+    export function warnResolveConflicts(this: void) {
         return window.showWarningMessage(localize('conflicts', "Resolve conflicts before committing."));
     }
 
-    export function warnNoRollback() {
+    export function warnNoRollback(this: void) {
         return window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
     }
 
-    export async function errorPromptOpenLog(err: any): Promise<boolean> {
+    export async function errorPromptOpenLog(this: void, err: any): Promise<boolean> {
         let message: string;
 
         switch (err.hgErrorCode) {
@@ -155,14 +155,14 @@ export namespace interaction {
         return choice === openOutputChannelChoice;
     }
 
-    export async function promptOpenClonedRepo() {
+    export async function promptOpenClonedRepo(this: void) {
         const open = localize('openrepo', "Open Repository");
         const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
 
         return result === open;
     }
 
-    export async function inputRepoUrl(): Promise<string | undefined> {
+    export async function inputRepoUrl(this: void): Promise<string | undefined> {
         const url = await window.showInputBox({
             prompt: localize('repourl', "Repository URL"),
             ignoreFocusOut: true
@@ -170,7 +170,7 @@ export namespace interaction {
         return url;
     }
 
-    export async function inputCloneParentPath(): Promise<string | undefined> {
+    export async function inputCloneParentPath(this: void): Promise<string | undefined> {
         return await window.showInputBox({
             prompt: localize('parent', "Parent Directory"),
             value: os.homedir(),
@@ -194,7 +194,7 @@ export namespace interaction {
         return formatted;
     }
 
-    export async function warnBranchAlreadyExists(name: string): Promise<BranchExistsAction> {
+    export async function warnBranchAlreadyExists(this: void, name: string): Promise<BranchExistsAction> {
         const updateTo = localize('upadte', "Update");
         const reopen = localize('reopen', "Re-open");
         const message = localize('branch already exists', `Branch '{0}' already exists. Update or Re-open?`, name);
@@ -356,7 +356,7 @@ export namespace interaction {
         return;
     }
 
-    export function warnUnresolvedFiles(unresolvedCount: number) {
+    export function warnUnresolvedFiles(this: void, unresolvedCount: number) {
         const fileOrFiles = unresolvedCount === 1 ? localize('file', 'file') : localize('files', 'files');
         window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
     }
