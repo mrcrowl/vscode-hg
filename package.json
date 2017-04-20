@@ -11,6 +11,13 @@
   "engines": {
     "vscode": "^1.11.0"
   },
+  "keywords": [
+    "hg",
+    "mercurial",
+    "source",
+    "tortoise",
+    "scm"
+  ],
   "icon": "icon.png",
   "enableProposedApi": false,
   "categories": [
