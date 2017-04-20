@@ -32,7 +32,8 @@ Fast, integrated Mercurial source control, using the new VS Code SCM API.
 
 ## Switch to Hg
 
-1. Open the source control side-bar.<br><br>
+1. Open the source control side-bar.
+
    ![Switch to Hg](images/switch-to-hg.gif)
 
  1. Click **⋯** > _Switch SCM Provider..._
@@ -41,7 +42,8 @@ Fast, integrated Mercurial source control, using the new VS Code SCM API.
 
 ## Initialize a new repo
 
- * Just click the Mercurial icon from the source control title area:<br><br>
+ * Just click the Mercurial icon from the source control title area:
+ 
    ![Switch to Hg](images/init.gif) 
 
 ## Clone a repo
