@@ -648,9 +648,9 @@
         "hg.commandMode": {
           "type": "string",
           "description": "%config.commandMode%",
-          "default": "cmdline",
+          "default": "server",
           "enum": [
-            "cmdline",
+            "cli",
             "server"
           ]
         },

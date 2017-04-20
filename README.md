@@ -25,8 +25,8 @@ Fast, integrated Mercurial source control, using the new VS Code SCM API.
  * Undo/rollback
 
  * Two command modes:
-    * `cmdline`: spawns a new hg process per command
-    * `server`: keeps an hg serve --cmdserve running (default, 10x faster)
+    * `cli`: spawns a new hg process per command
+    * `server`: keeps an `hg serve --cmdserve` process running (default, 10x faster)
 
 # Getting Started
 
