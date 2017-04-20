@@ -820,7 +820,7 @@ export class Model implements Disposable {
 		}
 
 		const opts: LogEntryRepositoryOptions = {
-			revQuery: options.revQuery || ".:0",
+			revQuery: options.revQuery || "tip:0",
 			branch: options.branch,
 			filePaths: filePaths,
 			follow: true,
