@@ -342,23 +342,24 @@ export class Hg {
 		this.version = options.version;
 		this.instrumentEnabled = options.enableInstrumentation;
 
-		workspace.onDidChangeConfiguration(this.onConfigurationChange, this, this.disposables);
+		workspace.onDidChangeConfiguration(() => this.onConfigurationChange(), this, this.disposables);
 		this.onConfigurationChange();
 	}
 
-	async onConfigurationChange() {
+	async onConfigurationChange(forceServerRestart?: boolean) {
 		const hgConfig = workspace.getConfiguration('hg');
 		const wasUsingServer = this.useServer;
 		const useServer = hgConfig.get<string>('commandMode') === "server";
 		this.useServer = useServer;
 
-		if (!useServer && this.server) {
+		if (this.server && (!useServer || forceServerRestart)) {
 			this.server.stop();
 			this.server = undefined;
 			this.log("cmdserve stopped\n");
 		}
-		else if (useServer && !wasUsingServer) {
-			if (this.openRepository) {
+
+		if (useServer && (!wasUsingServer || forceServerRestart)) {
+			if (this.openRepository !== undefined) {
 				this.server = await this.startServer(this.openRepository.root);
 			}
 		}
@@ -1166,7 +1167,8 @@ export class Repository {
 
 	async getPaths(): Promise<Path[]> {
 		const pathsResult = await this.run(['paths']);
-		const paths = pathsResult.stdout.trim().split('\n')
+		const trimmedOutput = pathsResult.stdout.trim();
+		const paths = trimmedOutput.split('\n')
 			.filter(line => !!line)
 			.map((line: string): Path | null => {
 				let match = line.match(/^(\S+)\s*=\s*(.*)$/);

@@ -384,7 +384,7 @@ export class Model implements Disposable {
 		const filePath: string = this.hgrcPath;
 		const fd = fs.openSync(filePath, 'w');
 		fs.writeSync(fd, `[paths]
-; Uncomment line below to add a path:
+; Uncomment line below to add a remote path:
 ; default = https://bitbucket.org/<yourname>/<repo>
 `, 0, 'utf-8');
 		fs.closeSync(fd);
@@ -604,39 +604,41 @@ export class Model implements Disposable {
 
 	@throttle
 	async push(path?: string, options?: PushOptions): Promise<void> {
-		try {
-			await this.run(Operation.Push, () => this.repository.push(path, options));
+		return await this.run(Operation.Push, async () => {
+			try {
+				await this.repository.push(path, options);
 
-			if (!path || path === "default" || path === "default-push") {
-				this.countOutgoing(-this._syncCounts.outgoing);
-			}
-		}
-		catch (e) {
-			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
-				const action = await interaction.warnDefaultRepositoryNotConfigured();
-				if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
-					commands.executeCommand("hg.openhgrc");
+				if (!path || path === "default" || path === "default-push") {
+					this.countOutgoing(-this._syncCounts.outgoing);
 				}
-				return;
 			}
-			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
-				const action = await interaction.warnPushCreatesNewHead();
-				if (action === PushCreatesNewHeadAction.Pull) {
-					commands.executeCommand("hg.pull");
+			catch (e) {
+				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
+					const action = await interaction.warnDefaultRepositoryNotConfigured();
+					if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
+						commands.executeCommand("hg.openhgrc");
+					}
+					return;
 				}
-				return;
-			}
-			else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
-				const allow = interaction.warnPushCreatesNewBranchesAllow();
-				if (allow) {
-					return this.push(path, { allowPushNewBranches: true })
+				else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
+					const action = await interaction.warnPushCreatesNewHead();
+					if (action === PushCreatesNewHeadAction.Pull) {
+						commands.executeCommand("hg.pull");
+					}
+					return;
+				}
+				else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
+					const allow = interaction.warnPushCreatesNewBranchesAllow();
+					if (allow) {
+						return this.push(path, { allowPushNewBranches: true })
+					}
+
+					return;
 				}
 
-				return;
+				throw e;
 			}
-
-			throw e;
-		}
+		});
 	}
 
 	@throttle
@@ -731,8 +733,10 @@ export class Model implements Disposable {
 
 		const onHgChange = mapEvent(onRawHgChange, ({ filename }) => Uri.file(path.join(dotHgPath, filename)));
 		const onRelevantHgChange = filterEvent(onHgChange, uri => !/\/\.hg\/index\.lock$/.test(uri.fsPath));
+		const onHgrcChange = filterEvent(onHgChange, uri => /\/\.hg\/hgrc$/.test(uri.path));
 		onRelevantHgChange(this.onFSChange, this, disposables);
 		onRelevantHgChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, disposables);
+		onHgrcChange(this.onHgrcChange, this, disposables);
 
 		const onNonHgChange = filterEvent(this.onWorkspaceChange, uri => !/\/\.hg\//.test(uri.fsPath));
 		onNonHgChange(this.onFSChange, this, disposables);
@@ -865,6 +869,15 @@ export class Model implements Disposable {
 		}
 
 		this.eventuallyUpdateWhenIdleAndWait();
+	}
+
+	@debounce(1000)
+	private onHgrcChange(uri: Uri): void {
+		const config = workspace.getConfiguration('hg');
+		const usingServer = config.get<string>('commandMode') === "server";
+		if (usingServer) {
+			this._hg.onConfigurationChange(true);
+		}
 	}
 
 	@debounce(1000)

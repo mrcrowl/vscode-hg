@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
-import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, LogMenuAPI } from "./interaction";
+import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import * as vscode from "vscode";
 import * as fs from "fs";
 
@@ -581,7 +581,10 @@ export class CommandCenter {
 		const paths = await this.model.getPaths();
 
 		if (paths.length === 0) {
-			interaction.warnNoPaths(false);
+			const action = await interaction.warnNoPaths(false);
+			if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
+				commands.executeCommand("hg.openhgrc");
+			}
 			return;
 		}
 
@@ -668,11 +671,6 @@ export class CommandCenter {
 	async push(): Promise<void> {
 		const paths = await this.model.getPaths();
 
-		if (paths.length === 0) {
-			interaction.warnNoPaths(true);
-			return;
-		}
-
 		// check for branches with 2+ heads		
 		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads();
 		if (multiHeadBranchNames.length === 1) {
@@ -693,7 +691,10 @@ export class CommandCenter {
 		const paths = await this.model.getPaths();
 
 		if (paths.length === 0) {
-			interaction.warnNoPaths(true);
+			const action = await interaction.warnNoPaths(true);
+			if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
+				commands.executeCommand("hg.openhgrc");
+			}
 			return;
 		}
 
