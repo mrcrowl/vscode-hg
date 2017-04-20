@@ -1,25 +1,26 @@
-
 # Overview
 
-Integrated Mercurial source control, using the new VS Code SCM API.
+Fast, integrated Mercurial source control, using the new VS Code SCM API.
+
+> **Note**: This extension will leverage your 
+> machine's Mercurial (hg) installation, 
+> so you need to [install Mercurial](https://www.mercurial-scm.org) first. 
 
 # Features
 
- * Init new repo or clone from URL.
- 
- * Basic commands: commit, add, forget, discard changes.
+ * Add files and commit from the source control side-bar (i.e. where git normally appears).
 
- * Emulated staging of files to commit.
+ * All the basics: commit, add, forget,  update, push and pull. 
 
- * Basic file history (log) and diff.
+ * See changes inline within text editor. 
 
- * Merge heads, merge with branch, resolve + unresolve files.
+ * History (log) and diff.
 
- * Switch branches, push and pull via status bar.
+ * Branch, merge heads, merge with branch, resolve + unresolve files.
 
- * Create new branch.
+ * Quickly switch branches, push and pull via status bar.
 
- * Automatic incoming/outgoing watcher
+ * Automatic incoming/outgoing counters. 
 
  * Undo/rollback
 
@@ -27,4 +28,14 @@ Integrated Mercurial source control, using the new VS Code SCM API.
     * `cmdline`: spawns a new hg process per command
     * `server`: keeps an hg serve --cmdserve running (default, 10x faster)
 
+# Getting Started
 
+## Switch to Hg
+
+ 1. Open the source control side-bar. 
+ 1. Click **⋯** > _Switch SCM Provider..._
+ 1. Choose _Hg_
+
+## Initialise a repository
+
+ * Click the mercurial icon from the hg title area:
