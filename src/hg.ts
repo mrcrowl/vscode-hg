@@ -106,6 +106,19 @@ export class HgFinder {
 	}
 
 	private findHgDarwin(): Promise<IHg> {
+		return this.findTortoiseHgDarwin("/Applications/TortoiseHg.app/Contents/Resources")
+			.then(undefined, () => this.findHgDarwinUsingWhich());
+	}
+
+	private findTortoiseHgDarwin(base: string): Promise<IHg> {
+		if (!base) {
+			return Promise.reject<IHg>('Not found');
+		}
+
+		return this.findSpecificHg(path.join(base, 'lib', 'python2.7', 'hg'));
+	}
+
+	private findHgDarwinUsingWhich(): Promise<IHg> {
 		return new Promise<IHg>((c, e) => {
 			cp.exec('which hg', (err, hgPathBuffer) => {
 				if (err) {
