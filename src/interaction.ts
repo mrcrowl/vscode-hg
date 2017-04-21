@@ -370,12 +370,13 @@ export namespace interaction {
         return choice === rollback;
     }
 
-    export async function inputCommitMessage(this: void, message: string) {
+    export async function inputCommitMessage(this: void, message: string, defaultMessage?: string) {
         if (message) {
             return message;
         }
 
         return await window.showInputBox({
+            value: defaultMessage,
             placeHolder: localize('commit message', "Commit message"),
             prompt: localize('provide commit message', "Please provide a commit message"),
             ignoreFocusOut: true

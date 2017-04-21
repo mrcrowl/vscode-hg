@@ -1,4 +1,6 @@
 
+import { LocalizeFunc } from 'vscode-nls';
+
 class TimeSpan {
     private seconds: number;
 
@@ -17,6 +19,15 @@ const AVERAGE_WEEKS_PER_MONTH = 4.34524;
 
 
 export namespace humanise {
+    export function describeMerge(this: void, localize: LocalizeFunc, localBranchName: string, otherBranchName: string | undefined): string {
+        if (!otherBranchName || localBranchName === otherBranchName) {
+            return localize('merge', 'Merge');
+        }
+        else {
+            return localize('merge into', 'Merge {0} into {1}', otherBranchName, localBranchName);
+        }
+    }
+
     export function ageFromNow(this: void, date: Date): string {
         const elapsedSeconds = timeSince(date) / 1e3;
         let elapsed = new TimeSpan(elapsedSeconds);

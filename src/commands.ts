@@ -12,6 +12,7 @@ import * as os from 'os';
 import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
+import { humanise } from "./humanise"
 import * as vscode from "vscode";
 import * as fs from "fs";
 
@@ -611,7 +612,7 @@ export class CommandCenter {
 		const placeholder = localize('choose head', `Choose head to merge into working directory:`);
 		const head = await interaction.pickHead(otherHeads, placeholder);
 		if (head) {
-			return await this.doMerge(head.hash);
+			return await this.doMerge(head.hash, head.branch);
 		}
 	}
 
@@ -649,12 +650,21 @@ export class CommandCenter {
 		}
 	}
 
-	private async doMerge(revisionOrHash: string) {
+	private async doMerge(otherRevision: string, otherBranchName?: string) {
 		try {
-			const result = await this.model.merge(revisionOrHash);
+			const result = await this.model.merge(otherRevision);
+			const { currentBranch } = this.model;
 
 			if (result.unresolvedCount > 0) {
 				interaction.warnUnresolvedFiles(result.unresolvedCount);
+			}
+			else if (currentBranch) {
+				const defaultMergeMessage = await humanise.describeMerge(localize, currentBranch.name!, otherBranchName);
+				const didCommit = await this.smartCommit(async () => await interaction.inputCommitMessage("", defaultMergeMessage));
+
+				if (didCommit) {
+					scm.inputBox.value = "";
+				}
 			}
 		}
 		catch (e) {
