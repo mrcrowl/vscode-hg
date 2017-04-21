@@ -870,9 +870,9 @@ export class Model implements Disposable {
 
 	private onFSChange(uri: Uri): void {
 		const config = workspace.getConfiguration('hg');
-		const autorefresh = config.get<boolean>('autorefresh');
+		const autoRefresh = config.get<boolean>('autoRefresh');
 
-		if (!autorefresh) {
+		if (!autoRefresh) {
 			return;
 		}
 

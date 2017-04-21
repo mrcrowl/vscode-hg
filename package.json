@@ -30,8 +30,7 @@
   "icon": "icon.png",
   "enableProposedApi": false,
   "categories": [
-    "Other",
-    "SCM"
+    "Other"
   ],
   "activationEvents": [
     "*"
@@ -414,6 +413,10 @@
         {
           "command": "hg.logDefault",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.logRepo",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         }
       ],
       "scm/title": [
@@ -478,7 +481,7 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.mergeWithLocal",
+          "command": "hg.mergeautothLocal",
           "group": "5_merge",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
@@ -671,9 +674,9 @@
           "default": null,
           "isExecutable": true
         },
-        "hg.autorefresh": {
+        "hg.autoRefresh": {
           "type": "boolean",
-          "description": "%config.autorefresh%",
+          "description": "%config.autoRefresh%",
           "default": true
         },
         "hg.commandMode": {
@@ -685,9 +688,9 @@
             "server"
           ]
         },
-        "hg.autoinout": {
+        "hg.autoInOut": {
           "type": "boolean",
-          "description": "%config.autoinout%",
+          "description": "%config.autoInOut%",
           "default": true
         },
         "hg.countBadge": {
@@ -703,7 +706,7 @@
         "hg.allowPushNewBranches": {
           "type": "boolean",
           "description": "%config.allowPushNewBranches%",
-          "default": false
+          "default": true
         }
       }
     }

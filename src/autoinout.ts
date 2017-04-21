@@ -23,7 +23,7 @@ export class AutoIncomingOutgoing {
 	private onConfiguration(): void {
 		const hgConfig = workspace.getConfiguration('hg');
 
-		if (hgConfig.get<boolean>('autoinout') === false) {
+		if (hgConfig.get<boolean>('autoInOut') === false) {
 			this.disable();
 		}
 		else {

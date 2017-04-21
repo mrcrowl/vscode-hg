@@ -13,6 +13,8 @@ import { CommandCenter } from './commands';
 import { mapEvent } from './util';
 import * as nls from 'vscode-nls';
 
+type BadgeOptions = 'off' | 'all' | 'tracked';
+
 const localize = nls.loadMessageBundle();
 
 export class MercurialSCMProvider {
@@ -36,15 +38,25 @@ export class MercurialSCMProvider {
 	}
 
 	get count(): number {
-		const countBadge = workspace.getConfiguration('hg').get<string>('countBadge');
+		const countBadge = workspace.getConfiguration('hg').get<BadgeOptions>('countBadge');
 
 		switch (countBadge) {
-			case 'off': return 0;
-			case 'tracked': return this.model.workingDirectoryGroup.resources.length;
+			case 'off':
+				return 0;
+
+			case 'tracked':
+				return this.model.mergeGroup.resources.length
+					+ this.model.stagingGroup.resources.length
+					+ this.model.workingDirectoryGroup.resources.length
+					+ this.model.conflictGroup.resources.length;
+
+			case 'all':
 			default:
 				return this.model.mergeGroup.resources.length
 					+ this.model.stagingGroup.resources.length
-					+ this.model.workingDirectoryGroup.resources.length;
+					+ this.model.workingDirectoryGroup.resources.length
+					+ this.model.conflictGroup.resources.length
+					+ this.model.untrackedGroup.resources.length
 		}
 	}
 
