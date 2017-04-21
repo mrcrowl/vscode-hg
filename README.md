@@ -1,10 +1,8 @@
 # Overview
 
-Fast, integrated Mercurial source control, using the new VS Code SCM API.
+### _Integrated_ Mercurial source control, using the new SCM API in VS Code 1.11+
 
-> **Note**: This extension leverages your 
-> machine's Mercurial (hg) installation, 
-> so you need to [install Mercurial](https://www.mercurial-scm.org) first. 
+![Switch to Hg](images/hg.png) 
 
 # Features
 
@@ -24,7 +22,16 @@ Fast, integrated Mercurial source control, using the new VS Code SCM API.
 
  * Undo/rollback
 
+# Feedback
+
+ * This is a relatively **new** extension, _so_...
+ * Please report any bugs, suggestions or documentation requests via the Github issues page (_yes_, I know it's ironic).
+
 # Getting Started
+
+> **Note**: This extension leverages your 
+> machine's Mercurial (hg) installation,  
+> so you need to [install Mercurial](https://www.mercurial-scm.org) first. 
 
 ## Switch to Hg
 
