@@ -592,6 +592,17 @@ export class Repository {
 		await this.run(args);
 	}
 
+	async addRemove(paths: string[]): Promise<void> {
+		const args = ['addremove', '-s', '50'];
+
+		for (const path of paths)
+		{
+			args.push('-I', path);
+		}	
+
+		await this.run(args);
+	}
+
 	async resolve(paths: string[], opts: { mark?: boolean } = {}): Promise<void> {
 		const args = ['resolve'];
 
@@ -618,22 +629,6 @@ export class Repository {
 		args.push.apply(args, paths);
 
 		await this.run(args);
-	}
-
-	async stage(path: string, data: string): Promise<void> {
-		const child = this.stream(['hash-object', '--stdin', '-w'], { stdio: [null, null, null] });
-		child.stdin.end(data, 'utf8');
-
-		const { exitCode, stdout } = await exec(child);
-
-		if (exitCode) {
-			throw new HgError({
-				message: 'Could not hash object.',
-				exitCode: exitCode
-			});
-		}
-
-		await this.run(['update-index', '--cacheinfo', '100644', stdout, path]);
 	}
 
 	async update(treeish: string, opts?: { discard: boolean }): Promise<void> {

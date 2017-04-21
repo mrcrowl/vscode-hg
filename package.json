@@ -189,13 +189,17 @@
         }
       },
       {
-        "command": "hg.forget",
-        "title": "%command.forget%",
-        "category": "Hg"
-      },
-      {
         "command": "hg.addAll",
         "title": "%command.addAll%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/add.svg",
+          "dark": "resources/icons/dark/add.svg"
+        }
+      },
+      {
+        "command": "hg.forget",
+        "title": "%command.forget%",
         "category": "Hg"
       },
       {
@@ -496,6 +500,11 @@
           "group": "1_modification"
         },
         {
+          "command": "hg.stageAll",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "group": "inline"
+        },
+        {
           "command": "hg.cleanAll",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "inline"
@@ -504,6 +513,11 @@
           "command": "hg.addAll",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
           "group": "1_modification"
+        },
+        {
+          "command": "hg.addAll",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "group": "inline"
         }
       ],
       "scm/resourceState/context": [

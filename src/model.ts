@@ -6,7 +6,7 @@
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
 import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision } from "./hg";
-import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy } from "./util";
+import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
 import * as path from 'path';
@@ -195,6 +195,7 @@ export enum Operation {
 	Parents = 1 << 19,
 	Forget = 1 << 20,
 	Merge = 1 << 21,
+	AddRemove = 1 << 22,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -415,12 +416,23 @@ export class Model implements Disposable {
 
 	@throttle
 	async stage(...resources: Resource[]): Promise<void> {
-		if (resources.length === 0) {
-			resources = this._groups.workingDirectory.resources;
-		}
-		this._groups.staging = this._groups.staging.intersect(resources);
-		this._groups.workingDirectory = this._groups.workingDirectory.except(resources);
-		this._onDidChangeResources.fire();
+		await this.run(Operation.Stage, async () => {
+			if (resources.length === 0) {
+				resources = this._groups.workingDirectory.resources;
+			}
+
+			const [missingAndAddedResources, otherResources] = partition(resources, r =>
+				r.status === Status.MISSING || r.status === Status.ADDED);
+
+			if (missingAndAddedResources.length) {
+				const relativePaths: string[] = missingAndAddedResources.map(r => this.mapResourceToRelativePath(r));
+				await this.run(Operation.AddRemove, () => this.repository.addRemove(relativePaths));
+			}
+
+			this._groups.staging = this._groups.staging.intersect(resources);
+			this._groups.workingDirectory = this._groups.workingDirectory.except(resources);
+			this._onDidChangeResources.fire();
+		});
 	}
 
 	private mapResourceToRelativePath(resource: Resource): string {

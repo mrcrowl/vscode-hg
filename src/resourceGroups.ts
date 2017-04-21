@@ -74,7 +74,7 @@ export abstract class ResourceGroup {
 	}
 
 	except(resources: Resource[]): this {
-		const excludeIndex = StagingGroup.indexResources(resources);
+		const excludeIndex = ResourceGroup.indexResources(resources);
 		const remainingResources = this.resources.filter(r => !excludeIndex.has(r.resourceUri.toString()));
 		return this.newResourceGroup(remainingResources);
 	}
