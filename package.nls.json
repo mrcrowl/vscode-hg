@@ -42,5 +42,5 @@
 	"config.checkoutType": "Controls what type of branches are listed",
 	"config.allowPushNewBranches": "Whether new branches are pushed without warning",
 	"command.mergeHeads": "Merge heads",
-	"command.mergeWithLocal": "Merge with local..."
+	"command.mergeWithLocal": "Merge into working directory..."
 }

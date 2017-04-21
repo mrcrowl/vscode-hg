@@ -4,7 +4,7 @@
   "displayName": "Hg",
   "repository": {
     "type": "git",
-    "url": "https://mrcrowl@bitbucket.org/mrcrowl/vscode-hg-scm.git"
+    "url": "https://bitbucket.org/mrcrowl/vscode-hg-scm"
   },
   "description": "Integrated Mercurial source control",
   "version": "0.9.2",

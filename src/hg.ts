@@ -1084,7 +1084,7 @@ export class Repository {
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\n`;
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\\n`;
 		const args = ['log', '-T', templateFormat]
 
 		if (revQuery) {
