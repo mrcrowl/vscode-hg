@@ -2,7 +2,9 @@
 
 ### _Integrated_ Mercurial source control, using the new SCM API in VS Code 1.11+
 
-![Switch to Hg](images/hg.png) 
+-----
+
+![Hg](images/hg.png) 
 
 # Features
 
@@ -24,9 +26,9 @@
 
 # Feedback & Contributing
 
- * This is a relatively **new** extension, _so_...
- * Please report any bugs, suggestions or documentation requests via the Github issues page (_yes_, I know it's ironic).
- * Feel free to submit pull requests.
+ * This is a relatively **new** extension, _so_ there will likely still be a few "rough edges"\.
+ * Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/mrcrowl/vscode-hg/issues) (_yes_, I see the irony).
+ * Feel free to submit [pull requests](https://github.com/mrcrowl/vscode-hg/pulls).
 
 # Getting Started
 
