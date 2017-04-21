@@ -2,12 +2,21 @@
   "name": "hg",
   "publisher": "mrcrowl",
   "displayName": "Hg",
+  "description": "Integrated Mercurial source control",
+  "galleryBanner": {
+    "color": "#999999",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/mrcrowl/vscode-hg/blob/master/README.md",
+  "license": "See LICENSE.txt",
   "repository": {
     "type": "git",
-    "url": "https://bitbucket.org/mrcrowl/vscode-hg-scm"
+    "url": "https://github.com/mrcrowl/vscode-hg.git"
   },
-  "description": "Integrated Mercurial source control",
-  "version": "0.9.2",
+  "bugs": {
+    "url": "https://github.com/mrcrowl/vscode-hg/issues"
+  },
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.11.0"
   },
@@ -21,7 +30,8 @@
   "icon": "icon.png",
   "enableProposedApi": false,
   "categories": [
-    "Other"
+    "Other",
+    "SCM"
   ],
   "activationEvents": [
     "*"
