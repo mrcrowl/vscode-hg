@@ -39,127 +39,27 @@
   "contributes": {
     "commands": [
       {
-        "command": "hg.clone",
-        "title": "%command.clone%",
+        "command": "hg.add",
+        "title": "%command.add%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/add.svg",
+          "dark": "resources/icons/dark/add.svg"
+        }
+      },
+      {
+        "command": "hg.addAll",
+        "title": "%command.addAll%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/add.svg",
+          "dark": "resources/icons/dark/add.svg"
+        }
+      },
+      {
+        "command": "hg.branch",
+        "title": "%command.branch%",
         "category": "Hg"
-      },
-      {
-        "command": "hg.openhgrc",
-        "title": "%command.openhgrc%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.init",
-        "title": "%command.init%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/hg.svg",
-          "dark": "resources/icons/dark/hg.svg"
-        }
-      },
-      {
-        "command": "hg.refresh",
-        "title": "%command.refresh%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/refresh.svg",
-          "dark": "resources/icons/dark/refresh.svg"
-        }
-      },
-      {
-        "command": "hg.openChange",
-        "title": "%command.openChange%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-change.svg",
-          "dark": "resources/icons/dark/open-change.svg"
-        }
-      },
-      {
-        "command": "hg.openFile",
-        "title": "%command.openFile%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-file.svg",
-          "dark": "resources/icons/dark/open-file.svg"
-        }
-      },
-      {
-        "command": "hg.openChangeFromUri",
-        "title": "%command.openChange%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-change.svg",
-          "dark": "resources/icons/dark/open-change.svg"
-        }
-      },
-      {
-        "command": "hg.openFileFromUri",
-        "title": "%command.openFile%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-file.svg",
-          "dark": "resources/icons/dark/open-file.svg"
-        }
-      },
-      {
-        "command": "hg.markResolved",
-        "title": "%command.markResolved%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/check.svg",
-          "dark": "resources/icons/dark/check.svg"
-        }
-      },
-      {
-        "command": "hg.resolveAgain",
-        "title": "%command.resolveAgain%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/refresh.svg",
-          "dark": "resources/icons/dark/refresh.svg"
-        }
-      },
-      {
-        "command": "hg.unresolve",
-        "title": "%command.unresolve%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.stage",
-        "title": "%command.stage%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        }
-      },
-      {
-        "command": "hg.stageAll",
-        "title": "%command.stageAll%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        }
-      },
-      {
-        "command": "hg.unstage",
-        "title": "%command.unstage%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/unstage.svg",
-          "dark": "resources/icons/dark/unstage.svg"
-        }
-      },
-      {
-        "command": "hg.unstageAll",
-        "title": "%command.unstageAll%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/unstage.svg",
-          "dark": "resources/icons/dark/unstage.svg"
-        }
       },
       {
         "command": "hg.clean",
@@ -189,26 +89,8 @@
         }
       },
       {
-        "command": "hg.add",
-        "title": "%command.add%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/add.svg",
-          "dark": "resources/icons/dark/add.svg"
-        }
-      },
-      {
-        "command": "hg.addAll",
-        "title": "%command.addAll%",
-        "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/add.svg",
-          "dark": "resources/icons/dark/add.svg"
-        }
-      },
-      {
-        "command": "hg.forget",
-        "title": "%command.forget%",
+        "command": "hg.commitAll",
+        "title": "%command.commitAll%",
         "category": "Hg"
       },
       {
@@ -217,59 +99,28 @@
         "category": "Hg"
       },
       {
-        "command": "hg.commitAll",
-        "title": "%command.commitAll%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.undoRollback",
-        "title": "%command.undoRollback%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.update",
-        "title": "%command.update%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.branch",
-        "title": "%command.branch%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.pull",
-        "title": "%command.pull%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.push",
-        "title": "%command.push%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.pushTo",
-        "title": "%command.pushTo%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.mergeHeads",
-        "title": "%command.mergeHeads%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.mergeWithLocal",
-        "title": "%command.mergeWithLocal%",
-        "category": "Hg"
-      },
-      {
-        "command": "hg.showOutput",
-        "title": "%command.showOutput%",
+        "command": "hg.clone",
+        "title": "%command.clone%",
         "category": "Hg"
       },
       {
         "command": "hg.fileLog",
         "title": "%command.fileLog%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.forget",
+        "title": "%command.forget%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.init",
+        "title": "%command.init%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/hg.svg",
+          "dark": "resources/icons/dark/hg.svg"
+        }
       },
       {
         "command": "hg.log",
@@ -289,6 +140,155 @@
       {
         "command": "hg.logRepo",
         "title": "%command.logRepo%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.markResolved",
+        "title": "%command.markResolved%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/check.svg",
+          "dark": "resources/icons/dark/check.svg"
+        }
+      },
+      {
+        "command": "hg.mergeHeads",
+        "title": "%command.mergeHeads%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.mergeWithLocal",
+        "title": "%command.mergeWithLocal%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.openChange",
+        "title": "%command.openChange%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/open-change.svg",
+          "dark": "resources/icons/dark/open-change.svg"
+        }
+      },
+      {
+        "command": "hg.openChangeFromUri",
+        "title": "%command.openChange%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/open-change.svg",
+          "dark": "resources/icons/dark/open-change.svg"
+        }
+      },
+      {
+        "command": "hg.openFile",
+        "title": "%command.openFile%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/open-file.svg",
+          "dark": "resources/icons/dark/open-file.svg"
+        }
+      },
+      {
+        "command": "hg.openFileFromUri",
+        "title": "%command.openFile%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/open-file.svg",
+          "dark": "resources/icons/dark/open-file.svg"
+        }
+      },
+      {
+        "command": "hg.openhgrc",
+        "title": "%command.openhgrc%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.pull",
+        "title": "%command.pull%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.push",
+        "title": "%command.push%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.pushTo",
+        "title": "%command.pushTo%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.refresh",
+        "title": "%command.refresh%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/refresh.svg",
+          "dark": "resources/icons/dark/refresh.svg"
+        }
+      },
+      {
+        "command": "hg.resolveAgain",
+        "title": "%command.resolveAgain%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/refresh.svg",
+          "dark": "resources/icons/dark/refresh.svg"
+        }
+      },
+      {
+        "command": "hg.showOutput",
+        "title": "%command.showOutput%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.stage",
+        "title": "%command.stage%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/stage.svg",
+          "dark": "resources/icons/dark/stage.svg"
+        }
+      },
+      {
+        "command": "hg.stageAll",
+        "title": "%command.stageAll%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/stage.svg",
+          "dark": "resources/icons/dark/stage.svg"
+        }
+      },
+      {
+        "command": "hg.undoRollback",
+        "title": "%command.undoRollback%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unresolve",
+        "title": "%command.unresolve%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unstage",
+        "title": "%command.unstage%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/unstage.svg",
+          "dark": "resources/icons/dark/unstage.svg"
+        }
+      },
+      {
+        "command": "hg.unstageAll",
+        "title": "%command.unstageAll%",
+        "category": "Hg",
+        "icon": {
+          "light": "resources/icons/light/unstage.svg",
+          "dark": "resources/icons/dark/unstage.svg"
+        }
+      },
+      {
+        "command": "hg.update",
+        "title": "%command.update%",
         "category": "Hg"
       }
     ],
@@ -665,14 +665,15 @@
           "description": "%config.enabled%",
           "default": true
         },
-        "hg.path": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "%config.path%",
-          "default": null,
-          "isExecutable": true
+        "hg.allowPushNewBranches": {
+          "type": "boolean",
+          "description": "%config.allowPushNewBranches%",
+          "default": true
+        },
+        "hg.autoInOut": {
+          "type": "boolean",
+          "description": "%config.autoInOut%",
+          "default": true
         },
         "hg.autoRefresh": {
           "type": "boolean",
@@ -688,11 +689,6 @@
             "server"
           ]
         },
-        "hg.autoInOut": {
-          "type": "boolean",
-          "description": "%config.autoInOut%",
-          "default": true
-        },
         "hg.countBadge": {
           "type": "string",
           "enum": [
@@ -703,10 +699,14 @@
           "description": "%config.countBadge%",
           "default": "all"
         },
-        "hg.allowPushNewBranches": {
-          "type": "boolean",
-          "description": "%config.allowPushNewBranches%",
-          "default": true
+        "hg.path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "%config.path%",
+          "default": null,
+          "isExecutable": true
         }
       }
     }
