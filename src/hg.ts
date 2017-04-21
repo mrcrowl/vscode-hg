@@ -303,8 +303,9 @@ export const HgErrorCodes = {
 	BadConfigFile: 'BadConfigFile',
 	AuthenticationFailed: 'AuthenticationFailed',
 	NoUserNameConfigured: 'NoUserNameConfigured',
-	NoRemoteRepositorySpecified: 'NoRemoteRepositorySpecified',
-	NoRespositoryFound: 'NotAnHgRepository',
+	RepositoryDefaultNotFound: 'RepositoryDefaultNotFound',
+	RepositoryIsUnrelated: 'RepositoryIsUnrelated',
+	NotAnHgRepository: 'NotAnHgRepository',
 	NotAtRepositoryRoot: 'NotAtRepositoryRoot',
 	Conflict: 'Conflict',
 	UnmergedChanges: 'UnmergedChanges',
@@ -447,7 +448,7 @@ export class Hg {
 				hgErrorCode = HgErrorCodes.AuthenticationFailed;
 			}
 			else if (/no repository found/.test(result.stderr)) {
-				hgErrorCode = HgErrorCodes.NoRespositoryFound;
+				hgErrorCode = HgErrorCodes.NotAnHgRepository;
 			}
 			else if (/no such file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoSuchFile;
@@ -832,8 +833,11 @@ export class Repository {
 				return 0;
 			}
 
-			if (/repository default not found\./.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.NoRemoteRepositorySpecified;
+			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
+			}
+			else if (/repository is unrelated/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.RepositoryIsUnrelated;
 			}
 			else if (/abort/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
@@ -857,6 +861,13 @@ export class Repository {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
 			{
 				return 0;
+			}
+
+			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
+			}
+			else if (/abort/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
 
 			throw err;

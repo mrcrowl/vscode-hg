@@ -251,6 +251,9 @@ export class Model implements Disposable {
 	private _onDidChangeRepository = new EventEmitter<Uri>();
 	readonly onDidChangeRepository: Event<Uri> = this._onDidChangeRepository.event;
 
+	private _onDidChangeHgrc = new EventEmitter<void>();
+	readonly onDidChangeHgrc: Event<void> = this._onDidChangeHgrc.event;
+
 	private _onDidChangeState = new EventEmitter<State>();
 	readonly onDidChangeState: Event<State> = this._onDidChangeState.event;
 
@@ -583,7 +586,7 @@ export class Model implements Disposable {
 			});
 		}
 		catch (e) {
-			// no-op
+			throw e;	
 		}
 	}
 
@@ -602,7 +605,7 @@ export class Model implements Disposable {
 			});
 		}
 		catch (e) {
-			// no-op	
+			throw e;
 		}
 	}
 
@@ -704,7 +707,7 @@ export class Model implements Disposable {
 				return result;
 			}
 			catch (err) {
-				if (err.hgErrorCode === HgErrorCodes.NoRespositoryFound) {
+				if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
 					this.repositoryDisposable.dispose();
 
 					const disposables: Disposable[] = [];
@@ -885,6 +888,8 @@ export class Model implements Disposable {
 
 	@debounce(1000)
 	private onHgrcChange(uri: Uri): void {
+		this._onDidChangeHgrc.fire();
+
 		const config = workspace.getConfiguration('hg');
 		const usingServer = config.get<string>('commandMode') === "server";
 		if (usingServer) {

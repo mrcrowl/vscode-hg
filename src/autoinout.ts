@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { workspace, Disposable } from 'vscode';
-import { HgErrorCodes } from './hg';
+import { HgErrorCodes, HgError } from "./hg";
 import { Model } from './model';
 import { throttle } from './decorators';
 
@@ -17,6 +17,7 @@ export class AutoIncomingOutgoing {
 
 	constructor(private model: Model) {
 		workspace.onDidChangeConfiguration(this.onConfiguration, this, this.disposables);
+		this.model.onDidChangeHgrc(this.onConfiguration, this, this.disposables);
 		this.onConfiguration();
 	}
 
@@ -50,7 +51,10 @@ export class AutoIncomingOutgoing {
 			await this.model.countIncomingOutgoing();
 		}
 		catch (err) {
-			if (err.hgErrorCode === HgErrorCodes.AuthenticationFailed) {
+			if (err instanceof HgError && (
+				err.hgErrorCode === HgErrorCodes.AuthenticationFailed ||
+				err.hgErrorCode === HgErrorCodes.RepositoryIsUnrelated ||
+				err.hgErrorCode === HgErrorCodes.RepositoryDefaultNotFound)) {
 				this.disable();
 			}
 		}
