@@ -1,8 +1,8 @@
 
-import { EventEmitter } from "events";
 import { spawn, ChildProcess } from "child_process";
 import { window, InputBoxOptions } from "vscode";
 import { interaction } from "./interaction";
+import { EventEmitter, Event } from "vscode";
 
 export interface Deferred<T> {
     resolve: (c: T) => any,
@@ -36,26 +36,27 @@ interface PipelineCommand {
 }
 
 export class HgCommandServer {
+    private hgPath: string;
     private config;
-    private server: ChildProcess | undefined;
+    private serverProcess: ChildProcess | undefined;
     private starting: boolean;
     private encoding: string;
     private capabilities;
     private commandQueue: PipelineCommand[];
     private stopWhenQueueEmpty: boolean;
 
-    private constructor(config = {}) {
+    private constructor(config = {}, private logger: (text: string) => void) {
         // super();
         this.config = { ...defaults, ...config };
         this.commandQueue = [];
         this.starting = false;
     }
 
-    public static async start(hgPath: string, repository: string) {
+    public static async start(hgPath: string, repository: string, logger: (text: string) => void) {
         const config = {
             hgOpts: ['--config', 'ui.interactive=True', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
         };
-        const commandServer = new HgCommandServer(config);
+        const commandServer = new HgCommandServer(config, logger);
         return await commandServer.start(hgPath);
     }
 
@@ -63,26 +64,35 @@ export class HgCommandServer {
 		  Start the command server at a specified directory (path must already be an hg repository)
 	 */
     private async start(hgPath: string): Promise<HgCommandServer> {
-        this.server = await this.spawnCommandServerProcess(hgPath);
+        this.hgPath = hgPath;
+        this.serverProcess = await this.spawnCommandServerProcess(hgPath);
         this.attachListeners();
         return this;
     }
 
     /**	Stop the current command server process from running */
-    public stop() {
-        if (!this.server) {
+    public stop(force?: boolean) {
+        if (!this.serverProcess) {
             return;
         }
 
-        if (this.commandQueue.length) {
+        if (this.commandQueue.length && !force) {
             this.stopWhenQueueEmpty = true;
             return;
         }
 
-        this.server.stdout.removeAllListeners("data");
-        this.server.stderr.removeAllListeners("data");
-        this.server.stdin.end();
-        this.server = undefined;
+        try {
+            this.serverProcess.removeAllListeners("exit");
+            this.serverProcess.stdout.removeAllListeners("data");
+            this.serverProcess.stderr.removeAllListeners("data");
+            this.serverProcess.stdin.end();
+        }
+        catch (e) {
+            this.logger(`Failed to remove cmdserve listeners: ${e}`);
+        }
+        finally {
+            this.serverProcess = undefined;
+        }
     }
 
     /** Run a command */
@@ -92,13 +102,13 @@ export class HgCommandServer {
 
     /** Enqueue a command  */
     private enqueueCommand(cmd: string, ...args: string[]): Promise<IExecutionResult> {
-        if (this.server) {
+        if (this.serverProcess) {
             const command: PipelineCommand = {
                 cmd, args,
                 result: defer<IExecutionResult>()
             }
             this.commandQueue.push(command);
-            interaction.serverSendCommand(this.server, this.encoding, cmd, args);
+            interaction.serverSendCommand(this.serverProcess, this.encoding, cmd, args);
             return command.result.promise;
         }
 
@@ -198,8 +208,8 @@ export class HgCommandServer {
 
     /** Parse the Channel information, emit an event on the channel with the data. */
     async attachListeners() {
-        const { server } = this;
-        if (!server) {
+        const { serverProcess } = this;
+        if (!serverProcess) {
             return;
         }
 
@@ -217,9 +227,15 @@ export class HgCommandServer {
 
         reset();
 
-        server.stderr.on("data", data => errorBuffers.push(data));
+        serverProcess.on("exit", (code) => {
+            this.logger(`hg command server was closed unexpectedly: ${code}\n`);
+            this.stop(true);
+            this.start(this.hgPath);
+        });
 
-        server.stdout.on("data", async (data: Buffer) => {
+        serverProcess.stderr.on("data", data => errorBuffers.push(data));
+
+        serverProcess.stdout.on("data", async (data: Buffer) => {
             let offset = 0;
             while (offset < data.length) {
                 const chan = String.fromCharCode(data.readUInt8(offset)); // +1
@@ -235,7 +251,7 @@ export class HgCommandServer {
                     // line channel
                     const stdout = outputBodies.join("");
                     const response = await interaction.handleChoices(stdout, length);
-                    interaction.serverSendLineInput(server, this.encoding, response);
+                    interaction.serverSendLineInput(serverProcess, this.encoding, response);
                     offset += 0;
                 }
                 else {

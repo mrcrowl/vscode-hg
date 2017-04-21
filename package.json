@@ -481,7 +481,7 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
-          "command": "hg.mergeautothLocal",
+          "command": "hg.mergeWithLocal",
           "group": "5_merge",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },

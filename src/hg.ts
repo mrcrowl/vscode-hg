@@ -367,14 +367,15 @@ export class Hg {
 
 	async startServer(repositoryRoot: string): Promise<HgCommandServer> {
 		const hgFolderPath = path.dirname(this.hgPath);
-		const server = await HgCommandServer.start(hgFolderPath, repositoryRoot);
-		this.log("cmdserve started\n")
+		const logger = this.log.bind(this);
+		const server = await HgCommandServer.start(hgFolderPath, repositoryRoot, logger);
+		logger("cmdserve started\n")
 		return server;
 	}
 
-	async open(repository: string): Promise<Repository> {
+	open(repository: string): Repository {
 		if (this.useServer) {
-			this.server = await this.startServer(repository);
+			this.startServer(repository).then(server => this.server = server);
 		}
 		this.openRepository = new Repository(this, repository);
 		return this.openRepository;
@@ -595,10 +596,9 @@ export class Repository {
 	async addRemove(paths: string[]): Promise<void> {
 		const args = ['addremove', '-s', '50'];
 
-		for (const path of paths)
-		{
+		for (const path of paths) {
 			args.push('-I', path);
-		}	
+		}
 
 		await this.run(args);
 	}

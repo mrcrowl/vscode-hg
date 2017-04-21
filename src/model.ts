@@ -736,7 +736,7 @@ export class Model implements Disposable {
 
 		const disposables: Disposable[] = [];
 		const repositoryRoot = await this._hg.getRepositoryRoot(this.workspaceRootPath);
-		this.repository = await this._hg.open(repositoryRoot);
+		this.repository = this._hg.open(repositoryRoot);
 		this.updateRepositoryPaths();
 
 		const dotHgPath = path.join(repositoryRoot, '.hg');

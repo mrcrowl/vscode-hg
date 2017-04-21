@@ -8,7 +8,7 @@
 
  * Add files and commit from the source control side-bar (i.e. where git normally appears).
 
- * All the basics: commit, add, forget,  update, push and pull. 
+ * All the basics: commit, add, forget, update, push and pull. 
 
  * See changes inline within text editor. 
 
@@ -20,12 +20,13 @@
 
  * Automatic incoming/outgoing counters. 
 
- * Undo/rollback
+ * Undo/rollback.
 
-# Feedback
+# Feedback & Contributing
 
  * This is a relatively **new** extension, _so_...
  * Please report any bugs, suggestions or documentation requests via the Github issues page (_yes_, I know it's ironic).
+ * Feel free to submit pull requests.
 
 # Getting Started
 
