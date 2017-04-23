@@ -120,25 +120,25 @@ class SyncStatusBar {
 		};
 	}
 
-	private describeAutoInOutStatus(): { icon: string, status?: string } {
+	private describeAutoInOutStatus(): { icon: string, message?: string, status: AutoInOutStatuses } {
 		const { autoInOut } = this.state;
 		switch (autoInOut.status) {
 			case AutoInOutStatuses.Enabled:
 				if (autoInOut.nextCheckTime) {
 					const time = autoInOut.nextCheckTime.toLocaleTimeString();
-					const status = <any>(() => localize('synced next check', 'Synced (next check {0})', time));
-					return { icon: '$(check)', status };
+					const message = <any>(() => localize('synced next check', 'Synced (next check {0})', time));
+					return { icon: '$(check)', message, status: AutoInOutStatuses.Enabled };
 				}
 				else {
-					return { icon: '', status: '' };
+					return { icon: '', message: '', status: AutoInOutStatuses.Enabled };
 				}
 
 			case AutoInOutStatuses.Error:
-				return { icon: '$(stop)', status: `${localize('remote error', 'Remote error')}: ${autoInOut.error}` };
+				return { icon: '$(stop)', message: `${localize('remote error', 'Remote error')}: ${autoInOut.error}`, status: AutoInOutStatuses.Error };
 
 			case AutoInOutStatuses.Disabled:
 			default: ''
-				return { icon: '$(cloud-download)', status: localize('pull', 'Pull') };
+				return { icon: '$(cloud-download)', message: localize('pull', 'Pull'), status: AutoInOutStatuses.Disabled };
 		}
 	}
 
@@ -152,7 +152,7 @@ class SyncStatusBar {
 		let icon = autoInOut.icon;
 		let text = '';
 		let command = 'hg.pull';
-		let tooltip = autoInOut.status;
+		let tooltip = autoInOut.message;
 		let syncCounts = this.state.syncCounts;
 		let plural = '';
 
@@ -165,7 +165,12 @@ class SyncStatusBar {
 				tooltip = localize('pull changesets', `Pull {0} changeset{1}`, syncCounts.incoming, plural);
 			}
 			else if (syncCounts && syncCounts.outgoing) {
-				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
+				if (autoInOut.status === AutoInOutStatuses.Enabled) {
+					text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
+				}
+				else {
+					text = `${syncCounts.outgoing}`;
+				}
 				icon = '$(cloud-upload)';
 				command = 'hg.push';
 				plural = (syncCounts.outgoing === 1) ? '' : 's';
