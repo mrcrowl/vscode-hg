@@ -1,6 +1,6 @@
 # Overview
 
-### _Integrated_ Mercurial source control, using the new SCM API in VS Code 1.11+
+### Integrated Mercurial source control, using the new SCM API in VS Code 1.11+
 
 -----
 
