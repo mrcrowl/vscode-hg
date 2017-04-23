@@ -307,7 +307,6 @@ export const HgErrorCodes = {
 	RepositoryIsUnrelated: 'RepositoryIsUnrelated',
 	NotAnHgRepository: 'NotAnHgRepository',
 	NotAtRepositoryRoot: 'NotAtRepositoryRoot',
-	Conflict: 'Conflict',
 	UnmergedChanges: 'UnmergedChanges',
 	PushCreatesNewRemoteHead: 'PushCreatesNewRemoteHead',
 	PushCreatesNewRemoteBranches: 'PushCreatesNewRemoteBranches',
@@ -675,11 +674,6 @@ export class Repository {
 				throw err;
 			}
 
-			if (/no username supplied/.test(err.stderr)) {
-				err.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
-				throw err;
-			}
-
 			throw err;
 		}
 	}
@@ -884,17 +878,8 @@ export class Repository {
 				return;
 			}
 
-			if (/^CONFLICT \([^)]+\): \b/m.test(err.stdout || '')) {
-				err.hgErrorCode = HgErrorCodes.Conflict;
-			}
-			else if (/Please tell me who you are\./.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.NoUserNameConfigured;
-			}
-			else if (/Could not read from remote repository/.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
-			}
-			else if (/Pull is not possible because you have unmerged files|Cannot pull with rebase: You have unstaged changes|Your local changes to the following files would be overwritten|Please, commit your changes before you can merge/.test(err.stderr)) {
-				err.hgErrorCode = HgErrorCodes.DirtyWorkingDirectory;
+			if (err instanceof HgError && err.stderr && /default repository not configured/.test(err.stderr)) {
+				err.hgErrorCode = HgErrorCodes.DefaultRepositoryNotConfigured;
 			}
 
 			throw err;
@@ -932,9 +917,6 @@ export class Repository {
 				if (branchMatch) {
 					err.hgBranches = branchMatch[1];
 				}
-			}
-			else if (/Could not read from remote repository/.test(err.stderr || '')) {
-				err.hgErrorCode = HgErrorCodes.RemoteConnectionError;
 			}
 
 			throw err;

@@ -591,7 +591,7 @@ export class Model implements Disposable {
 				err.hgErrorCode === HgErrorCodes.AuthenticationFailed ||
 				err.hgErrorCode === HgErrorCodes.RepositoryIsUnrelated ||
 				err.hgErrorCode === HgErrorCodes.RepositoryDefaultNotFound)) {
-				
+
 				this.changeAutoInoutState({
 					status: AutoInOutStatuses.Error,
 					error: ((err.stderr || "").replace(/^abort:\s*/, '') || err.hgErrorCode || err.message).trim(),
@@ -641,10 +641,24 @@ export class Model implements Disposable {
 
 	@throttle
 	async pull(): Promise<void> {
-		await this.run(Operation.Pull, () => this.repository.pull());
+		await this.run(Operation.Pull, async () => {
+			try {
+				await this.repository.pull()
 
-		const delta = -this._syncCounts.incoming
-		this.countIncoming(delta);
+				const delta = -this._syncCounts.incoming
+				this.countIncoming(delta);
+			}
+			catch (e) {
+				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
+					const action = await interaction.warnDefaultRepositoryNotConfigured();
+					if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
+						commands.executeCommand("hg.openhgrc");
+					}
+					return;
+				}
+				throw e;
+			}
+		});
 	}
 
 	@throttle
