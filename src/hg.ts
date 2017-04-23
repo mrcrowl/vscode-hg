@@ -747,41 +747,40 @@ export class Repository {
 
 		try {
 			const result = await this.run(args);
-			if (dryRun) {
-				const match = /back to revision (\d+) \(undo (.*)\)/.exec(result.stdout);
-				if (!match) {
-					throw new HgError({
-						message: `Unexpected rollback result: ${JSON.stringify(result.stdout)}`,
-						stdout: result.stdout,
-						stderr: result.stderr,
-						exitCode: result.exitCode,
-						hgCommand: "rollback"
-					})
-				}
-				const [_, revision, kind] = match;
-				let commitMessage: string = "";
-				if (kind === "commit") {
-					try {
-						commitMessage = await this.getLastCommitMessage();
-					}
-					catch (e) {
-						// no-op
-					}
-				}
-				return {
-					revision: parseInt(revision),
-					commitMessage,
-					kind,
-				};
+			const match = /back to revision (\d+) \(undo (.*)\)/.exec(result.stdout);
+
+			if (!match) {
+				throw new HgError({
+					message: `Unexpected rollback result: ${JSON.stringify(result.stdout)}`,
+					stdout: result.stdout,
+					stderr: result.stderr,
+					exitCode: result.exitCode,
+					hgCommand: "rollback"
+				})
 			}
 
-			return { revision: NaN, kind: "", commitMessage: "" };
+			const [_, revision, kind] = match;
+			const commitMessage = (dryRun && kind === "commit") ? await this.tryGetLastCommitMessage() : "";
+			return {
+				revision: parseInt(revision),
+				kind,
+				commitMessage: ""
+			};
 		}
 		catch (error) {
 			if (error instanceof HgError && /no rollback information available/.test(error.stderr || '')) {
 				error.hgErrorCode = HgErrorCodes.NoRollbackInformationAvailable;
 			}
 			throw error;
+		}
+	}
+
+	async tryGetLastCommitMessage(): Promise<string> {
+		try {
+			return await this.getLastCommitMessage();
+		}
+		catch (e) {
+			return "";
 		}
 	}
 

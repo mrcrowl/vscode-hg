@@ -8,9 +8,11 @@ import { Disposable, Command, EventEmitter, Event } from 'vscode';
 import { RefType, Branch } from './hg';
 import { Model, Operation } from './model';
 import { anyEvent, dispose } from './util';
+import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
+const enum SyncStatus { None = 0, Pushing = 1, Pulling = 2 }
 
 class BranchStatusBar {
 
@@ -29,7 +31,7 @@ class BranchStatusBar {
 			return undefined;
 		}
 
-		const icon = repoStatus && repoStatus.isMerge ? '$(git-merge) ': '$(git-branch) '
+		const icon = repoStatus && repoStatus.isMerge ? '$(git-merge) ' : '$(git-branch) '
 
 		const title = icon
 			+ branch.name
@@ -49,7 +51,9 @@ class BranchStatusBar {
 }
 
 interface SyncStatusBarState {
-	isSyncRunning: boolean;
+	autoInOut: AutoInOutState;
+	syncStatus: SyncStatus;
+	nextCheckTime: Date;
 	hasPaths: boolean;
 	branch: Branch | undefined;
 	syncCounts: { incoming: number, outgoing: number };
@@ -58,10 +62,15 @@ interface SyncStatusBarState {
 class SyncStatusBar {
 
 	private static StartState: SyncStatusBarState = {
-		isSyncRunning: false,
+		autoInOut: {
+			status: AutoInOutStatuses.Disabled,
+			error: ""
+		},
+		nextCheckTime: new Date(),
+		syncStatus: SyncStatus.None,
 		hasPaths: false,
 		branch: undefined,
-		syncCounts: {incoming: 0, outgoing: 0} 
+		syncCounts: { incoming: 0, outgoing: 0 }
 	};
 
 	private _onDidChange = new EventEmitter<void>();
@@ -81,13 +90,23 @@ class SyncStatusBar {
 		this._onDidChange.fire();
 	}
 
-	private onOperationsChange(): void {
-		const isPushing = this.model.operations.isRunning(Operation.Push);
-		const isPulling = this.model.operations.isRunning(Operation.Pull);
+	private getSyncStatus(): SyncStatus {
+		if (this.model.operations.isRunning(Operation.Push)) {
+			return SyncStatus.Pushing;
+		}
 
+		if (this.model.operations.isRunning(Operation.Pull)) {
+			return SyncStatus.Pulling;
+		}
+
+		return SyncStatus.None;
+	}
+
+	private onOperationsChange(): void {
 		this.state = {
 			...this.state,
-			isSyncRunning: isPushing || isPulling
+			syncStatus: this.getSyncStatus(),
+			autoInOut: this.model.autoInOutState
 		};
 	}
 
@@ -96,8 +115,31 @@ class SyncStatusBar {
 			...this.state,
 			hasPaths: this.model.paths.length > 0,
 			branch: this.model.currentBranch,
-			syncCounts: this.model.syncCounts
+			syncCounts: this.model.syncCounts,
+			autoInOut: this.model.autoInOutState
 		};
+	}
+
+	private describeAutoInOutStatus(): { icon: string, status?: string } {
+		const { autoInOut } = this.state;
+		switch (autoInOut.status) {
+			case AutoInOutStatuses.Enabled:
+				if (autoInOut.nextCheckTime) {
+					const time = autoInOut.nextCheckTime.toLocaleTimeString();
+					const status = <any>(() => localize('synced next check', 'Synced (next check {0})', time));
+					return { icon: '$(check)', status };
+				}
+				else {
+					return { icon: '', status: '' };
+				}
+
+			case AutoInOutStatuses.Error:
+				return { icon: '$(stop)', status: `${localize('remote error', 'Remote error')}: ${autoInOut.error}` };
+
+			case AutoInOutStatuses.Disabled:
+			default: ''
+				return { icon: '$(cloud-download)', status: localize('pull', 'Pull') };
+		}
 	}
 
 	get command(): Command | undefined {
@@ -106,39 +148,48 @@ class SyncStatusBar {
 		}
 
 		const branch = this.state.branch;
-		let icon = '$(sync)';
+		let autoInOut = this.describeAutoInOutStatus();
+		let icon = autoInOut.icon;
 		let text = '';
-		let command = '';
-		let tooltip = 'Sync is up to date';
+		let command = 'hg.pull';
+		let tooltip = autoInOut.status;
 		let syncCounts = this.state.syncCounts;
+		let plural = '';
 
 		if (branch) {
 			if (syncCounts && syncCounts.incoming) {
 				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
 				icon = '$(cloud-download)';
 				command = 'hg.pull';
-				tooltip = localize('pull changes', "Pull changes");
-			} else if (syncCounts && syncCounts.outgoing) {
+				plural = (syncCounts.incoming === 1) ? '' : 's';
+				tooltip = localize('pull changesets', `Pull {0} changeset{1}`, syncCounts.incoming, plural);
+			}
+			else if (syncCounts && syncCounts.outgoing) {
 				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
 				icon = '$(cloud-upload)';
 				command = 'hg.push';
-				tooltip = localize('push changes', "Push changes");
+				plural = (syncCounts.outgoing === 1) ? '' : 's';
+				tooltip = localize('push changesets', 'Push {0} changeset{1}', syncCounts.outgoing, plural);
 			}
-		} else {
+		}
+		else {
 			command = '';
 			tooltip = '';
 		}
 
-		if (this.state.isSyncRunning) {
-			icon = '$(sync)';
+		const { syncStatus } = this.state;
+		if (syncStatus) {
+			icon = '$(sync)'
 			text = '';
 			command = '';
-			tooltip = localize('syncing changes', "Synchronizing changes...");
+			tooltip = (syncStatus === SyncStatus.Pushing) ?
+				localize('pushing', "Pushing changes...") :
+				localize('pulling', "Pulling changes...");
 		}
 
 		return {
 			command,
-			title: [icon, text].join(' ').trim(),
+			title: `${icon} ${text}`.trim(),
 			tooltip
 		};
 	}

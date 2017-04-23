@@ -9,9 +9,23 @@ import { HgErrorCodes, HgError } from "./hg";
 import { Model } from './model';
 import { throttle } from './decorators';
 
+export const enum AutoInOutStatuses {
+	Disabled,
+	Enabled,
+	Error
+}
+
+export interface AutoInOutState {
+	readonly status: AutoInOutStatuses;
+	readonly nextCheckTime?: Date;
+	readonly error?: string;
+}
+
+const STARTUP_DELAY = 3 * 1000 /* three seconds */;
+const INTERVAL = 3 * 60 * 1000 /* three minutes */;
+
 export class AutoIncomingOutgoing {
 
-	private static Period = 3 * 60 * 1000 /* three minutes */;
 	private disposables: Disposable[] = [];
 	private timer: NodeJS.Timer;
 
@@ -25,9 +39,11 @@ export class AutoIncomingOutgoing {
 		const hgConfig = workspace.getConfiguration('hg');
 
 		if (hgConfig.get<boolean>('autoInOut') === false) {
+			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Disabled })
 			this.disable();
 		}
 		else {
+			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Enabled })
 			this.enable();
 		}
 	}
@@ -37,8 +53,8 @@ export class AutoIncomingOutgoing {
 			return;
 		}
 
-		setTimeout(() => this.refresh(), 3000); // delay to let first status run before
-		this.timer = setInterval(() => this.refresh(), AutoIncomingOutgoing.Period);
+		setTimeout(() => this.refresh(), STARTUP_DELAY); // delay to let 'status' run first
+		this.timer = setInterval(() => this.refresh(), INTERVAL);
 	}
 
 	disable(): void {
@@ -47,6 +63,9 @@ export class AutoIncomingOutgoing {
 
 	@throttle
 	private async refresh(): Promise<void> {
+		const nextCheckTime = new Date(Date.now() + INTERVAL);
+		this.model.changeAutoInoutState({ nextCheckTime });
+
 		try {
 			await this.model.countIncomingOutgoing();
 		}

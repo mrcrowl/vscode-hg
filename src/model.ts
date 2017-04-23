@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as nls from 'vscode-nls';
 import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup } from "./resourceGroups";
 import { interaction, PushCreatesNewHeadAction, DefaultRepoNotConfiguredAction } from "./interaction";
+import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
@@ -257,12 +258,15 @@ export class Model implements Disposable {
 	private _onDidChangeState = new EventEmitter<State>();
 	readonly onDidChangeState: Event<State> = this._onDidChangeState.event;
 
+	private _onDidChangeRemoteState = new EventEmitter<void>();
+	readonly onDidChangeInOutState: Event<void> = this._onDidChangeRemoteState.event;
+
 	private _onDidChangeResources = new EventEmitter<void>();
 	readonly onDidChangeResources: Event<void> = this._onDidChangeResources.event;
 
 	@memoize
 	get onDidChange(): Event<void> {
-		return anyEvent<any>(this.onDidChangeState, this.onDidChangeResources);
+		return anyEvent<any>(this.onDidChangeState, this.onDidChangeResources, this.onDidChangeInOutState);
 	}
 
 	private _onRunOperation = new EventEmitter<Operation>();
@@ -300,6 +304,17 @@ export class Model implements Disposable {
 
 	private _syncCounts = { incoming: 0, outgoing: 0 };
 	get syncCounts(): { incoming: number; outgoing: number } { return this._syncCounts; }
+
+	private _autoInOutState: AutoInOutState = { status: AutoInOutStatuses.Disabled };
+	get autoInOutState() { return this._autoInOutState; }
+
+	public changeAutoInoutState(state: Partial<AutoInOutState>) {
+		this._autoInOutState = {
+			...this._autoInOutState,
+			...state
+		}
+		this._onDidChangeRemoteState.fire();
+	}
 
 	private _numOutgoing: number;
 	get numOutgoingCommits(): number { return this._numOutgoing; }
@@ -567,8 +582,23 @@ export class Model implements Disposable {
 	}
 
 	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {
-		await this.countIncoming(expectedDeltas && expectedDeltas.incoming);
-		await this.countOutgoing(expectedDeltas && expectedDeltas.outgoing);
+		try {
+			await this.countIncoming(expectedDeltas && expectedDeltas.incoming);
+			await this.countOutgoing(expectedDeltas && expectedDeltas.outgoing);
+		}
+		catch (err) {
+			if (err instanceof HgError && (
+				err.hgErrorCode === HgErrorCodes.AuthenticationFailed ||
+				err.hgErrorCode === HgErrorCodes.RepositoryIsUnrelated ||
+				err.hgErrorCode === HgErrorCodes.RepositoryDefaultNotFound)) {
+				
+				this.changeAutoInoutState({
+					status: AutoInOutStatuses.Error,
+					error: ((err.stderr || "").replace(/^abort:\s*/, '') || err.hgErrorCode || err.message).trim(),
+				})
+			}
+			throw err;
+		}
 	}
 
 	async countIncoming(expectedDelta: number = 0): Promise<void> {
@@ -576,17 +606,17 @@ export class Model implements Disposable {
 			// immediate UI update with expected
 			if (expectedDelta) {
 				this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
-				this._onDidChangeResources.fire();
+				this._onDidChangeRemoteState.fire();
 			}
 
 			// then confirm
 			await this.run(Operation.CountIncoming, async () => {
 				this._syncCounts.incoming = await this.repository.countIncoming();
-				this._onDidChangeResources.fire();
+				this._onDidChangeRemoteState.fire();
 			});
 		}
 		catch (e) {
-			throw e;	
+			throw e;
 		}
 	}
 
@@ -595,13 +625,13 @@ export class Model implements Disposable {
 			// immediate UI update with expected
 			if (expectedDelta) {
 				this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
-				this._onDidChangeResources.fire();
+				this._onDidChangeRemoteState.fire();
 			}
 
 			// then confirm
 			await this.run(Operation.CountOutgoing, async () => {
 				this._syncCounts.outgoing = await this.repository.countOutgoing();
-				this._onDidChangeResources.fire();
+				this._onDidChangeRemoteState.fire();
 			});
 		}
 		catch (e) {
