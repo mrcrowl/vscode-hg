@@ -15,6 +15,7 @@ import { interaction, BranchExistsAction, WarnScenario, CommitSources, Described
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
 import * as fs from "fs";
+import { partition } from "./util";
 
 const localize = nls.loadMessageBundle();
 
@@ -408,9 +409,11 @@ export class CommandCenter {
 			return;
 		}
 
-		const resourcesToConfirm: Resource[] = resources.filter(s => s.status !== Status.ADDED);
-		if (resourcesToConfirm.length > 0) {
-			const confirmed = await interaction.confirmDiscardChanges(resourcesToConfirm);
+		const [discardResources, addedResources] = partition(resources, s => s.status !== Status.ADDED);
+		if (discardResources.length > 0) {
+			const confirmFilenames = discardResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+			const addedFilenames = addedResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+			const confirmed = await interaction.confirmDiscardChanges(confirmFilenames, addedFilenames);
 			if (!confirmed) {
 				return;
 			}
@@ -454,6 +457,18 @@ export class CommandCenter {
 					opts = {
 						scope: CommitScope.CHANGES
 					};
+				}
+			}
+
+			if (opts.scope === CommitScope.CHANGES) {
+				const missingResources = this.model.workingDirectoryGroup.resources.filter(r => r.status === Status.MISSING);
+				if (missingResources.length > 0) {
+					const missingFilenames = missingResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+					const deleteConfirmed = await interaction.confirmDeleteMissingFilesForCommit(missingFilenames);
+					if (!deleteConfirmed) {
+						return false;
+					}
+					await this.forget(...missingResources)
 				}
 			}
 

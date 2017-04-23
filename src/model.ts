@@ -422,13 +422,13 @@ export class Model implements Disposable {
 		if (resources.length === 0) {
 			resources = this._groups.untracked.resources;
 		}
-		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
 		await this.run(Operation.Add, () => this.repository.add(relativePaths));
 	}
 
 	@throttle
 	async forget(...resources: Resource[]): Promise<void> {
-		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
 		await this.run(Operation.Forget, () => this.repository.forget(relativePaths));
 	}
 
@@ -443,7 +443,7 @@ export class Model implements Disposable {
 				r.status === Status.MISSING || r.status === Status.ADDED);
 
 			if (missingAndAddedResources.length) {
-				const relativePaths: string[] = missingAndAddedResources.map(r => this.mapResourceToRelativePath(r));
+				const relativePaths: string[] = missingAndAddedResources.map(r => this.mapResourceToRepoRelativePath(r));
 				await this.run(Operation.AddRemove, () => this.repository.addRemove(relativePaths));
 			}
 
@@ -453,31 +453,46 @@ export class Model implements Disposable {
 		});
 	}
 
-	private mapResourceToRelativePath(resource: Resource): string {
-		const relativePath = this.mapFileUriToRelativePath(resource.resourceUri);
+	// resource --> repo-relative path	
+	public mapResourceToRepoRelativePath(resource: Resource): string {
+		const relativePath = this.mapFileUriToRepoRelativePath(resource.resourceUri);
 		return relativePath;
 	}
 
-	private mapFileUriToRelativePath(fileUri: Uri): string {
+	// file uri --> repo-relative path	
+	private mapFileUriToRepoRelativePath(fileUri: Uri): string {
 		const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/\\/g, '/');
 		return relativePath;
 	}
 
-	private mapRepositoryRelativePathToWorkspaceRelativePath(filepath: string): string {
-		const fsPath = path.join(this.repository.root, filepath);
-		const relativePath = path.relative(this.workspaceRootPath, fsPath).replace(/\\/g, '/');
+	// resource --> workspace-relative path
+	public mapResourceToWorkspaceRelativePath(resource: Resource): string {
+		const relativePath = this.mapFileUriToWorkspaceRelativePath(resource.resourceUri);
+		return relativePath;
+	}
+
+	// file uri --> workspace-relative path	
+	public mapFileUriToWorkspaceRelativePath(fileUri: Uri): string {
+		const relativePath = path.relative(this.workspaceRootPath, fileUri.fsPath).replace(/[\/\\]/g, path.sep);
+		return relativePath;
+	}
+
+	// repo-relative path --> workspace-relative path	
+	private mapRepositoryRelativePathToWorkspaceRelativePath(repoRelativeFilepath: string): string {
+		const fsPath = path.join(this.repository.root, repoRelativeFilepath);
+		const relativePath = path.relative(this.workspaceRootPath, fsPath).replace(/[\/\\]/g, path.sep);
 		return relativePath;
 	}
 
 	@throttle
 	async resolve(resources: Resource[], opts: { mark?: boolean } = {}): Promise<void> {
-		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
 		await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths, opts));
 	}
 
 	@throttle
 	async unresolve(resources: Resource[]): Promise<void> {
-		const relativePaths: string[] = resources.map(r => this.mapResourceToRelativePath(r));
+		const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
 		await this.run(Operation.Unresolve, () => this.repository.unresolve(relativePaths));
 	}
 
@@ -501,7 +516,7 @@ export class Model implements Disposable {
 					this.stagingGroup.resources :
 					this.workingDirectoryGroup.resources;
 
-				fileList = selectedResources.map(r => this.mapResourceToRelativePath(r));
+				fileList = selectedResources.map(r => this.mapResourceToRepoRelativePath(r));
 			}
 
 			await this.repository.commit(message, { addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
@@ -531,14 +546,14 @@ export class Model implements Disposable {
 						break;
 
 					case Status.ADDED:
-						toForget.push(this.mapResourceToRelativePath(r));
+						toForget.push(this.mapResourceToRepoRelativePath(r));
 						break;
 
 					case Status.DELETED:
 					case Status.MISSING:
 					case Status.MODIFIED:
 					default:
-						toRevert.push(this.mapResourceToRelativePath(r));
+						toRevert.push(this.mapResourceToRepoRelativePath(r));
 						break;
 				}
 			}
@@ -879,7 +894,7 @@ export class Model implements Disposable {
 	public getLogEntries(options: LogEntriesOptions = {}): Promise<Commit[]> {
 		let filePaths: string[] | undefined = undefined;
 		if (options.file) {
-			filePaths = [this.mapFileUriToRelativePath(options.file)];
+			filePaths = [this.mapFileUriToRepoRelativePath(options.file)];
 		}
 
 		const opts: LogEntryRepositoryOptions = {

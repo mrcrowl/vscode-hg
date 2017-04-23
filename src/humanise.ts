@@ -1,5 +1,6 @@
 
 import { LocalizeFunc } from 'vscode-nls';
+import * as path from "path";
 
 class TimeSpan {
     private seconds: number;
@@ -16,9 +17,28 @@ class TimeSpan {
 }
 
 const AVERAGE_WEEKS_PER_MONTH = 4.34524;
-
+const BULLET = "\u2022";
+const FILE_LIST_LIMIT = 8;
 
 export namespace humanise {
+
+    export function formatFilesAsBulletedList(this: void, filenames: string[], localize: LocalizeFunc): string {
+        let extraCount = 0;
+        if (filenames.length > (FILE_LIST_LIMIT + 1)) {
+            extraCount = filenames.length - FILE_LIST_LIMIT;
+            filenames = filenames.slice(0, FILE_LIST_LIMIT);
+        }
+
+        let osFilenames = filenames.map(f => f.replace(/[\/\\]/g, path.sep));
+        let formatted = ` ${BULLET} ${osFilenames.join(`\n ${BULLET} `)}`;
+        if (extraCount > 1) {
+            const andNOthers = localize('and n others', 'and ${0} others', extraCount);
+            formatted += `\n ${BULLET} ${andNOthers}`;
+        }
+
+        return formatted;
+    }
+
     export function describeMerge(this: void, localize: LocalizeFunc, localBranchName: string, otherBranchName: string | undefined): string {
         if (!otherBranchName || localBranchName === otherBranchName) {
             return localize('merge', 'Merge');

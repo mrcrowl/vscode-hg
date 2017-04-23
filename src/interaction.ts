@@ -178,22 +178,6 @@ export namespace interaction {
         });
     }
 
-    function formatFilesAsBulletedList(this: void, filenames: string[], limit: number = 8): string {
-        let extraCount = 0;
-        if (filenames.length > (limit + 1)) {
-            extraCount = filenames.length - limit;
-            filenames = filenames.slice(0, limit);
-        }
-
-        let formatted = ` ${BULLET} ${filenames.join(`\n ${BULLET} `)}`;
-        if (extraCount > 1) {
-            const andNOthers = localize('and n others', 'and ${0} others', extraCount);
-            formatted += `\n ${BULLET} ${andNOthers}`;
-        }
-
-        return formatted;
-    }
-
     export async function warnBranchAlreadyExists(this: void, name: string): Promise<BranchExistsAction> {
         const updateTo = localize('upadte', "Update");
         const reopen = localize('reopen', "Re-open");
@@ -390,14 +374,48 @@ export namespace interaction {
         return choice === discard;
     }
 
-    export async function confirmDiscardChanges(this: void, resources: Resource[]): Promise<boolean> {
-        const message = resources.length === 1
-            ? localize('confirm discard', "Are you sure you want to discard changes in {0}?", path.basename(resources[0].resourceUri.fsPath))
-            : localize('confirm discard multiple', "Are you sure you want to discard changes in {0} files?", resources.length);
+    export async function confirmDiscardChanges(this: void, discardFilesnames: string[], addedFilenames: string[]): Promise<boolean> {
+        let message: string;
+        let addedMessage: string = "";
+        if (addedFilenames.length > 0) {
+            if (addedFilenames.length === 1) {
+                addedMessage = localize('and forget', "\n\n(and forget added file '{0}')", path.basename(addedFilenames[0]));
+            }
+            else {
+                addedMessage = localize('and forget multiple', "\n\n(and forget {0} other added files)", addedFilenames.length);
+            }
+        }
+
+        if (discardFilesnames.length === 1) {
+            message = localize('confirm discard', "Are you sure you want to discard changes to '{0}'?{1}", path.basename(discardFilesnames[0]), addedMessage);
+        }
+        else {
+            const fileList = humanise.formatFilesAsBulletedList(discardFilesnames, localize);
+            message = localize('confirm discard multiple', `Are you sure you want to discard changes to {0} files?
+            
+{1}{2}`, discardFilesnames.length, fileList, addedMessage);
+        }
 
         const discard = localize('discard', "Discard Changes");
         const choice = await window.showWarningMessage(message, { modal: true }, discard);
         return choice === discard;
+    }
+
+    export async function confirmDeleteMissingFilesForCommit(this: void, filenames: string[]): Promise<boolean> {
+        let message: string;
+        if (filenames.length === 1) {
+            message = localize('confirm delete missing', "Did you want to delete '{0}' in this commit?", path.basename(filenames[0]));
+        }
+        else {
+            const fileList = humanise.formatFilesAsBulletedList(filenames, localize);
+            message = localize('confirm delete missing multiple', `Did you want to delete {0} missing files in this commit?
+
+{1}`, filenames.length, fileList);
+        }
+
+        const deleteOption = localize('delete', "Delete");
+        const choice = await window.showWarningMessage(message, { modal: true }, deleteOption);
+        return choice === deleteOption;
     }
 
     export async function handleChoices(this: void, stdout: string, limit: number): Promise<string> {
@@ -465,7 +483,7 @@ export namespace interaction {
     }
 
     export function errorUntrackedFilesDiffer(this: void, filenames: string[]) {
-        const fileList = formatFilesAsBulletedList(filenames);
+        const fileList = humanise.formatFilesAsBulletedList(filenames, localize);
         const message = localize('untracked files differ', `Merge failed!
 
 Untracked files in your working directory would be overwritten
@@ -488,7 +506,7 @@ class CommitItem implements RunnableQuickPickItem {
     constructor(public readonly commit: Commit) { }
     get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
     get label() { return this.commit.branch; }
-    get detail() { return `${this.commit.revision} (${this.shortHash})`; }
+    get detail() { return `${this.commit.revision}(${this.shortHash}) `; }
     get description() { return this.commit.message; }
     run() { }
 }
