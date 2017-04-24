@@ -9,13 +9,13 @@ import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeRes
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
 import * as path from 'path';
 import * as os from 'os';
-import * as nls from 'vscode-nls';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
 import * as fs from "fs";
 import { partition } from "./util";
+import * as nls from 'vscode-nls';
 
 const localize = nls.loadMessageBundle();
 
@@ -624,7 +624,7 @@ export class CommandCenter {
 		}
 
 		const otherHeads = await this.model.getHeads({ excludeSelf: true });
-		const placeholder = localize('choose head', `Choose head to merge into working directory:`);
+		const placeholder = localize('choose head', "Choose head to merge into working directory:");
 		const head = await interaction.pickHead(otherHeads, placeholder);
 		if (head) {
 			return await this.doMerge(head.hash, head.branch);
@@ -674,7 +674,7 @@ export class CommandCenter {
 				interaction.warnUnresolvedFiles(result.unresolvedCount);
 			}
 			else if (currentBranch) {
-				const defaultMergeMessage = await humanise.describeMerge(localize, currentBranch.name!, otherBranchName);
+				const defaultMergeMessage = await humanise.describeMerge(currentBranch.name!, otherBranchName);
 				const didCommit = await this.smartCommit(async () => await interaction.inputCommitMessage("", defaultMergeMessage));
 
 				if (didCommit) {

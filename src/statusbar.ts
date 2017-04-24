@@ -162,7 +162,7 @@ class SyncStatusBar {
 				icon = '$(cloud-download)';
 				command = 'hg.pull';
 				plural = (syncCounts.incoming === 1) ? '' : 's';
-				tooltip = localize('pull changesets', `Pull {0} changeset{1}`, syncCounts.incoming, plural);
+				tooltip = localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural);
 			}
 			else if (syncCounts && syncCounts.outgoing) {
 				if (autoInOut.status === AutoInOutStatuses.Enabled) {
@@ -174,7 +174,7 @@ class SyncStatusBar {
 				icon = '$(cloud-upload)';
 				command = 'hg.push';
 				plural = (syncCounts.outgoing === 1) ? '' : 's';
-				tooltip = localize('push changesets', 'Push {0} changeset{1}', syncCounts.outgoing, plural);
+				tooltip = localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural);
 			}
 		}
 		else {

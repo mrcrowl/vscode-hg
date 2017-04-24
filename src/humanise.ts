@@ -1,6 +1,8 @@
 
-import { LocalizeFunc } from 'vscode-nls';
 import * as path from "path";
+import * as nls from 'vscode-nls';
+
+const localize = nls.loadMessageBundle();
 
 class TimeSpan {
     private seconds: number;
@@ -22,7 +24,7 @@ const FILE_LIST_LIMIT = 8;
 
 export namespace humanise {
 
-    export function formatFilesAsBulletedList(this: void, filenames: string[], localize: LocalizeFunc): string {
+    export function formatFilesAsBulletedList(this: void, filenames: string[]): string {
         let extraCount = 0;
         if (filenames.length > (FILE_LIST_LIMIT + 1)) {
             extraCount = filenames.length - FILE_LIST_LIMIT;
@@ -32,19 +34,19 @@ export namespace humanise {
         let osFilenames = filenames.map(f => f.replace(/[\/\\]/g, path.sep));
         let formatted = ` ${BULLET} ${osFilenames.join(`\n ${BULLET} `)}`;
         if (extraCount > 1) {
-            const andNOthers = localize('and n others', 'and ${0} others', extraCount);
+            const andNOthers = localize('and n others', "and ${0} others", extraCount);
             formatted += `\n ${BULLET} ${andNOthers}`;
         }
 
         return formatted;
     }
 
-    export function describeMerge(this: void, localize: LocalizeFunc, localBranchName: string, otherBranchName: string | undefined): string {
+    export function describeMerge(this: void, localBranchName: string, otherBranchName: string | undefined): string {
         if (!otherBranchName || localBranchName === otherBranchName) {
-            return localize('merge', 'Merge');
+            return localize('merge', "Merge");
         }
         else {
-            return localize('merge into', 'Merge {0} into {1}', otherBranchName, localBranchName);
+            return localize('merge into', "Merge {0} into {1}", otherBranchName, localBranchName);
         }
     }
 

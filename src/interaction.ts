@@ -64,7 +64,7 @@ export namespace interaction {
     }
 
     export function warnBranchMultipleHeads(this: void, branchWithMultipleHeads: string) {
-        return window.showWarningMessage(localize('multi head branch', `Branch '{0}' has multiple heads. Merge required before pushing.`, branchWithMultipleHeads));
+        return window.showWarningMessage(localize('multi head branch', "Branch '{0}' has multiple heads. Merge required before pushing.", branchWithMultipleHeads));
     }
 
     export function warnMergeOnlyOneHead(this: void, branch: string | undefined) {
@@ -82,7 +82,7 @@ export namespace interaction {
     }
 
     export async function warnPushCreatesNewBranchesAllow(this: void): Promise<boolean> {
-        const warningMessage = localize('pushnewbranches', `Push creates new remote branches. Allow?`);
+        const warningMessage = localize('pushnewbranches', "Push creates new remote branches. Allow?");
         const allowOption = localize('allow', 'Allow');
         const choice = await window.showWarningMessage(warningMessage, { modal: true }, allowOption);
         if (choice === allowOption) {
@@ -92,7 +92,7 @@ export namespace interaction {
     }
 
     export function warnMultipleBranchMultipleHeads(this: void, branchesWithMultipleHeads: string[]) {
-        return window.showWarningMessage(localize('multi head branches', `These branches have multiple heads: {0}. Merges required before pushing.`, branchesWithMultipleHeads.join(",")));
+        return window.showWarningMessage(localize('multi head branches', "These branches have multiple heads: {0}. Merges required before pushing.", branchesWithMultipleHeads.join(",")));
     }
 
     export async function warnDefaultRepositoryNotConfigured(this: void, message?: string): Promise<DefaultRepoNotConfiguredAction> {
@@ -181,7 +181,7 @@ export namespace interaction {
     export async function warnBranchAlreadyExists(this: void, name: string): Promise<BranchExistsAction> {
         const updateTo = localize('upadte', "Update");
         const reopen = localize('reopen', "Re-open");
-        const message = localize('branch already exists', `Branch '{0}' already exists. Update or Re-open?`, name);
+        const message = localize('branch already exists', "Branch '{0}' already exists. Update or Re-open?", name);
         const choice = await window.showWarningMessage(message, { modal: true }, updateTo, reopen);
         if (choice === reopen) {
             return BranchExistsAction.Reopen;
@@ -349,7 +349,7 @@ export namespace interaction {
     export async function confirmRollback(this: void, { revision, kind, commitMessage }: HgRollbackDetails) {
         // prompt
         const rollback = "Rollback";
-        const message = localize('rollback', `Rollback to revision {0}? (undo {1})`, revision, kind);
+        const message = localize('rollback', "Rollback to revision {0}? (undo {1})", revision, kind);
         const choice = await window.showInformationMessage(message, { modal: true }, rollback);
         return choice === rollback;
     }
@@ -390,10 +390,8 @@ export namespace interaction {
             message = localize('confirm discard', "Are you sure you want to discard changes to '{0}'?{1}", path.basename(discardFilesnames[0]), addedMessage);
         }
         else {
-            const fileList = humanise.formatFilesAsBulletedList(discardFilesnames, localize);
-            message = localize('confirm discard multiple', `Are you sure you want to discard changes to {0} files?
-            
-{1}{2}`, discardFilesnames.length, fileList, addedMessage);
+            const fileList = humanise.formatFilesAsBulletedList(discardFilesnames);
+            message = localize('confirm discard multiple', "Are you sure you want to discard changes to {0} files?\n\n{1}{2}", discardFilesnames.length, fileList, addedMessage);
         }
 
         const discard = localize('discard', "Discard Changes");
@@ -407,10 +405,8 @@ export namespace interaction {
             message = localize('confirm delete missing', "Did you want to delete '{0}' in this commit?", path.basename(filenames[0]));
         }
         else {
-            const fileList = humanise.formatFilesAsBulletedList(filenames, localize);
-            message = localize('confirm delete missing multiple', `Did you want to delete {0} missing files in this commit?
-
-{1}`, filenames.length, fileList);
+            const fileList = humanise.formatFilesAsBulletedList(filenames);
+            message = localize('confirm delete missing multiple', "Did you want to delete {0} missing files in this commit?\n\n{1}", filenames.length, fileList);
         }
 
         const deleteOption = localize('delete', "Delete");
@@ -483,15 +479,8 @@ export namespace interaction {
     }
 
     export function errorUntrackedFilesDiffer(this: void, filenames: string[]) {
-        const fileList = humanise.formatFilesAsBulletedList(filenames, localize);
-        const message = localize('untracked files differ', `Merge failed!
-
-Untracked files in your working directory would be overwritten
-by files of the same name from the merge revision:
-
-{0}
-
-Either track these files, move them, or delete them before merging.`, fileList);
+        const fileList = humanise.formatFilesAsBulletedList(filenames);
+        const message = localize('untracked files differ', "Merge failed!\n\nUntracked files in your working directory would be overwritten by files of the same name from the merge revision:\n\n{0}\n\nEither track these files, move them, or delete them before merging.", fileList);
         window.showErrorMessage(message, { modal: true });
     }
 }
