@@ -19,22 +19,24 @@ export interface IStatusGroups {
 	conflict: ConflictGroup;
 	staging: StagingGroup;
 	merge: MergeGroup;
-	workingDirectory: WorkingDirectoryGroup;
+	working: WorkingDirectoryGroup;
 	untracked: UntrackedGroup;
 }
+
+export type ResourceGroupId = keyof IStatusGroups;
 
 export function createEmptyStatusGroups(): IStatusGroups {
 	return {
 		conflict: new ConflictGroup(),
 		staging: new StagingGroup(),
 		merge: new MergeGroup(),
-		workingDirectory: new WorkingDirectoryGroup(),
+		working: new WorkingDirectoryGroup(),
 		untracked: new UntrackedGroup()
 	}
 }
 
 export abstract class ResourceGroup {
-	get id(): string { return this._id; }
+	get id(): ResourceGroupId { return this._id; }
 	get contextKey(): string { return this._id; }
 	get label(): string { return this._label; }
 	get resources(): Resource[] { return this._resources; }
@@ -42,7 +44,7 @@ export abstract class ResourceGroup {
 	private _resourceUriIndex: Map<string, boolean>;
 
 	constructor(
-		private _id: string,
+		private _id: ResourceGroupId,
 		private _label: string,
 		private _resources: Resource[]) {
 		this._resourceUriIndex = ResourceGroup.indexResources(_resources);
@@ -127,7 +129,7 @@ export class WorkingDirectoryGroup extends ResourceGroup {
 
 export function groupStatuses(this: void, {
 	respositoryRoot,
-	statusGroups: { conflict, staging, merge, workingDirectory, untracked },
+	statusGroups: { conflict, staging, merge, working, untracked },
 	fileStatuses,
 	repoStatus,
 	resolveStatuses
@@ -164,7 +166,7 @@ export function groupStatuses(this: void, {
 
 		const isStaged = staging.resources.some(resource => resource.resourceUri.toString() === uriString);
 		const targetResources: Resource[] = isStaged ? stagingResources : workingDirectoryResources;
-		const targetGroup: ResourceGroup = isStaged ? staging : workingDirectory;
+		const targetGroup: ResourceGroup = isStaged ? staging : working;
 		return [targetResources, targetGroup, status];
 	};
 
@@ -201,7 +203,7 @@ export function groupStatuses(this: void, {
 		conflict: new ConflictGroup(conflictResources),
 		merge: new MergeGroup(mergeResources),
 		staging: new StagingGroup(stagingResources),
-		workingDirectory: new WorkingDirectoryGroup(workingDirectoryResources),
+		working: new WorkingDirectoryGroup(workingDirectoryResources),
 		untracked: new UntrackedGroup(untrackedResources)
 	}
 }
@@ -213,3 +215,10 @@ function toMergeStatus(this: void, status: string): MergeStatus {
 		default: return MergeStatus.NONE;
 	}
 }
+
+/** The type of argument that is returned for a command executed on a "scm/resourceGroup/context" */
+export interface ResourceGroupProxy {
+	_id: ResourceGroupId;
+}
+
+export const isResourceGroupProxy = (obj: any): obj is ResourceGroupProxy => (<ResourceGroupProxy>obj)._id !== undefined;

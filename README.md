@@ -59,7 +59,7 @@
   * The current branch name is shown in the bottom-left corner.
   * Click it to see a list of branches and tags that you can update to.
 
-## Settings
+# Settings
 
 `hg.enabled { boolean }`
   * Enables Hg as a source control manager in VS Code.
@@ -93,7 +93,12 @@
   
 `hg.commandMode`
   * Controls the method used to communicate with `hg`.
-  * Normally, there is a noticeable start-up performance cost with repeatedly running `hg` commands.
-  * By running a [command server](https://www.mercurial-scm.org/wiki/CommandServer) process in the background, frequently-used commands run ~10× faster (e.g. `cat`, `status`, `summary`, `branch` etc.)  
-  `"server"` &mdash; run a command server process (default) &nbsp;_i.e. `hg serve --cmdserve`_  
-  `"cli"` &mdash; spawn a new `hg` process per command.
+  * There is a slight start-up performance cost with repeatedly running `hg` commands.
+  * Running a [command server](https://www.mercurial-scm.org/wiki/CommandServer) process in the background allows frequently-used commands to run ~10× faster (e.g. `cat`, `status`, `summary`, `branch` etc.)  
+  * The server feature is still expiremental, and is therefore not the default.
+  `"cli"` &mdash; spawn a new `hg` process per command (default).
+  `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_  
+
+# Acknowledgements
+
+* [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki)

@@ -9,7 +9,7 @@ import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeRes
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
 import * as path from 'path';
 import * as os from 'os';
-import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup } from "./resourceGroups";
+import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, ResourceGroupProxy, isResourceGroupProxy } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
@@ -201,22 +201,65 @@ export class CommandCenter {
 		commands.executeCommand("vscode.open", hgrcUri);
 	}
 
+	@command('hg.openFiles')
+	openFiles(...resources: (Resource | ResourceGroupProxy)[]): Promise<void> {
+		if (resources.length === 1) {
+			// a resource group proxy object?
+			const [resourceGroupProxy] = resources;
+			if (isResourceGroupProxy(resourceGroupProxy)) {
+				const groupId = resourceGroupProxy._id;
+				const resourceGroup = this.model.getResourceGroupById(groupId);
+				return this.openFile(...resourceGroup.resources);
+			}
+		}
+
+		return this.openFile(...<Resource[]>resources);
+	}
+
 	@command('hg.openFile')
-	async openFile(resource?: Resource): Promise<void> {
-		if (!resource) {
+	async openFile(...resources: Resource[]): Promise<void> {
+		if (!resources) {
 			return;
 		}
 
-		return await commands.executeCommand<void>('vscode.open', resource.resourceUri);
+		if (resources.length === 1) {
+			const [singleResource] = resources;
+			return await commands.executeCommand<void>('vscode.open', singleResource.resourceUri);
+		}
+		else {
+			for (let resource of resources) {
+				await commands.executeCommand<void>('vscode.open', resource.resourceUri);
+				await commands.executeCommand<void>('workbench.action.keepEditor');
+			}
+		}
 	}
 
 	@command('hg.openChange')
-	async openChange(resource?: Resource): Promise<void> {
-		if (!resource) {
+	async openChange(...resources: Resource[]): Promise<void> {
+		if (!resources) {
 			return;
 		}
 
-		return await this._openResource(resource);
+		if (resources.length === 1) {
+			// a resource group proxy object?
+			const [resourceGroupProxy] = resources;
+			if (isResourceGroupProxy(resourceGroupProxy)) {
+				const groupId = resourceGroupProxy._id;
+				const resourceGroup = this.model.getResourceGroupById(groupId);
+				return this.openChange(...resourceGroup.resources);
+			}
+		}
+
+		if (resources.length === 1) {
+			const [singleResource] = resources;
+			return await this._openResource(singleResource);
+		}
+		else {
+			for (let resource of resources) {
+				await this._openResource(resource);
+				await commands.executeCommand<void>('workbench.action.keepEditor');
+			}
+		}
 	}
 
 	@command('hg.openFileFromUri')

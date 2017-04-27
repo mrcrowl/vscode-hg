@@ -5,6 +5,7 @@
 	"command.refresh": "Refresh",
 	"command.openChange": "Open Changes",
 	"command.openFile": "Open File",
+	"command.openFiles": "Open Files",
 	"command.stage": "Stage Changes",
 	"command.stageAll": "Stage All Changes",
 	"command.unstage": "Unstage Changes",

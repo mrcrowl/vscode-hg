@@ -12,7 +12,7 @@ import { watch } from './watch';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as nls from 'vscode-nls';
-import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup } from "./resourceGroups";
+import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup, ResourceGroupId } from "./resourceGroups";
 import { interaction, PushCreatesNewHeadAction, DefaultRepoNotConfiguredAction } from "./interaction";
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 
@@ -284,7 +284,7 @@ export class Model implements Disposable {
 	get mergeGroup(): MergeGroup { return this._groups.merge; }
 	get conflictGroup(): ConflictGroup { return this._groups.conflict; }
 	get stagingGroup(): StagingGroup { return this._groups.staging; }
-	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.workingDirectory; }
+	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.working; }
 	get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
 
 	private _currentBranch: Branch | undefined;
@@ -358,6 +358,11 @@ export class Model implements Disposable {
 		this.disposables.push(fsWatcher);
 
 		this.status();
+	}
+
+	getResourceGroupById(id: ResourceGroupId): ResourceGroup
+	{
+		return this._groups[id];
 	}
 
 	async whenIdle(): Promise<void> {
@@ -436,7 +441,7 @@ export class Model implements Disposable {
 	async stage(...resources: Resource[]): Promise<void> {
 		await this.run(Operation.Stage, async () => {
 			if (resources.length === 0) {
-				resources = this._groups.workingDirectory.resources;
+				resources = this._groups.working.resources;
 			}
 
 			const [missingAndAddedResources, otherResources] = partition(resources, r =>
@@ -448,7 +453,7 @@ export class Model implements Disposable {
 			}
 
 			this._groups.staging = this._groups.staging.intersect(resources);
-			this._groups.workingDirectory = this._groups.workingDirectory.except(resources);
+			this._groups.working = this._groups.working.except(resources);
 			this._onDidChangeResources.fire();
 		});
 	}
@@ -502,7 +507,7 @@ export class Model implements Disposable {
 			resources = this._groups.staging.resources;
 		}
 		this._groups.staging = this._groups.staging.except(resources);
-		this._groups.workingDirectory = this._groups.workingDirectory.intersect(resources);
+		this._groups.working = this._groups.working.intersect(resources);
 		this._onDidChangeResources.fire();
 	}
 

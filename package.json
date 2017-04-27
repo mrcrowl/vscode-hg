@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/mrcrowl/vscode-hg/issues"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "engines": {
     "vscode": "^1.11.0"
   },
@@ -189,6 +189,11 @@
         }
       },
       {
+        "command": "hg.openFiles",
+        "title": "%command.openFiles%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.openFileFromUri",
         "title": "%command.openFile%",
         "category": "Hg",
@@ -316,6 +321,10 @@
         },
         {
           "command": "hg.openFile",
+          "when": "false"
+        },
+        {
+          "command": "hg.openFiles",
           "when": "false"
         },
         {
@@ -531,6 +540,16 @@
           "command": "hg.addAll",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
           "group": "inline"
+        },
+        {
+          "command": "hg.openFiles",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle",
+          "group": "navigation"
+        },
+        {
+          "command": "hg.openChange",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup != untracked",
+          "group": "navigation"
         }
       ],
       "scm/resourceState/context": [
@@ -555,16 +574,6 @@
           "group": "0_resolution"
         },
         {
-          "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
-          "group": "navigation"
-        },
-        {
-          "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
-          "group": "navigation"
-        },
-        {
           "command": "hg.unresolve",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
           "group": "1_modification"
@@ -575,11 +584,6 @@
           "group": "navigation"
         },
         {
-          "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
-          "group": "navigation"
-        },
-        {
           "command": "hg.unstage",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
           "group": "1_modification"
@@ -595,11 +599,6 @@
           "group": "navigation"
         },
         {
-          "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
-          "group": "navigation"
-        },
-        {
           "command": "hg.stage",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
           "group": "1_modification"
@@ -630,8 +629,8 @@
           "group": "1_modification"
         },
         {
-          "command": "hg.openFile",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "command": "hg.openFiles",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle",
           "group": "navigation"
         },
         {
@@ -683,7 +682,7 @@
         "hg.commandMode": {
           "type": "string",
           "description": "%config.commandMode%",
-          "default": "server",
+          "default": "cli",
           "enum": [
             "cli",
             "server"
