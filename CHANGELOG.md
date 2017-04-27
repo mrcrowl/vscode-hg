@@ -6,10 +6,13 @@
   - The context menu commands "Open Changes" and "Open File" now work with multiple selections in source control.
   - These commands are also available in each group-level context menu (e.g. Changes or Staged Changes).
 
-## Change
+## Change to defaults
   - `cli` is now the default commandMode.  Although `server` is faster, it occasionally causes hangs.
   - I will attempt to track down the cause of the hangs before reverting this change.
   - In the meantime, if you prefer `server`, you'll need to add a user-setting.
+
+## Bug Fixes
+  - When using Undo/Rollback to undo a commit, the last commit message is properly restored.
 
 **v1.0.2**
 =============================================

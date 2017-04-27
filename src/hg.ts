@@ -758,7 +758,7 @@ export class Repository {
 			return {
 				revision: parseInt(revision),
 				kind,
-				commitMessage: ""
+				commitMessage
 			};
 		}
 		catch (error) {
