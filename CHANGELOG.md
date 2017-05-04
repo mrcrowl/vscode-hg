@@ -1,4 +1,10 @@
 
+**v1.0.4**
+=============================================
+
+## What's New
+  - Changed extension category to 'SCM Providers'. [PR#5](https://github.com/mrcrowl/vscode-hg/pull/5)
+
 **v1.0.3**
 =============================================
 
