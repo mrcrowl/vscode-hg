@@ -30,7 +30,7 @@
   "icon": "icon.svg",
   "enableProposedApi": false,
   "categories": [
-    "Other"
+    "SCM Providers"
   ],
   "activationEvents": [
     "*"
