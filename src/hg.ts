@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp } from './util';
+import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp, asciiOnly, writeStringToTempFile } from "./util";
 import { EventEmitter, Event, OutputChannel, workspace, Disposable } from "vscode";
 import * as nls from 'vscode-nls';
 import { HgCommandServer } from "./hgserve";
@@ -656,18 +656,27 @@ export class Repository {
 	}
 
 	async commit(message: string, opts: { addRemove?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
-		let args = ['commit'];
+		const disposables: IDisposable[] = [];
+		const args = ['commit'];
 
 		if (opts.addRemove) {
 			args.push('--addremove');
 		}
 
 		if (opts.fileList && opts.fileList.length) {
-			args = args.concat(opts.fileList);
+			args.push(...opts.fileList);
+		}
+
+		if (asciiOnly(message)) {
+			args.push('-m', message || "");
+		}
+		else {
+			const commitMessageFsPath = await writeStringToTempFile(message, disposables);
+			args.push('-l', commitMessageFsPath);
 		}
 
 		try {
-			await this.run([...args, '-m', message || ""]);
+			await this.run(args);
 		}
 		catch (err) {
 			if (/not possible because you have unmerged files/.test(err.stderr)) {
@@ -676,6 +685,9 @@ export class Repository {
 			}
 
 			throw err;
+		}
+		finally {
+			dispose(disposables);
 		}
 	}
 

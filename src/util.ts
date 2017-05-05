@@ -9,6 +9,7 @@
 import { Event } from 'vscode';
 import { dirname } from 'path';
 import * as fs from 'fs';
+import * as tmp from 'tmp';
 
 export function log(...args: any[]): void {
 	console.log.apply(console, ['hg:', ...args]);
@@ -177,4 +178,31 @@ export function uniqueFilter<T>(keyFn: (t: T) => string): (t: T) => boolean {
 		seen[key] = true;
 		return true;
 	};
+}
+
+export async function writeStringToTempFile(contents: string, disposables?: IDisposable[]): Promise<string> {
+	const tempFile = await createTempFile();
+	await new Promise<void>((c, e) => fs.writeFile(tempFile.fsPath, contents, (err) => err ? e(err) : c()));
+	if (disposables) {
+		disposables.push(tempFile);
+	}
+	return tempFile.fsPath;
+}
+
+async function createTempFile(): Promise<{ fsPath: string, dispose: () => void }> {
+	const [fsPath, dispose] = await new Promise<[string, () => void]>((c, e) => {
+		tmp.file({ discardDescriptor: true }, (err, path, _, cleanupCallback) => {
+			if (err) {
+				return e(err);
+			}
+
+			c([path, cleanupCallback]);
+		})
+	})
+
+	return { fsPath, dispose };
+}
+
+export function asciiOnly(text: string): boolean {
+	return [...text].every(c => c.charCodeAt(0) < 0x80);
 }

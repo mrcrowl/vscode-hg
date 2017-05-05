@@ -716,10 +716,12 @@
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "dependencies": {
+    "tmp": "0.0.31",
     "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^7.0.4",
+    "@types/tmp": "0.0.33",
     "vscode": "^1.1.0"
   }
 }
