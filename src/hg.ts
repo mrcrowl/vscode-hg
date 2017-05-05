@@ -74,7 +74,7 @@ export interface Branch extends Ref {
 }
 
 function parseVersion(raw: string): string {
-	let match = raw.match(/\(version ([\d\.]+)\)/);
+	let match = raw.match(/\(version ([^\)]+)\)/);
 	if (match) {
 		return match[1];
 	}
