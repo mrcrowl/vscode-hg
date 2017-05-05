@@ -576,13 +576,12 @@ export class CommandCenter {
 	@command('hg.undoRollback')
 	async undoRollback(): Promise<void> {
 		try {
-			// dry-run
-			const rollbackDetails = await this.model.rollback(true);
-			if (await interaction.confirmRollback(rollbackDetails)) {
-				await this.model.rollback();
+			const rollback = await this.model.rollback(true); // dry-run
+			if (await interaction.confirmRollback(rollback)) {
+				await this.model.rollback(false, rollback); // real-thing
 
-				if (rollbackDetails.kind === "commit") {
-					scm.inputBox.value = rollbackDetails.commitMessage;
+				if (rollback.kind === "commit" && rollback.commitDetails) {
+					scm.inputBox.value = rollback.commitDetails.message;
 					this.focusScm();
 				}
 			}

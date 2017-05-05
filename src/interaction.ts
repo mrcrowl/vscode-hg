@@ -346,7 +346,7 @@ export namespace interaction {
         window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
     }
 
-    export async function confirmRollback(this: void, { revision, kind, commitMessage }: HgRollbackDetails) {
+    export async function confirmRollback(this: void, { revision, kind, commitDetails: _ }: HgRollbackDetails) {
         // prompt
         const rollback = "Rollback";
         const message = localize('rollback', "Rollback to revision {0}? (undo {1})", revision, kind);

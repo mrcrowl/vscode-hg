@@ -51,6 +51,11 @@ export interface IFileStatus {
 	rename?: string;
 }
 
+export interface ICommitDetails {
+	message: string;
+	affectedFiles: IFileStatus[];
+}
+
 export enum RefType {
 	Branch,
 	Tag
@@ -243,7 +248,7 @@ export interface IHgErrorData {
 export class HgRollbackDetails {
 	revision: number;
 	kind: string;
-	commitMessage: string;
+	commitDetails: ICommitDetails|undefined;
 }
 
 export class HgError {
@@ -767,11 +772,12 @@ export class Repository {
 			}
 
 			const [_, revision, kind] = match;
-			const commitMessage = (dryRun && kind === "commit") ? await this.tryGetLastCommitMessage() : "";
+			const commitDetails: ICommitDetails | undefined = (dryRun && kind === "commit") ? await this.tryGetLastCommitDetails() : undefined;
+
 			return {
 				revision: parseInt(revision),
 				kind,
-				commitMessage
+				commitDetails
 			};
 		}
 		catch (error) {
@@ -782,12 +788,18 @@ export class Repository {
 		}
 	}
 
-	async tryGetLastCommitMessage(): Promise<string> {
+	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
 		try {
-			return await this.getLastCommitMessage();
+			return {
+				message: await this.getLastCommitMessage(),
+				affectedFiles: await this.getStatus(".")
+			}
 		}
 		catch (e) {
-			return "";
+			return {
+				message: "",
+				affectedFiles: []
+			};
 		}
 	}
 

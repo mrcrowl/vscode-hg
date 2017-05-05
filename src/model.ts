@@ -360,8 +360,7 @@ export class Model implements Disposable {
 		this.status();
 	}
 
-	getResourceGroupById(id: ResourceGroupId): ResourceGroup
-	{
+	getResourceGroupById(id: ResourceGroupId): ResourceGroup {
 		return this._groups[id];
 	}
 
@@ -591,14 +590,42 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
-		return await this.run(Operation.Rollback, async () => {
-			const details = await this.repository.rollback(dryRun);
-			if (!dryRun && details.kind === 'commit') {
+	async rollback(dryRun: boolean, dryRunDetails?: HgRollbackDetails): Promise<HgRollbackDetails> {
+		const rollback = await this.run(Operation.Rollback, () => this.repository.rollback(dryRun));
+
+		if (!dryRun) {
+			if (rollback.kind === 'commit') {
+				// if there are currently files in the staging group, then 
+				// any previously-committed files should go there too.
+				if (dryRunDetails && dryRunDetails.commitDetails) {
+					const { affectedFiles } = dryRunDetails.commitDetails;
+					if (this.stagingGroup.resources.length && affectedFiles.length) {
+						const previouslyCommmitedResourcesToStage = affectedFiles.map(f => {
+							const uri = Uri.file(path.join(this.repository.root, f.path));
+							const resource = this.findTrackedResourceByUri(uri);
+							return resource;
+						}).filter(r => !!r) as Resource[];
+						this.stage(...previouslyCommmitedResourcesToStage);
+					}
+				}
+	
 				this.countOutgoing(-1);
 			}
-			return details;
-		});
+		}
+		return rollback;
+	}
+
+	findTrackedResourceByUri(uri: Uri): Resource | undefined {
+		const groups = [this.workingDirectoryGroup, this.stagingGroup, this.mergeGroup, this.conflictGroup];
+		for (const group of groups) {
+			for (const resource of group.resources) {
+				if (resource.resourceUri.toString() === uri.toString()) {
+					return resource;
+				}
+			}
+		}
+
+		return undefined;
 	}
 
 	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {

@@ -2,8 +2,9 @@
 **v1.0.4**
 =============================================
 
-## Bug fixes
-  - Attempt to fix problems with non-ascii commit messages encoding. [Issue #4](https://github.com/mrcrowl/vscode-hg/issues/4)
+## What's New
+  - If you have staged files when you rollback a commit, then all files from the rolled-back commit become staged too.
+  - Attempt to fix issue with non-ascii commit messages encoding. [Issue #4](https://github.com/mrcrowl/vscode-hg/issues/4)
   
 ## Change to defaults
   - Default HGENCODING is now utf-8, unless an existing environment variable exists.
