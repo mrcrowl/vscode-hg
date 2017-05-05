@@ -2,8 +2,11 @@
 **v1.0.4**
 =============================================
 
-## What's New
-  - Changed extension category to 'SCM Providers'. [PR#5](https://github.com/mrcrowl/vscode-hg/pull/5)
+## Bug fixes
+  - Attempt to fix problems with non-ascii commit messages encoding. [Issue #4](https://github.com/mrcrowl/vscode-hg/issues/4)
+  
+## Change to defaults
+  - Default HGENCODING is now utf-8, unless an existing environment variable exists.
 
 **v1.0.3**
 =============================================
