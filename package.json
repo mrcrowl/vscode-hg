@@ -8,7 +8,7 @@
     "theme": "dark"
   },
   "homepage": "https://github.com/mrcrowl/vscode-hg/blob/master/README.md",
-  "license": "See LICENSE.txt",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/mrcrowl/vscode-hg.git"
@@ -717,11 +717,15 @@
   },
   "dependencies": {
     "tmp": "0.0.31",
-    "vscode-nls": "^2.0.1"
+    "vscode-nls": "^2.0.1",
+    "winston": "^2.3.1",
+    "winston-daily-rotate-file": "^1.4.6",
+    "winston-null": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^7.0.4",
     "@types/tmp": "0.0.33",
+    "@types/winston": "^2.3.1",
     "vscode": "^1.1.0"
   }
 }

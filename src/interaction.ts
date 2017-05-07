@@ -13,7 +13,6 @@ const LEAVE_DELETED = "Leave deleted";
 const LEAVE_UNRESOLVED = "Leave unresolved";
 const DELETE = "Delete";
 
-const INT32_SIZE = 4;
 const SHORT_HASH_LENGTH = 12;
 const BULLET = "\u2022";
 const NBSP = "\u00a0";
@@ -445,37 +444,6 @@ export namespace interaction {
             default:
                 return "u";
         }
-    }
-
-    export async function serverSendCommand(this: void, server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
-        if (!server) {
-            throw new Error("Must start the command server before issuing commands");
-        }
-        const cmdLength = cmd.length + 1;
-        const argsJoined = args.join("\0");
-        const argsJoinedLength = argsJoined.length;
-        const totalBufferSize = cmdLength + INT32_SIZE + argsJoinedLength;
-        const buffer = new Buffer(totalBufferSize);
-        buffer.write(cmd + "\n", 0, cmdLength, encoding);
-        buffer.writeUInt32BE(argsJoinedLength, cmdLength);
-        buffer.write(argsJoined, cmdLength + INT32_SIZE, argsJoinedLength, encoding);
-        await writeBufferToStdIn(server, buffer);
-    };
-
-    export async function serverSendLineInput(this: void, server: ChildProcess, encoding: string, text: string) {
-        if (!server) {
-            throw new Error("Must start the command server before issuing commands");
-        }
-        const textLength = text.length + 1;
-        const totalBufferSize = textLength + INT32_SIZE;
-        const buffer = new Buffer(totalBufferSize);
-        buffer.writeUInt32BE(textLength, 0);
-        buffer.write(`${text}\n`, INT32_SIZE, textLength, encoding);
-        await writeBufferToStdIn(server, buffer);
-    };
-
-    function writeBufferToStdIn(this: void, server: ChildProcess, buffer: Buffer): Promise<any> {
-        return new Promise((c, e) => server.stdin.write(buffer, c));
     }
 
     export function errorUntrackedFilesDiffer(this: void, filenames: string[]) {

@@ -4,7 +4,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
+import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
 import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
@@ -768,7 +768,12 @@ export class Model implements Disposable {
 
 		return await this.run(Operation.Show, async () => {
 			const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-			const result = await this.repository.hg.exec(this.repository.root, ['cat', relativePath, '-r', ref], { log: false });
+			const args = ['cat', relativePath];
+			if (ref)
+			{
+				args.push('-r', ref);
+			}	
+			const result = await this.repository.hg.exec(this.repository.root, args, { log: false });
 
 			if (result.exitCode !== 0) {
 				throw new HgError({

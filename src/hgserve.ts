@@ -1,8 +1,8 @@
-
 import { spawn, ChildProcess } from "child_process";
 import { window, InputBoxOptions } from "vscode";
 import { interaction } from "./interaction";
 import { EventEmitter, Event } from "vscode";
+import { logger } from "./logger";
 
 export interface Deferred<T> {
     resolve: (c: T) => any,
@@ -89,6 +89,7 @@ export class HgCommandServer {
         }
         catch (e) {
             this.logger(`Failed to remove cmdserve listeners: ${e}`);
+            logger.error(`Failed to remove cmdserve listeners: ${e}`);
         }
         finally {
             this.serverProcess = undefined;
@@ -108,7 +109,7 @@ export class HgCommandServer {
                 result: defer<IExecutionResult>()
             }
             this.commandQueue.push(command);
-            interaction.serverSendCommand(this.serverProcess, this.encoding, cmd, args);
+            serverSendCommand(this.serverProcess, this.encoding, cmd, args);
             return command.result.promise;
         }
 
@@ -217,12 +218,16 @@ export class HgCommandServer {
         let outputBodies: string[];
         let errorBodies: string[];
         let exitCode: number | undefined;
+        let unconsumedLength: number;
+        let unconsumedChan: string;
 
         function reset() {
             errorBodies = [];
             errorBuffers = [];
             outputBodies = [];
             exitCode = undefined;
+            unconsumedLength = 0;
+            unconsumedChan = '';
         }
 
         reset();
@@ -238,33 +243,67 @@ export class HgCommandServer {
         serverProcess.stdout.on("data", async (data: Buffer) => {
             let offset = 0;
             while (offset < data.length) {
-                const chan = String.fromCharCode(data.readUInt8(offset)); // +1
-                const length = data.readUInt32BE(offset + 1); // +4
-                offset += 5;
+                if (unconsumedLength === 0) {
+                    const chan = String.fromCharCode(data.readUInt8(offset)); // +1
+                    const length = data.readUInt32BE(offset + 1); // +4
+                    offset += 5;
 
-                if (chan === RESULT_CHANNEL) {
-                    // result channel
-                    exitCode = data.readUInt32BE(offset);
-                    offset += length;
-                }
-                else if (chan === LINE_CHANNEL) {
-                    // line channel
-                    const stdout = outputBodies.join("");
-                    const response = await interaction.handleChoices(stdout, length);
-                    interaction.serverSendLineInput(serverProcess, this.encoding, response);
-                    offset += 0;
+                    if (chan === RESULT_CHANNEL) {
+                        // result channel
+                        exitCode = data.readUInt32BE(offset);
+                        logger.info(`hgserve:r:${exitCode}`);
+                        offset += length;
+                    }
+                    else if (chan === LINE_CHANNEL) {
+                        // line channel
+                        const stdout = outputBodies.join("");
+                        logger.info(`hgserve:L:${stdout}`);
+                        const response = await interaction.handleChoices(stdout, length);
+                        serverSendLineInput(serverProcess, this.encoding, response);
+                        offset += 0;
+                    }
+                    else {
+                        unconsumedLength = length;
+                        // output or error channel
+                        const bodySlice = data.slice(offset, offset + length);
+                        const consumedLength = bodySlice.byteLength;
+                        unconsumedLength -= consumedLength;
+                        const body = bodySlice.toString(this.encoding); //.replace(/\0/g, "");
+                        if (chan === OUTPUT_CHANNEL) {
+                            logger.info(`hgserve:o:${body}`);
+                            outputBodies.push(body);
+                        }
+                        else if (chan === ERROR_CHANNEL) {
+                            logger.error(`hgserve:e:${body}`);
+                            errorBodies.push(body);
+                        }
+                        offset += consumedLength;
+                        if (unconsumedLength > 0)
+                        {
+                            unconsumedChan = chan;
+                        }    
+                    }
                 }
                 else {
-                    // output or error channel
-                    const bodySlice = data.slice(offset, offset + length);
+                    // left-over unread from last data event
+                    const bodySlice = data.slice(offset, offset + unconsumedLength);
+                    const consumedLength = bodySlice.byteLength;
+                    unconsumedLength -= consumedLength;
+
                     const body = bodySlice.toString(this.encoding); //.replace(/\0/g, "");
-                    if (chan === OUTPUT_CHANNEL) {
+                    if (unconsumedChan === OUTPUT_CHANNEL) {
+                        logger.info(`hgserve:o:${body}`);
                         outputBodies.push(body);
                     }
-                    else if (chan === ERROR_CHANNEL) {
+                    else if (unconsumedChan === ERROR_CHANNEL) {
+                        logger.error(`hgserve:e:${body}`);
                         errorBodies.push(body);
                     }
-                    offset += length;
+                    offset += consumedLength;
+                    if (unconsumedLength === 0)
+                    {
+                        unconsumedChan = '';
+                    }    
                 }
 
                 if (exitCode !== undefined) {
@@ -284,6 +323,7 @@ export class HgCommandServer {
                         command.result.resolve(result);
                     }
 
+
                     if (this.stopWhenQueueEmpty && this.commandQueue.length === 0) {
                         this.stop();
                         return;
@@ -292,8 +332,12 @@ export class HgCommandServer {
             }
         });
     }
-
 }
+
+class InputChannel
+{
+
+}    
 
 function getChanName(chan: string) {
     switch (chan) {
@@ -304,6 +348,42 @@ function getChanName(chan: string) {
         default: throw new Error(`Unknown channel '${chan}'`);
     }
 };
+
+const INT32_SIZE = 4;
+
+async function serverSendCommand(this: void, server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
+    if (!server) {
+        throw new Error("Must start the command server before issuing commands");
+    }
+    const cmdLength = cmd.length + 1;
+    const argsJoined = args.join("\0");
+    const argsJoinedLength = argsJoined.length;
+    const totalBufferSize = cmdLength + INT32_SIZE + argsJoinedLength;
+    const buffer = new Buffer(totalBufferSize);
+    buffer.write(cmd + "\n", 0, cmdLength, encoding);
+    buffer.writeUInt32BE(argsJoinedLength, cmdLength);
+    buffer.write(argsJoined, cmdLength + INT32_SIZE, argsJoinedLength, encoding);
+    logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
+    await writeBufferToStdIn(server, buffer);
+};
+
+async function serverSendLineInput(this: void, server: ChildProcess, encoding: string, text: string) {
+    if (!server) {
+        throw new Error("Must start the command server before issuing commands");
+    }
+    const textLength = text.length + 1;
+    const totalBufferSize = textLength + INT32_SIZE;
+    const buffer = new Buffer(totalBufferSize);
+    buffer.writeUInt32BE(textLength, 0);
+    buffer.write(`${text}\n`, INT32_SIZE, textLength, encoding);
+    logger.info(`hgserve:stdin:${text}\n`);
+    await writeBufferToStdIn(server, buffer);
+};
+
+function writeBufferToStdIn(this: void, server: ChildProcess, buffer: Buffer): Promise<any> {
+    return new Promise((c, e) => server.stdin.write(buffer, c));
+}
+
 
 const LINE_CHANNEL = 'L';
 const RESULT_CHANNEL = 'r';
