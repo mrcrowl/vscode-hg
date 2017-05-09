@@ -44,6 +44,7 @@ export class HgCommandServer {
     private capabilities;
     private commandQueue: PipelineCommand[];
     private stopWhenQueueEmpty: boolean;
+    private channelProcessor: ChannelProcessor;
 
     private constructor(config = {}, private logger: (text: string) => void) {
         // super();
@@ -52,7 +53,8 @@ export class HgCommandServer {
         this.starting = false;
     }
 
-    public static async start(hgPath: string, repository: string, logger: (text: string) => void) {
+    /** Static constructor */
+    public static async start(hgPath: string, repository: string, logger: (text: string) => void): Promise<HgCommandServer> {
         const config = {
             hgOpts: ['--config', 'ui.interactive=True', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
         };
@@ -60,12 +62,18 @@ export class HgCommandServer {
         return await commandServer.start(hgPath);
     }
 
-	/*
-		  Start the command server at a specified directory (path must already be an hg repository)
-	 */
+    /** Start the command server at a specified directory (path must already be an hg repository) */
     private async start(hgPath: string): Promise<HgCommandServer> {
         this.hgPath = hgPath;
         this.serverProcess = await this.spawnCommandServerProcess(hgPath);
+        const lineInputHandler = async (body, limit) => {
+            const response = await interaction.handleChoices(body, limit);
+            if (this.serverProcess) {
+                serverSendLineInput(this.serverProcess, this.encoding, response);
+            }
+        };
+
+        this.channelProcessor = new ChannelProcessor(this.encoding, lineInputHandler);
         this.attachListeners();
         return this;
     }
@@ -124,49 +132,43 @@ export class HgCommandServer {
     private spawnCommandServerProcess(path: string): Promise<ChildProcess> {
         return new Promise<ChildProcess>((c, e) => {
             this.starting = true;
-            const process = this.spawnHgServer(path);
+            const cp = this.spawnHgServer(path);
 
-            process.stdout.once("data", (data: Buffer) => {
-                this.starting = false;
-                const chan = String.fromCharCode(data.readUInt8(0));
-                const bodyLength = data.readUInt32BE(1);
-                const bodyData = data.slice(5, 5 + bodyLength);
-                let body: string | number;
-                if (chan === 'r') {
-                    body = bodyData.readInt32BE(0);
-                }
-                else {
-                    body = bodyData.toString(this.encoding).replace(/\0/g, "");
-                }
-                const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(<string>body);
+            const stream = new StreamReader();
+
+            cp.stdout.once("data", async (data: Buffer) => {
+                stream.write(data);
+
+                const chan = await stream.readChar();
+                const length = await stream.readInt();
+                const body = await stream.readString(length, "ascii");
+                const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(body);
                 this.capabilities = capabilities;
                 this.encoding = encoding;
 
+                this.starting = false;
+
                 if (!capabilities.includes("runcommand")) {
-                    e("runcommand not available");
+                    return e("runcommand not available");
                 }
 
-                c(process);
+                c(cp);
             });
-            process.stderr.on("data", (data) => {
+            cp.stderr.on("data", data => {
                 if (this.starting) {
                     return e(data);
                 }
                 return this.handleServerError(data);
             });
-            process.on("exit", code => {
-                if (process) {
-                    process.removeAllListeners("exit");
+            cp.on("exit", code => {
+                if (cp) {
+                    cp.removeAllListeners("exit");
                 }
             });
         });
     }
 
-	/*
-	  Create the child process (exposed for unit testing mostly)
-	 */
-
-    spawnHgServer(path) {
+    private spawnHgServer(path) {
         var processEnv, spawnOpts;
         processEnv = { "HGENCODING": "UTF-8", ...process.env };
         spawnOpts = {
@@ -177,10 +179,7 @@ export class HgCommandServer {
     };
 
 
-	/*
-	  Parse the capabilities and encoding when the cmd server starts up
-	 */
-
+    /** Parse the capabilities and encoding when the cmd server starts up */
     parseCapabilitiesAndEncoding(data: string) {
         let matches = /capabilities: (.*?)\nencoding: (.*?)$/.exec(data);
         if (!matches) {
@@ -203,9 +202,9 @@ export class HgCommandServer {
         // return this.emit("error", data);
     };
 
-	/*
-	  Send the raw command strings to the cmdserver over `stdin`
-	 */
+    /*
+      Send the raw command strings to the cmdserver over `stdin`
+     */
 
     /** Parse the Channel information, emit an event on the channel with the data. */
     async attachListeners() {
@@ -214,130 +213,173 @@ export class HgCommandServer {
             return;
         }
 
-        let errorBuffers: (string | Buffer)[];
-        let outputBodies: string[];
-        let errorBodies: string[];
-        let exitCode: number | undefined;
-        let unconsumedLength: number;
-        let unconsumedChan: string;
-
-        function reset() {
-            errorBodies = [];
-            errorBuffers = [];
-            outputBodies = [];
-            exitCode = undefined;
-            unconsumedLength = 0;
-            unconsumedChan = '';
-        }
-
-        reset();
-
         serverProcess.on("exit", (code) => {
             this.logger(`hg command server was closed unexpectedly: ${code}\n`);
             this.stop(true);
             this.start(this.hgPath);
         });
 
-        serverProcess.stderr.on("data", data => errorBuffers.push(data));
+        serverProcess.stdout.on("data", (data: Buffer) => {
+            this.channelProcessor.consume(data);
+        });
 
-        serverProcess.stdout.on("data", async (data: Buffer) => {
-            let offset = 0;
-            while (offset < data.length) {
-                if (unconsumedLength === 0) {
-                    const chan = String.fromCharCode(data.readUInt8(offset)); // +1
-                    const length = data.readUInt32BE(offset + 1); // +4
-                    offset += 5;
+        this.channelProcessor.event(result => {
+            const command = this.dequeueCommand();
+            if (command) {
+                command.result.resolve(result);
+            }
 
-                    if (chan === RESULT_CHANNEL) {
-                        // result channel
-                        exitCode = data.readUInt32BE(offset);
-                        logger.info(`hgserve:r:${exitCode}`);
-                        offset += length;
-                    }
-                    else if (chan === LINE_CHANNEL) {
-                        // line channel
-                        const stdout = outputBodies.join("");
-                        logger.info(`hgserve:L:${stdout}`);
-                        const response = await interaction.handleChoices(stdout, length);
-                        serverSendLineInput(serverProcess, this.encoding, response);
-                        offset += 0;
-                    }
-                    else {
-                        unconsumedLength = length;
-                        // output or error channel
-                        const bodySlice = data.slice(offset, offset + length);
-                        const consumedLength = bodySlice.byteLength;
-                        unconsumedLength -= consumedLength;
-                        const body = bodySlice.toString(this.encoding); //.replace(/\0/g, "");
-                        if (chan === OUTPUT_CHANNEL) {
-                            logger.info(`hgserve:o:${body}`);
-                            outputBodies.push(body);
-                        }
-                        else if (chan === ERROR_CHANNEL) {
-                            logger.error(`hgserve:e:${body}`);
-                            errorBodies.push(body);
-                        }
-                        offset += consumedLength;
-                        if (unconsumedLength > 0)
-                        {
-                            unconsumedChan = chan;
-                        }    
-                    }
-                }
-                else {
-                    // left-over unread from last data event
-                    const bodySlice = data.slice(offset, offset + unconsumedLength);
-                    const consumedLength = bodySlice.byteLength;
-                    unconsumedLength -= consumedLength;
-
-                    const body = bodySlice.toString(this.encoding); //.replace(/\0/g, "");
-                    if (unconsumedChan === OUTPUT_CHANNEL) {
-                        logger.info(`hgserve:o:${body}`);
-                        outputBodies.push(body);
-                    }
-                    else if (unconsumedChan === ERROR_CHANNEL) {
-                        logger.error(`hgserve:e:${body}`);
-                        errorBodies.push(body);
-                    }
-                    offset += consumedLength;
-                    if (unconsumedLength === 0)
-                    {
-                        unconsumedChan = '';
-                    }    
-                }
-
-                if (exitCode !== undefined) {
-                    // server.stdout.removeAllListeners();
-                    // server.stderr.removeAllListeners();
-
-                    const stdout = outputBodies.join("");
-                    const stderr = errorBodies.join("");
-                    const result = <IExecutionResult>{
-                        stdout, stderr, exitCode
-                    }
-
-                    reset();
-
-                    const command = this.dequeueCommand();
-                    if (command) {
-                        command.result.resolve(result);
-                    }
-
-
-                    if (this.stopWhenQueueEmpty && this.commandQueue.length === 0) {
-                        this.stop();
-                        return;
-                    }
-                }
+            if (this.stopWhenQueueEmpty && this.commandQueue.length === 0) {
+                this.stop();
             }
         });
     }
 }
 
-class InputChannel
-{
+class ChannelProcessor extends EventEmitter<IExecutionResult> {
+    private errorBuffers: (string | Buffer)[];
+    private outputBodies: string[];
+    private errorBodies: string[];
+    private exitCode: number | undefined;
+    private input: StreamReader;
 
-}    
+    constructor(private encoding: string, private lineInputHandler: (body: string, limit: number) => Promise<void>) {
+        super();
+        this.input = new StreamReader();
+        this.reset();
+        this.process();
+    }
+
+    public consume(data: Buffer) {
+        this.input.write(data);
+    }
+
+    private reset() {
+        this.errorBodies = [];
+        this.errorBuffers = [];
+        this.outputBodies = [];
+        this.exitCode = undefined;
+    }
+
+    private async process() {
+        while (true) {
+            const chan = await this.input.readChar();
+            const length = await this.input.readInt();
+
+            switch (chan) {
+                case RESULT_CHANNEL:
+                    this.exitCode = await this.input.readInt();
+                    logger.info(`hgserve:r:${this.exitCode}`);
+                    break;
+
+                case LINE_CHANNEL:
+                    const body = this.outputBodies.join("");
+                    logger.info(`hgserve:L:${body}`);
+                    await this.lineInputHandler(body, length);
+                    break;
+
+                case OUTPUT_CHANNEL:
+                    const outputBody = await this.input.readString(length, this.encoding);
+                    this.outputBodies.push(outputBody);
+                    break;
+
+                case ERROR_CHANNEL:
+                    const errorBody = await this.input.readString(length, this.encoding);
+                    this.errorBodies.push(errorBody);
+                    break;
+            }
+
+            if (this.exitCode !== undefined) {
+                const stdout = this.outputBodies.join("");
+                const stderr = this.errorBodies.join("");
+                const result = <IExecutionResult>{
+                    stdout, stderr, exitCode: this.exitCode
+                }
+
+                this.reset();
+                this.fire(result);
+            }
+        }
+    }
+}
+
+class StreamReader {
+    private buffers: {
+        data: Buffer,
+        size: number
+    }[];
+    private offset: number;
+    private currentRead?: {
+        remainingBytes: number;
+        result: Deferred<Buffer>;
+        chunks: Buffer[];
+    };
+
+    constructor() {
+        this.buffers = [];
+        this.offset = 0;
+    }
+
+    public write(data: Buffer) {
+        this.buffers.push({
+            data: data,
+            size: data.byteLength
+        });
+        if (this.currentRead) {
+            this.continueRead();
+        }
+    }
+
+    public async readChar(): Promise<string> {
+        const buffer = await this.readBuffer(UINT8_SIZE);
+        return String.fromCharCode(buffer.readUInt8(0));
+    }
+
+    public async readInt(): Promise<number> {
+        const buffer = await this.readBuffer(UINT32_SIZE);
+        return buffer.readUInt32BE(0);
+    }
+
+    public async readString(length: number, encoding: string): Promise<string> {
+        const buffer = await this.readBuffer(length);
+        return buffer.toString(encoding);
+    }
+
+    private async readBuffer(length: number): Promise<Buffer> {
+        this.currentRead = {
+            remainingBytes: length,
+            chunks: [],
+            result: defer<Buffer>(),
+        }
+        return this.continueRead();
+    }
+
+    private continueRead(): Promise<Buffer> {
+        const currentRead = this.currentRead!;
+        while (currentRead.remainingBytes > 0 && this.buffers.length > 0) {
+            const { data, size } = this.buffers[0];
+            const availableBytes = size - this.offset;
+            const chunkSize = Math.min(availableBytes, currentRead.remainingBytes);
+            const chunk = data.slice(this.offset, this.offset + chunkSize);
+            if (availableBytes - chunkSize === 0) {
+                this.buffers.shift();
+                this.offset = 0;
+            }
+            else {
+                this.offset += chunkSize;
+            }
+            currentRead.chunks.push(chunk);
+            currentRead.remainingBytes -= chunkSize;
+            if (currentRead.remainingBytes === 0) {
+                const readBuffer = Buffer.concat(currentRead.chunks);
+                currentRead.result.resolve(readBuffer);
+                this.currentRead = undefined;
+                break;
+            }
+        }
+        return currentRead.result.promise;
+    }
+}
 
 function getChanName(chan: string) {
     switch (chan) {
@@ -349,7 +391,8 @@ function getChanName(chan: string) {
     }
 };
 
-const INT32_SIZE = 4;
+const UINT32_SIZE = 4;
+const UINT8_SIZE = 1;
 
 async function serverSendCommand(this: void, server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
     if (!server) {
@@ -358,11 +401,11 @@ async function serverSendCommand(this: void, server: ChildProcess, encoding: str
     const cmdLength = cmd.length + 1;
     const argsJoined = args.join("\0");
     const argsJoinedLength = argsJoined.length;
-    const totalBufferSize = cmdLength + INT32_SIZE + argsJoinedLength;
+    const totalBufferSize = cmdLength + UINT32_SIZE + argsJoinedLength;
     const buffer = new Buffer(totalBufferSize);
     buffer.write(cmd + "\n", 0, cmdLength, encoding);
     buffer.writeUInt32BE(argsJoinedLength, cmdLength);
-    buffer.write(argsJoined, cmdLength + INT32_SIZE, argsJoinedLength, encoding);
+    buffer.write(argsJoined, cmdLength + UINT32_SIZE, argsJoinedLength, encoding);
     logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
     await writeBufferToStdIn(server, buffer);
 };
@@ -372,10 +415,10 @@ async function serverSendLineInput(this: void, server: ChildProcess, encoding: s
         throw new Error("Must start the command server before issuing commands");
     }
     const textLength = text.length + 1;
-    const totalBufferSize = textLength + INT32_SIZE;
+    const totalBufferSize = textLength + UINT32_SIZE;
     const buffer = new Buffer(totalBufferSize);
     buffer.writeUInt32BE(textLength, 0);
-    buffer.write(`${text}\n`, INT32_SIZE, textLength, encoding);
+    buffer.write(`${text}\n`, UINT32_SIZE, textLength, encoding);
     logger.info(`hgserve:stdin:${text}\n`);
     await writeBufferToStdIn(server, buffer);
 };
@@ -383,7 +426,6 @@ async function serverSendLineInput(this: void, server: ChildProcess, encoding: s
 function writeBufferToStdIn(this: void, server: ChildProcess, buffer: Buffer): Promise<any> {
     return new Promise((c, e) => server.stdin.write(buffer, c));
 }
-
 
 const LINE_CHANNEL = 'L';
 const RESULT_CHANNEL = 'r';
