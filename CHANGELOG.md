@@ -1,4 +1,11 @@
 
+**v1.0.5-6**
+=============================================
+
+## What's New
+  - Improvements to commandMode `server` reliability.
+  - Marketplace category change --> SCM Providers [PR #5]
+
 **v1.0.4**
 =============================================
 

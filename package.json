@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/mrcrowl/vscode-hg/issues"
   },
-  "version": "1.0.4",
+  "version": "1.0.6",
   "engines": {
     "vscode": "^1.11.0"
   },
@@ -29,9 +29,7 @@
   ],
   "icon": "icon.svg",
   "enableProposedApi": false,
-  "categories": [
-    "Other"
-  ],
+  "categories": ["SCM Providers", "Other"],
   "activationEvents": [
     "*"
   ],
@@ -717,15 +715,11 @@
   },
   "dependencies": {
     "tmp": "0.0.31",
-    "vscode-nls": "^2.0.1",
-    "winston": "^2.3.1",
-    "winston-daily-rotate-file": "^1.4.6",
-    "winston-null": "^1.0.2"
+    "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^7.0.4",
     "@types/tmp": "0.0.33",
-    "@types/winston": "^2.3.1",
     "vscode": "^1.1.0"
   }
 }

@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from "child_process";
 import { window, InputBoxOptions } from "vscode";
 import { interaction } from "./interaction";
 import { EventEmitter, Event } from "vscode";
-import { logger } from "./logger";
+// import { logger } from "./logger";
 
 export interface Deferred<T> {
     resolve: (c: T) => any,
@@ -97,7 +97,7 @@ export class HgCommandServer {
         }
         catch (e) {
             this.logger(`Failed to remove cmdserve listeners: ${e}`);
-            logger.error(`Failed to remove cmdserve listeners: ${e}`);
+            // logger.error(`Failed to remove cmdserve listeners: ${e}`);
         }
         finally {
             this.serverProcess = undefined;
@@ -269,12 +269,12 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
             switch (chan) {
                 case RESULT_CHANNEL:
                     this.exitCode = await this.input.readInt();
-                    logger.info(`hgserve:r:${this.exitCode}`);
+                    // logger.info(`hgserve:r:${this.exitCode}`);
                     break;
 
                 case LINE_CHANNEL:
                     const body = this.outputBodies.join("");
-                    logger.info(`hgserve:L:${body}`);
+                    // logger.info(`hgserve:L:${body}`);
                     await this.lineInputHandler(body, length);
                     break;
 
@@ -406,7 +406,7 @@ async function serverSendCommand(this: void, server: ChildProcess, encoding: str
     buffer.write(cmd + "\n", 0, cmdLength, encoding);
     buffer.writeUInt32BE(argsJoinedLength, cmdLength);
     buffer.write(argsJoined, cmdLength + UINT32_SIZE, argsJoinedLength, encoding);
-    logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
+    // logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
     await writeBufferToStdIn(server, buffer);
 };
 
@@ -419,7 +419,7 @@ async function serverSendLineInput(this: void, server: ChildProcess, encoding: s
     const buffer = new Buffer(totalBufferSize);
     buffer.writeUInt32BE(textLength, 0);
     buffer.write(`${text}\n`, UINT32_SIZE, textLength, encoding);
-    logger.info(`hgserve:stdin:${text}\n`);
+    // logger.info(`hgserve:stdin:${text}\n`);
     await writeBufferToStdIn(server, buffer);
 };
 
