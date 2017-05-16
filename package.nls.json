@@ -40,8 +40,8 @@
 	"config.commandMode": "Change between using server and cli modes",
 	"config.enableLongCommitWarning": "Whether long commit messages should be warned about",
 	"config.countBadge": "Controls the badge counter for Hg",
-	"config.checkoutType": "Controls what type of branches are listed",
 	"config.allowPushNewBranches": "Whether new branches are pushed without warning",
+	"config.pushPullBranch": "Which branch(es) to include in push/pull operations",
 	"command.mergeHeads": "Merge heads",
 	"command.mergeWithLocal": "Merge into working directory..."
 }

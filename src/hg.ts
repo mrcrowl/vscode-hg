@@ -33,8 +33,13 @@ export interface LogEntryOptions {
 	branch?: string;
 }
 
-export interface PushOptions {
+export interface PushOptions extends SyncOptions {
 	allowPushNewBranches?: boolean;
+	branch: string | undefined;
+}
+
+export interface SyncOptions {
+	branch: string | undefined;
 }
 
 export interface IMergeResult {
@@ -836,9 +841,14 @@ export class Repository {
 		}
 	}
 
-	async countIncoming(): Promise<number> {
+	async countIncoming(options?: SyncOptions): Promise<number> {
 		try {
-			const incomingResult = await this.run(['incoming', '-q']);
+			const args = ['incoming', '-q'];
+			if (options && options.branch)
+			{
+				args.push('-b', options.branch);
+			}	
+			const incomingResult = await this.run(args);
 			if (!incomingResult.stdout) {
 				return 0;
 			}
@@ -865,9 +875,14 @@ export class Repository {
 		}
 	}
 
-	async countOutgoing(): Promise<number> {
+	async countOutgoing(options?: SyncOptions): Promise<number> {
 		try {
-			const result = await this.run(['outgoing', '-q']); //, '-r', 'draft()']);
+			const args = ['outgoing', '-q'];
+			if (options && options.branch)
+			{
+				args.push('-b', options.branch);
+			}	
+			const result = await this.run(args);
 
 			if (!result.stdout) {
 				return 0;
@@ -892,8 +907,13 @@ export class Repository {
 		}
 	}
 
-	async pull(): Promise<void> {
+	async pull(options?: SyncOptions): Promise<void> {
 		const args = ['pull'];
+
+		if (options && options.branch)
+		{
+			args.push("-b", options.branch);
+		}	
 
 		try {
 			await this.run(args);
@@ -917,6 +937,11 @@ export class Repository {
 		if (options && options.allowPushNewBranches) {
 			args.push('--new-branch');
 		}
+
+		if (options && options.branch)
+		{
+			args.push("-b", options.branch);
+		}	
 
 		if (path) {
 			args.push(path);

@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision } from "./hg";
+import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -21,6 +21,8 @@ const exists = (path: string) => new Promise(c => fs.exists(path, c));
 
 const localize = nls.loadMessageBundle();
 const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
+
+type PushPullBranchOptions = "default" | "current" | "all" | undefined;
 
 export interface LogEntriesOptions {
 	file?: Uri;
@@ -608,7 +610,7 @@ export class Model implements Disposable {
 						this.stage(...previouslyCommmitedResourcesToStage);
 					}
 				}
-	
+
 				this.countOutgoing(-1);
 			}
 		}
@@ -626,6 +628,25 @@ export class Model implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	get pushPullBranchOption(): string | undefined {
+		const config = workspace.getConfiguration('hg');
+		return this.branchOptionToBranchName(config.get<PushPullBranchOptions>('pushPullBranch'));
+	}
+
+	private branchOptionToBranchName(branchOptions: PushPullBranchOptions): string | undefined {
+		switch (branchOptions) {
+			case "current":
+				return this.currentBranch ? this.currentBranch.name : undefined;
+
+			case "default":
+				return "default";
+
+			case "all":
+			default:
+				return undefined;
+		}
 	}
 
 	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {
@@ -658,7 +679,7 @@ export class Model implements Disposable {
 
 			// then confirm
 			await this.run(Operation.CountIncoming, async () => {
-				this._syncCounts.incoming = await this.repository.countIncoming();
+				this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchOption });
 				this._onDidChangeRemoteState.fire();
 			});
 		}
@@ -677,7 +698,7 @@ export class Model implements Disposable {
 
 			// then confirm
 			await this.run(Operation.CountOutgoing, async () => {
-				this._syncCounts.outgoing = await this.repository.countOutgoing();
+				this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchOption });
 				this._onDidChangeRemoteState.fire();
 			});
 		}
@@ -687,7 +708,7 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async pull(): Promise<void> {
+	async pull(options?: SyncOptions): Promise<void> {
 		await this.run(Operation.Pull, async () => {
 			try {
 				await this.repository.pull()
@@ -736,7 +757,7 @@ export class Model implements Disposable {
 				else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
 					const allow = interaction.warnPushCreatesNewBranchesAllow();
 					if (allow) {
-						return this.push(path, { allowPushNewBranches: true })
+						return this.push(path, { ...options, allowPushNewBranches: true })
 					}
 
 					return;
@@ -769,10 +790,9 @@ export class Model implements Disposable {
 		return await this.run(Operation.Show, async () => {
 			const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
 			const args = ['cat', relativePath];
-			if (ref)
-			{
+			if (ref) {
 				args.push('-r', ref);
-			}	
+			}
 			const result = await this.repository.hg.exec(this.repository.root, args, { log: false });
 
 			if (result.exitCode !== 0) {
@@ -891,8 +911,8 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	public async getBranchNamesWithMultipleHeads(): Promise<string[]> {
-		const allHeads = await this.repository.getHeads();
+	public async getBranchNamesWithMultipleHeads(branch?: string): Promise<string[]> {
+		const allHeads = await this.repository.getHeads(branch);
 		const multiHeadBranches: string[] = [];
 		const headsPerBranch = groupBy(allHeads, h => h.branch)
 		for (const branch in headsPerBranch) {

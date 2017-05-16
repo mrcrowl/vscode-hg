@@ -704,6 +704,16 @@
           "description": "%config.path%",
           "default": null,
           "isExecutable": true
+        },
+        "hg.pushPullBranch": {
+          "type": "string",
+          "description": "%config.pushPullBranch%",
+          "default": "all",
+          "enum": [
+            "all",
+            "current",
+            "default"
+          ]
         }
       }
     }

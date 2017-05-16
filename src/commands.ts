@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
 import * as path from 'path';
 import * as os from 'os';
@@ -652,9 +652,14 @@ export class CommandCenter {
 	private createPushOptions(): PushOptions | undefined {
 		const config = workspace.getConfiguration('hg');
 		const allowPushNewBranches = config.get<boolean>('allowPushNewBranches') || false;
-		return allowPushNewBranches ?
-			{ allowPushNewBranches: true } :
-			undefined;
+		return {
+			allowPushNewBranches: !!allowPushNewBranches,
+			branch: this.model.pushPullBranchOption
+		};
+	}
+
+	private createPullOptions(): SyncOptions | undefined {
+		return { branch: this.model.pushPullBranchOption };
 	}
 
 	@command('hg.mergeWithLocal')
@@ -739,7 +744,8 @@ export class CommandCenter {
 		const paths = await this.model.getPaths();
 
 		// check for branches with 2+ heads		
-		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads();
+		const branch = this.model.pushPullBranchOption;
+		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads(branch);
 		if (multiHeadBranchNames.length === 1) {
 			const [branch] = multiHeadBranchNames;
 			interaction.warnBranchMultipleHeads(branch);
