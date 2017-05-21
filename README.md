@@ -73,9 +73,15 @@
   * Enables automatic counting of incoming/outgoing changes.
   * When enabled, these show in the status bar.
   * Updated every 3 minutes, or whenever a commit/push/pull is done.
+  * Note: when `hg.pushPullBranch` is set to `"current"` or `"default"` then only the respective branch will be included in the counts.
+
+`hg.pushPullBranch { all | current | default }`
+  * Specifies which branch(es) should be included in Push/Pull operations.  
+  `"all"` &mdash; all branches / unrestricted (this is the default)  
+  `"current"` &mdash; only includes changesets for the current branch  
+  `"default"` &mdash; only includes changesets for the _default_ branch
   
 `hg.autoRefresh { boolean }`
-
   * Enables automatic refreshing of Source Control tab and badge counter when files within the project change:  
   `"true"` &mdash; enabled  
   `"false"` &mdash; disabled, manual refresh still available.
@@ -101,4 +107,7 @@
 
 # Acknowledgements
 
-* [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki)
+* [hoffmael](https://github.com/hoffmael),
+  [nioh-wiki](https://github.com/nioh-wiki),
+  [joaomoreno](https://github.com/joaomoreno),
+  [nsgundy](https://github.com/nsgundy)

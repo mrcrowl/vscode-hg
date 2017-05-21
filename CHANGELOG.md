@@ -1,4 +1,16 @@
 
+**v1.0.7**
+=============================================
+
+## What's New
+  - Faster commits. The outgoing/ingoing check is now separate from the commit.
+  - New setting `hg.pushPullBranch` controls which branch(es) will be pushed/pulled [#8](https://github.com/mrcrowl/vscode-hg/issues/8)
+    - `all`: all branches (this is the default)
+    - `current`: only the current branch
+    - `default`: only the default branch
+  - `hg.autoInOut` setting and status-bar display respects `hg.pushPullBranch` 
+  - Spinning icon while pushing/pulling.
+
 **v1.0.5-6**
 =============================================
 
@@ -36,11 +48,11 @@
 
 ## What's New
   - A commit including missing files now prompts for these to be deleted before committing.
-  - With `autoInOut` enabled, the status is shown as a tick when there are no incoming/outgoing changesets.
-  - With `autoInOut` enabled, the status bar tooltip shows when the next check time will be.
+  - With `hg.autoInOut` enabled, the status is shown as a tick when there are no incoming/outgoing changesets.
+  - With `hg.autoInOut` enabled, the status bar tooltip shows when the next check time will be.
   - Problems with push/pull operations now show an error indicator on the status bar.
 
 ## Bug Fixes
   - Rollback/Undo now updates the count of outgoing commits immediately.
   - When you attempt to pull with no default path configured, the option to 'Open hgrc' now works from the error prompt. 
-  - With `autoInOut` disabled, the incoming count is no longer shown after you commit.
+  - With `hg.autoInOut` disabled, the incoming count is no longer shown after you commit.
