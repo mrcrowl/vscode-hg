@@ -29,7 +29,10 @@
   ],
   "icon": "icon.svg",
   "enableProposedApi": false,
-  "categories": ["SCM Providers", "Other"],
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
   "activationEvents": [
     "*"
   ],
@@ -681,17 +684,42 @@
           "type": "string",
           "description": "%config.commandMode%",
           "default": "cli",
-          "enum": [
-            "cli",
-            "server"
+          "oneOf": [
+            {
+              "enum": [
+                "cli"
+              ],
+              "description": "%config.commandMode.cli%"
+            },
+            {
+              "enum": [
+                "server"
+              ],
+              "description": "%config.commandMode.server%"
+            }
           ]
         },
         "hg.countBadge": {
           "type": "string",
-          "enum": [
-            "all",
-            "tracked",
-            "off"
+          "oneOf": [
+            {
+              "enum": [
+                "tracked"
+              ],
+              "description": "Only count changes to tracked files (default)"
+            },
+            {
+              "enum": [
+                "all"
+              ],
+              "description": "Include untracked files in count"
+            },
+            {
+              "enum": [
+                "off"
+              ],
+              "description": "No badge counter"
+            }
           ],
           "description": "%config.countBadge%",
           "default": "all"
@@ -709,10 +737,25 @@
           "type": "string",
           "description": "%config.pushPullBranch%",
           "default": "all",
-          "enum": [
-            "all",
-            "current",
-            "default"
+          "oneOf": [
+            {
+              "description": "%config.pushPullBranch.all%",
+              "enum": [
+                "all"
+              ]
+            },
+            {
+              "description": "%config.pushPullBranch.current%",
+              "enum": [
+                "current"
+              ]
+            },
+            {
+              "description": "%config.pushPullBranch.default%",
+              "enum": [
+                "default"
+              ]
+            }
           ]
         }
       }

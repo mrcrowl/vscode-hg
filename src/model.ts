@@ -631,7 +631,7 @@ export class Model implements Disposable {
 		return undefined;
 	}
 
-	get pushPullBranchOption(): string | undefined {
+	get pushPullBranchName(): string | undefined {
 		const config = workspace.getConfiguration('hg');
 		return this.branchOptionToBranchName(config.get<PushPullBranchOptions>('pushPullBranch'));
 	}
@@ -682,7 +682,7 @@ export class Model implements Disposable {
 			if (delayMillis) {
 				await delay(delayMillis);
 			}
-			this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchOption });
+			this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchName });
 			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {
@@ -702,7 +702,7 @@ export class Model implements Disposable {
 			if (delayMillis) {
 				await delay(delayMillis);
 			}
-			this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchOption });
+			this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchName });
 			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {

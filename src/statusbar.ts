@@ -4,7 +4,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, Command, EventEmitter, Event } from 'vscode';
+import { Disposable, Command, EventEmitter, Event, workspace } from "vscode";
 import { RefType, Branch } from './hg';
 import { Model, Operation } from './model';
 import { anyEvent, dispose } from './util';
@@ -120,13 +120,16 @@ class SyncStatusBar {
 		};
 	}
 
-	private describeAutoInOutStatus(): { icon: string, message?: string, status: AutoInOutStatuses } {
+	private describeAutoInOutStatus(pushPullBranchName: string | undefined): { icon: string, message?: string, status: AutoInOutStatuses } {
 		const { autoInOut } = this.state;
 		switch (autoInOut.status) {
 			case AutoInOutStatuses.Enabled:
 				if (autoInOut.nextCheckTime) {
 					const time = autoInOut.nextCheckTime.toLocaleTimeString();
-					const message = <any>(() => localize('synced next check', 'Synced (next check {0})', time));
+					const message = pushPullBranchName ?
+						localize('synced next check branch', '{0} synced (next check {1})', pushPullBranchName, time) :
+						localize('synced next check', 'Synced (next check {0})', time);
+
 					return { icon: '$(check)', message, status: AutoInOutStatuses.Enabled };
 				}
 				else {
@@ -137,8 +140,11 @@ class SyncStatusBar {
 				return { icon: '$(stop)', message: `${localize('remote error', 'Remote error')}: ${autoInOut.error}`, status: AutoInOutStatuses.Error };
 
 			case AutoInOutStatuses.Disabled:
-			default: ''
-				return { icon: '$(cloud-download)', message: localize('pull', 'Pull'), status: AutoInOutStatuses.Disabled };
+			default:
+				const message = pushPullBranchName ?
+					localize('pull branch', 'Pull {0}', pushPullBranchName) :
+					localize('pull', 'Pull');
+				return { icon: '$(cloud-download)', message, status: AutoInOutStatuses.Disabled };
 		}
 	}
 
@@ -147,8 +153,9 @@ class SyncStatusBar {
 			return undefined;
 		}
 
+		const pushPullBranchName = this.model.pushPullBranchName;
 		const branch = this.state.branch;
-		let autoInOut = this.describeAutoInOutStatus();
+		let autoInOut = this.describeAutoInOutStatus(pushPullBranchName);
 		let icon = autoInOut.icon;
 		let text = '';
 		let command = 'hg.pull';
@@ -162,7 +169,9 @@ class SyncStatusBar {
 				icon = '$(cloud-download)';
 				command = 'hg.pull';
 				plural = (syncCounts.incoming === 1) ? '' : 's';
-				tooltip = localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural);
+				tooltip = pushPullBranchName ?
+					localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural) :
+					localize('pull changesets branch', "Pull {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName);
 			}
 			else if (syncCounts && syncCounts.outgoing) {
 				if (autoInOut.status === AutoInOutStatuses.Enabled) {
@@ -174,7 +183,10 @@ class SyncStatusBar {
 				icon = '$(cloud-upload)';
 				command = 'hg.push';
 				plural = (syncCounts.outgoing === 1) ? '' : 's';
-				tooltip = localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural);
+				tooltip = pushPullBranchName ?
+					localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural) :
+					localize('push changesets branch', "Push {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName);
+					
 			}
 		}
 		else {
@@ -184,7 +196,7 @@ class SyncStatusBar {
 
 		const { syncStatus } = this.state;
 		if (syncStatus) {
-			icon = '$(sync)'
+			icon = '$(sync~spin)'
 			text = '';
 			command = '';
 			tooltip = (syncStatus === SyncStatus.Pushing) ?

@@ -654,12 +654,12 @@ export class CommandCenter {
 		const allowPushNewBranches = config.get<boolean>('allowPushNewBranches') || false;
 		return {
 			allowPushNewBranches: !!allowPushNewBranches,
-			branch: this.model.pushPullBranchOption
+			branch: this.model.pushPullBranchName
 		};
 	}
 
 	private createPullOptions(): SyncOptions | undefined {
-		return { branch: this.model.pushPullBranchOption };
+		return { branch: this.model.pushPullBranchName };
 	}
 
 	@command('hg.mergeWithLocal')
@@ -744,7 +744,7 @@ export class CommandCenter {
 		const paths = await this.model.getPaths();
 
 		// check for branches with 2+ heads		
-		const branch = this.model.pushPullBranchOption;
+		const branch = this.model.pushPullBranchName;
 		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads(branch);
 		if (multiHeadBranchNames.length === 1) {
 			const [branch] = multiHeadBranchNames;
