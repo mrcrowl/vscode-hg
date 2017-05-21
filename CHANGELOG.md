@@ -3,7 +3,7 @@
 =============================================
 
 ## What's New
-  - Faster commits. The outgoing/ingoing check is now separate from the commit.
+  - Faster commits. The outgoing/incoming check is now separate from the commit.
   - New setting `hg.pushPullBranch` controls which branch(es) will be pushed/pulled [#8](https://github.com/mrcrowl/vscode-hg/issues/8)
     - `all`: all branches (this is the default)
     - `current`: only the current branch

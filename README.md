@@ -107,7 +107,4 @@
 
 # Acknowledgements
 
-* [hoffmael](https://github.com/hoffmael),
-  [nioh-wiki](https://github.com/nioh-wiki),
-  [joaomoreno](https://github.com/joaomoreno),
-  [nsgundy](https://github.com/nsgundy)
+* [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy)
