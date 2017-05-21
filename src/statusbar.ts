@@ -127,7 +127,7 @@ class SyncStatusBar {
 				if (autoInOut.nextCheckTime) {
 					const time = autoInOut.nextCheckTime.toLocaleTimeString();
 					const message = pushPullBranchName ?
-						localize('synced next check branch', '{0} synced (next check {1})', pushPullBranchName, time) :
+						localize('synced next check branch', '{0} is synced (next check {1})', pushPullBranchName, time) :
 						localize('synced next check', 'Synced (next check {0})', time);
 
 					return { icon: '$(check)', message, status: AutoInOutStatuses.Enabled };
@@ -142,7 +142,7 @@ class SyncStatusBar {
 			case AutoInOutStatuses.Disabled:
 			default:
 				const message = pushPullBranchName ?
-					localize('pull branch', 'Pull {0}', pushPullBranchName) :
+					localize('pull branch', 'Pull ({0} only)', pushPullBranchName) :
 					localize('pull', 'Pull');
 				return { icon: '$(cloud-download)', message, status: AutoInOutStatuses.Disabled };
 		}
@@ -170,8 +170,8 @@ class SyncStatusBar {
 				command = 'hg.pull';
 				plural = (syncCounts.incoming === 1) ? '' : 's';
 				tooltip = pushPullBranchName ?
-					localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural) :
-					localize('pull changesets branch', "Pull {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName);
+					localize('pull changesets branch', "Pull {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName) :
+					localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural);
 			}
 			else if (syncCounts && syncCounts.outgoing) {
 				if (autoInOut.status === AutoInOutStatuses.Enabled) {
@@ -184,8 +184,8 @@ class SyncStatusBar {
 				command = 'hg.push';
 				plural = (syncCounts.outgoing === 1) ? '' : 's';
 				tooltip = pushPullBranchName ?
-					localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural) :
-					localize('push changesets branch', "Push {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName);
+					localize('push changesets branch', "Push {0} changeset{1} ({2} only)", syncCounts.outgoing, plural, pushPullBranchName) :
+					localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural);
 					
 			}
 		}

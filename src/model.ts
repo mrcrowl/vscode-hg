@@ -650,10 +650,12 @@ export class Model implements Disposable {
 		}
 	}
 
-	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {
+	async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number, outgoing: number }, delayMillis: number = 3000) {
 		try {
-			await this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, 0);
-			await this.countOutgoingAfterDelay(expectedDeltas && expectedDeltas.outgoing, 0);
+			await Promise.all([
+				this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, delayMillis),
+				this.countOutgoingAfterDelay(expectedDeltas && expectedDeltas.outgoing, delayMillis)
+			]);
 		}
 		catch (err) {
 			if (err instanceof HgError && (

@@ -23,11 +23,13 @@ export interface AutoInOutState {
 
 const STARTUP_DELAY = 3 * 1000 /* three seconds */;
 const INTERVAL = 3 * 60 * 1000 /* three minutes */;
+const OPS_AFFECTING_IN_OUT = Operation.Commit | Operation.Rollback | Operation.Update | Operation.Push | Operation.Pull;
+const opAffectsInOut = (op: Operation): boolean => (OPS_AFFECTING_IN_OUT & op) > 0;
 
 export class AutoIncomingOutgoing {
 
 	private disposables: Disposable[] = [];
-	private timer: NodeJS.Timer;
+	private timer: NodeJS.Timer | undefined;
 
 	constructor(private model: Model) {
 		workspace.onDidChangeConfiguration(this.onConfiguration, this, this.disposables);
@@ -50,7 +52,7 @@ export class AutoIncomingOutgoing {
 	}
 
 	enable(): void {
-		if (this.timer) {
+		if (this.enabled) {
 			return;
 		}
 
@@ -59,10 +61,22 @@ export class AutoIncomingOutgoing {
 	}
 
 	disable(): void {
-		clearInterval(this.timer);
+		if (!this.enabled) {
+			return;
+		}
+
+		clearInterval(this.timer!);
+		this.timer = undefined;
 	}
 
+	get enabled(): boolean { return this.timer !== undefined; }
+
 	private onDidRunOperation(op: Operation): void {
+		if (!this.enabled || !opAffectsInOut(op)) {
+			return;
+		}
+
+		const pushPullBranchName = this.model.pushPullBranchName;
 		switch (op) {
 			case Operation.Push:
 				const path = this.model.lastPushPath;
@@ -78,15 +92,27 @@ export class AutoIncomingOutgoing {
 				break;
 
 			case Operation.Commit:
-				this.model.countOutgoingAfterDelay(+1);
+			case Operation.Rollback:
+				const currentBranch = this.model.currentBranch;
+				const affectsInOut =
+					pushPullBranchName === undefined // all branches
+					|| currentBranch && pushPullBranchName === currentBranch.name;
+
+				if (affectsInOut) {
+					const delta = (op === Operation.Commit) ? +1 : -1;
+					this.model.countOutgoingAfterDelay(delta);
+				}
 				break;
 
-			case Operation.Rollback:
-				this.model.countOutgoingAfterDelay(-1);
-				break;
+			case Operation.Update:
+				if (pushPullBranchName && pushPullBranchName !== "default") { // i.e. "current" setting
+					const incoming = -this.model.syncCounts.incoming;
+					const outgoing = -this.model.syncCounts.outgoing;
+					this.model.countIncomingOutgoingAfterDelay({ incoming, outgoing })
+				}
 
 			default:
-				// no-op
+			// no-op
 		}
 	}
 
@@ -96,7 +122,7 @@ export class AutoIncomingOutgoing {
 		this.model.changeAutoInoutState({ nextCheckTime });
 
 		try {
-			await this.model.countIncomingOutgoing();
+			await this.model.countIncomingOutgoingAfterDelay();
 		}
 		catch (err) {
 			if (err instanceof HgError && (
