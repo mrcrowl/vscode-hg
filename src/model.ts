@@ -1,3 +1,5 @@
+
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Ben Crowl. All rights reserved.
  *  Original Copyright (c) Microsoft Corporation. All rights reserved.
@@ -6,7 +8,7 @@
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
 import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions } from "./hg";
-import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition } from "./util";
+import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
 import * as path from 'path';
@@ -184,7 +186,8 @@ export enum Operation {
 	Branch = 1 << 5,
 	Update = 1 << 6,
 	Rollback = 1 << 7,
-	CountIncoming = 1 << 8,
+	RollbackDryRun = 1 << 8,
+	// CountIncoming = 1 << 8,
 	Pull = 1 << 9,
 	Push = 1 << 10,
 	Sync = 1 << 11,
@@ -192,7 +195,7 @@ export enum Operation {
 	Show = 1 << 13,
 	Stage = 1 << 14,
 	GetCommitTemplate = 1 << 15,
-	CountOutgoing = 1 << 16,
+	// CountOutgoing = 1 << 16,
 	Resolve = 1 << 17,
 	Unresolve = 1 << 18,
 	Parents = 1 << 19,
@@ -282,6 +285,9 @@ export class Model implements Disposable {
 		return anyEvent(this.onRunOperation as Event<any>, this.onDidRunOperation as Event<any>);
 	}
 
+	private _lastPushPath: string | undefined;
+	get lastPushPath() { return this._lastPushPath }
+
 	private _groups: IStatusGroups = createEmptyStatusGroups();
 	get mergeGroup(): MergeGroup { return this._groups.merge; }
 	get conflictGroup(): ConflictGroup { return this._groups.conflict; }
@@ -317,9 +323,6 @@ export class Model implements Disposable {
 		}
 		this._onDidChangeRemoteState.fire();
 	}
-
-	private _numOutgoing: number;
-	get numOutgoingCommits(): number { return this._numOutgoing; }
 
 	get repoName(): string { return path.basename(this.repository.root); }
 
@@ -526,7 +529,6 @@ export class Model implements Disposable {
 			}
 
 			await this.repository.commit(message, { addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
-			this.countOutgoing(+1);
 		});
 	}
 
@@ -593,7 +595,8 @@ export class Model implements Disposable {
 
 	@throttle
 	async rollback(dryRun: boolean, dryRunDetails?: HgRollbackDetails): Promise<HgRollbackDetails> {
-		const rollback = await this.run(Operation.Rollback, () => this.repository.rollback(dryRun));
+		const op = dryRun ? Operation.RollbackDryRun : Operation.Rollback;
+		const rollback = await this.run(op, () => this.repository.rollback(dryRun));
 
 		if (!dryRun) {
 			if (rollback.kind === 'commit') {
@@ -610,8 +613,6 @@ export class Model implements Disposable {
 						this.stage(...previouslyCommmitedResourcesToStage);
 					}
 				}
-
-				this.countOutgoing(-1);
 			}
 		}
 		return rollback;
@@ -651,8 +652,8 @@ export class Model implements Disposable {
 
 	async countIncomingOutgoing(expectedDeltas?: { incoming: number, outgoing: number }) {
 		try {
-			await this.countIncoming(expectedDeltas && expectedDeltas.incoming);
-			await this.countOutgoing(expectedDeltas && expectedDeltas.outgoing);
+			await this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, 0);
+			await this.countOutgoingAfterDelay(expectedDeltas && expectedDeltas.outgoing, 0);
 		}
 		catch (err) {
 			if (err instanceof HgError && (
@@ -669,7 +670,7 @@ export class Model implements Disposable {
 		}
 	}
 
-	async countIncoming(expectedDelta: number = 0): Promise<void> {
+	async countIncomingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
 		try {
 			// immediate UI update with expected
 			if (expectedDelta) {
@@ -677,18 +678,19 @@ export class Model implements Disposable {
 				this._onDidChangeRemoteState.fire();
 			}
 
-			// then confirm
-			await this.run(Operation.CountIncoming, async () => {
-				this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchOption });
-				this._onDidChangeRemoteState.fire();
-			});
+			// then confirm after delay
+			if (delayMillis) {
+				await delay(delayMillis);
+			}
+			this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchOption });
+			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {
 			throw e;
 		}
 	}
 
-	async countOutgoing(expectedDelta: number = 0): Promise<void> {
+	async countOutgoingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
 		try {
 			// immediate UI update with expected
 			if (expectedDelta) {
@@ -696,11 +698,12 @@ export class Model implements Disposable {
 				this._onDidChangeRemoteState.fire();
 			}
 
-			// then confirm
-			await this.run(Operation.CountOutgoing, async () => {
-				this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchOption });
-				this._onDidChangeRemoteState.fire();
-			});
+			// then confirm after delay
+			if (delayMillis) {
+				await delay(delayMillis);
+			}
+			this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchOption });
+			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {
 			throw e;
@@ -712,9 +715,6 @@ export class Model implements Disposable {
 		await this.run(Operation.Pull, async () => {
 			try {
 				await this.repository.pull()
-
-				const delta = -this._syncCounts.incoming
-				this.countIncoming(delta);
 			}
 			catch (e) {
 				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
@@ -733,11 +733,8 @@ export class Model implements Disposable {
 	async push(path?: string, options?: PushOptions): Promise<void> {
 		return await this.run(Operation.Push, async () => {
 			try {
+				this._lastPushPath = path;
 				await this.repository.push(path, options);
-
-				if (!path || path === "default" || path === "default-push") {
-					this.countOutgoing(-this._syncCounts.outgoing);
-				}
 			}
 			catch (e) {
 				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {

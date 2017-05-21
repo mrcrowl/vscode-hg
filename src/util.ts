@@ -55,7 +55,7 @@ export function anyEvent<T>(...events: Event<T>[]): Event<T> {
 }
 
 export function done<T>(promise: Promise<T>): Promise<void> {
-	return promise.then<void>(() => void 0, () => void 0);
+	return promise.then<void>(() => void 0, <any>(() => void 0));
 }
 
 export function once<T>(event: Event<T>): Event<T> {
@@ -205,4 +205,8 @@ async function createTempFile(): Promise<{ fsPath: string, dispose: () => void }
 
 export function asciiOnly(text: string): boolean {
 	return [...text].every(c => c.charCodeAt(0) < 0x80);
+}
+
+export async function delay(millis: number): Promise<any> {
+	return new Promise((c, e) => setTimeout(c, millis));
 }

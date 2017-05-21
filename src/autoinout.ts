@@ -6,7 +6,7 @@
 
 import { workspace, Disposable } from 'vscode';
 import { HgErrorCodes, HgError } from "./hg";
-import { Model } from './model';
+import { Model, Operation, Operations } from "./model";
 import { throttle } from './decorators';
 
 export const enum AutoInOutStatuses {
@@ -32,6 +32,7 @@ export class AutoIncomingOutgoing {
 	constructor(private model: Model) {
 		workspace.onDidChangeConfiguration(this.onConfiguration, this, this.disposables);
 		this.model.onDidChangeHgrc(this.onConfiguration, this, this.disposables);
+		this.model.onDidRunOperation(this.onDidRunOperation, this, this.disposables);
 		this.onConfiguration();
 	}
 
@@ -59,6 +60,34 @@ export class AutoIncomingOutgoing {
 
 	disable(): void {
 		clearInterval(this.timer);
+	}
+
+	private onDidRunOperation(op: Operation): void {
+		switch (op) {
+			case Operation.Push:
+				const path = this.model.lastPushPath;
+				if (!path || path === "default" || path === "default-push") {
+					const delta = -this.model.syncCounts.outgoing;
+					this.model.countOutgoingAfterDelay(delta);
+				}
+				break;
+
+			case Operation.Pull:
+				const delta = -this.model.syncCounts.incoming;
+				this.model.countIncomingAfterDelay(delta);
+				break;
+
+			case Operation.Commit:
+				this.model.countOutgoingAfterDelay(+1);
+				break;
+
+			case Operation.Rollback:
+				this.model.countOutgoingAfterDelay(-1);
+				break;
+
+			default:
+				// no-op
+		}
 	}
 
 	@throttle
