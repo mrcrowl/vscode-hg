@@ -683,45 +683,29 @@
         "hg.commandMode": {
           "type": "string",
           "description": "%config.commandMode%",
-          "default": "cli",
-          "oneOf": [
-            {
-              "enum": [
-                "cli"
-              ],
-              "description": "%config.commandMode.cli%"
-            },
-            {
-              "enum": [
-                "server"
-              ],
-              "description": "%config.commandMode.server%"
-            }
-          ]
+          "enum": [
+            "cli",
+            "server"
+          ],
+          "enumDescriptions": [
+            "%config.commandMode.cli%",
+            "%config.commandMode.server%"
+          ],
+          "default": "cli"
         },
         "hg.countBadge": {
           "type": "string",
-          "oneOf": [
-            {
-              "enum": [
-                "tracked"
-              ],
-              "description": "Only count changes to tracked files (default)"
-            },
-            {
-              "enum": [
-                "all"
-              ],
-              "description": "Include untracked files in count"
-            },
-            {
-              "enum": [
-                "off"
-              ],
-              "description": "No badge counter"
-            }
-          ],
           "description": "%config.countBadge%",
+          "enum": [
+            "tracked",
+            "all",
+            "off"
+          ],
+          "enumDescriptions": [
+            "%config.countBadge.tracked%",
+            "%config.countBadge.all%",
+            "%config.countBadge.off%"
+          ],
           "default": "all"
         },
         "hg.path": {
@@ -736,27 +720,17 @@
         "hg.pushPullBranch": {
           "type": "string",
           "description": "%config.pushPullBranch%",
-          "default": "all",
-          "oneOf": [
-            {
-              "description": "%config.pushPullBranch.all%",
-              "enum": [
-                "all"
-              ]
-            },
-            {
-              "description": "%config.pushPullBranch.current%",
-              "enum": [
-                "current"
-              ]
-            },
-            {
-              "description": "%config.pushPullBranch.default%",
-              "enum": [
-                "default"
-              ]
-            }
-          ]
+          "enum": [
+            "all",
+            "current",
+            "default"
+          ],
+          "enumDescriptions": [
+            "%config.pushPullBranch.all%",
+            "%config.pushPullBranch.current%",
+            "%config.pushPullBranch.default%"
+          ],
+          "default": "all"
         }
       }
     }
