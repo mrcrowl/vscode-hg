@@ -63,6 +63,16 @@
         "category": "Hg"
       },
       {
+        "command": "hg.setBookmark",
+        "title": "%command.setBookmark%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.removeBookmark",
+        "title": "%command.removeBookmark%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.clean",
         "title": "%command.clean%",
         "category": "Hg",
@@ -385,6 +395,14 @@
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
         {
+          "command": "hg.setBookmark",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
+          "command": "hg.removeBookmark",
+          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+        },
+        {
           "command": "hg.pull",
           "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
         },
@@ -664,6 +682,11 @@
           "type": "boolean",
           "description": "%config.enabled%",
           "default": true
+        },
+        "hg.useBookmarks": {
+          "type": "boolean",
+          "description": "%config.useBookmarks%",
+          "default": false
         },
         "hg.allowPushNewBranches": {
           "type": "boolean",

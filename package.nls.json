@@ -27,12 +27,16 @@
 	"command.markResolved": "Mark Resolved",
 	"command.unresolve": "Mark Unresolved",
 	"command.resolveAgain": "Resolve again",
+	"command.setBookmark": "Set Bookmark...",
+	"command.removeBookmark": "Remove Bookmark...",
 	"command.showOutput": "Show hg output",
 	"command.fileLog": "Show file history...",
 	"command.log": "Log...",
 	"command.logDefault": "Log – default branch",
 	"command.logBranch": "Log – current branch",
 	"command.logRepo": "Log – entire repository",
+	"command.mergeHeads": "Merge heads",
+	"command.mergeWithLocal": "Merge into working directory...",
 	"config.enabled": "Whether Hg is enabled",
 	"config.path": "Path to the 'hg' executable (only required if auto-detection fails)",
 	"config.autoRefresh": "Whether auto refreshing is enabled",
@@ -50,6 +54,5 @@
 	"config.pushPullBranch.all": "All branches",
 	"config.pushPullBranch.current": "Only the current branch",
 	"config.pushPullBranch.default": "Only the default branch",
-	"command.mergeHeads": "Merge heads",
-	"command.mergeWithLocal": "Merge into working directory..."
+	"config.useBookmarks": "Use bookmarks instead of branches"
 }
