@@ -7,7 +7,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
-import { Hg, Repository, Ref, Path, Branch, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions } from "./hg";
+import { Hg, Repository, Ref, Path, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -296,8 +296,11 @@ export class Model implements Disposable {
 	get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.working; }
 	get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
 
-	private _currentBranch: Branch | undefined;
-	get currentBranch(): Branch | undefined { return this._currentBranch; }
+	private _currentBranch: Ref | undefined;
+	get currentBranch(): Ref | undefined { return this._currentBranch; }
+
+	private _activeBookmark: Bookmark | undefined;
+	get activeBookmark(): Bookmark | undefined { return this._activeBookmark; }
 
 	private _repoStatus: IRepoStatus | undefined;
 	get repoStatus(): IRepoStatus | undefined { return this._repoStatus; }
@@ -345,6 +348,7 @@ export class Model implements Disposable {
 		this._onDidChangeState.fire(state);
 
 		this._currentBranch = undefined;
+		this._activeBookmark = undefined;
 		this._refs = [];
 		this._syncCounts = { incoming: 0, outgoing: 0 };
 		this._groups = createEmptyStatusGroups();
@@ -972,12 +976,20 @@ export class Model implements Disposable {
 	private async refresh(): Promise<void> {
 		this._repoStatus = await this.repository.getSummary();
 
-		const [fileStatuses, currentBranch, resolveStatuses] = await Promise.all([
+		const useBookmarks = typedConfig.useBookmarks
+		const currentRefPromise: Promise<Bookmark | undefined> | Promise<Ref | undefined> = useBookmarks
+			? this.repository.getActiveBookmark()
+			: this.repository.getCurrentBranch()
+
+		const [fileStatuses, currentRef, resolveStatuses] = await Promise.all([
 			this.repository.getStatus(),
-			this.repository.getCurrentBranch(),
+			currentRefPromise,
 			this._repoStatus.isMerge ? this.repository.getResolveList() : Promise.resolve(undefined),
 		]);
-		this._currentBranch = currentBranch;
+
+		useBookmarks ?
+			this._activeBookmark = <Bookmark>currentRef :
+			this._currentBranch = currentRef;
 
 		const groupInput: IGroupStatusesParams = {
 			respositoryRoot: this.repository.root,

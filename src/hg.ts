@@ -12,6 +12,7 @@ import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose,
 import { EventEmitter, Event, OutputChannel, workspace, Disposable } from "vscode";
 import * as nls from 'vscode-nls';
 import { HgCommandServer } from "./hgserve";
+import { activate } from "./main";
 
 const localize = nls.loadMessageBundle();
 const readdir = denodeify<string[]>(fs.readdir);
@@ -48,6 +49,8 @@ export interface IMergeResult {
 
 export interface IRepoStatus {
 	isMerge: boolean;
+	parents: Ref[];
+	
 }
 
 export interface IFileStatus {
@@ -73,15 +76,13 @@ export interface Ref {
 	commit?: string;
 }
 
+export interface Bookmark extends Ref {
+	active: boolean;
+}
+
 export interface Path {
 	name: string;
 	url: string;
-}
-
-export interface Branch extends Ref {
-	upstream?: string;
-	ahead?: number;
-	behind?: number;
 }
 
 function parseVersion(raw: string): string {
@@ -1016,7 +1017,7 @@ export class Repository {
 		const summaryResult = await this.run(['summary', '-q']);
 		const summary = summaryResult.stdout;
 		const lines = summary.trim().split('\n');
-		// const parents = lines.filter(line => line.startsWith("parent:"))
+		const parents = lines.filter(line => line.startsWith("parent:"))
 		const commitLine = lines.filter(line => line.startsWith("commit:"))[0];
 		if (commitLine) {
 			const isMerge = /\bmerge\b/.test(commitLine);
@@ -1120,6 +1121,12 @@ export class Repository {
 		return { name: branchName, commit: "", type: RefType.Branch };
 	}
 
+	async getActiveBookmark(): Promise<Bookmark | undefined> {
+		const bookmarks = await this.getBookmarks()
+		const activeBookmark = bookmarks.filter(b => b.active)[0]
+		return activeBookmark
+	}
+
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
 		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\\n`;
@@ -1203,18 +1210,18 @@ export class Repository {
 		return branchRefs;
 	}
 
-	async getBookmarks(): Promise<Ref[]> {
+	async getBookmarks(): Promise<Bookmark[]> {
 		const bookmarksResult = await this.run(['bookmarks']);
 		const bookmarkRefs = bookmarksResult.stdout.split('\n')
 			.filter(line => !!line)
-			.map((line: string): Ref | null => {
+			.map((line: string): Bookmark | null => {
 				let match = line.match(/^.(.).(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
 				if (match) {
-					return { name: match[2], commit: match[4], type: RefType.Bookmark };
+					return { name: match[2], commit: match[4], type: RefType.Bookmark, active: match[1] === '*' };
 				}
 				return null;
 			})
-			.filter(ref => !!ref) as Ref[];
+			.filter(ref => !!ref) as Bookmark[];
 
 		return bookmarkRefs;
 	}
@@ -1234,45 +1241,6 @@ export class Repository {
 			.filter(ref => !!ref) as Path[];
 
 		return paths;
-	}
-
-	async getBranch(name: string): Promise<Branch> {
-		if (name === '.') {
-			return this.getCurrentBranch();
-		}
-
-		const result = await this.run(['rev-parse', name]);
-
-		if (!result.stdout) {
-			return Promise.reject<Branch>(new Error('No such branch'));
-		}
-
-		const commit = result.stdout.trim();
-
-		try {
-			const res2 = await this.run(['rev-parse', '--symbolic-full-name', '--abbrev-ref', name + '@{u}']);
-			const upstream = res2.stdout.trim();
-
-			const res3 = await this.run(['rev-list', '--left-right', name + '...' + upstream]);
-
-			let ahead = 0, behind = 0;
-			let i = 0;
-
-			while (i < res3.stdout.length) {
-				switch (res3.stdout.charAt(i)) {
-					case '<': ahead++; break;
-					case '>': behind++; break;
-					default: i++; break;
-				}
-
-				while (res3.stdout.charAt(i++) !== '\n') { /* no-op */ }
-			}
-
-			return { name, type: RefType.Branch, commit, upstream, ahead, behind };
-		}
-		catch (err) {
-			return { name, type: RefType.Branch, commit };
-		}
 	}
 }
 

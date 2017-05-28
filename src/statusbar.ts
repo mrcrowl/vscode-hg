@@ -5,11 +5,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, Command, EventEmitter, Event, workspace } from "vscode";
-import { RefType, Branch } from './hg';
+import { RefType, Ref } from "./hg";
 import { Model, Operation } from './model';
 import { anyEvent, dispose } from './util';
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import * as nls from 'vscode-nls';
+import typedConfig from "./config";
+import { activate } from "./main";
 
 const localize = nls.loadMessageBundle();
 const enum SyncStatus { None = 0, Pushing = 1, Pulling = 2 }
@@ -25,16 +27,22 @@ class BranchStatusBar {
 	}
 
 	get command(): Command | undefined {
-		const { currentBranch: branch, repoStatus } = this.model;
+		const useBookmarks = typedConfig.useBookmarks
+		const { currentBranch, activeBookmark, repoStatus } = this.model
+		const currentRef = useBookmarks ? activeBookmark : currentBranch;
 
-		if (!branch) {
-			return undefined;
+		if (!currentRef && !useBookmarks) {
+			return undefined
 		}
 
-		const icon = repoStatus && repoStatus.isMerge ? '$(git-merge) ' : '$(git-branch) '
+		const icon = repoStatus && repoStatus.isMerge
+			? '$(git-merge) '
+			: useBookmarks
+				? '$(bookmark) '
+				: '$(git-branch) '
 
 		const title = icon
-			+ branch.name
+			+ currentRef.name
 			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '')
 			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
@@ -55,7 +63,7 @@ interface SyncStatusBarState {
 	syncStatus: SyncStatus;
 	nextCheckTime: Date;
 	hasPaths: boolean;
-	branch: Branch | undefined;
+	branch: Ref | undefined;
 	syncCounts: { incoming: number, outgoing: number };
 }
 
@@ -186,7 +194,7 @@ class SyncStatusBar {
 				tooltip = pushPullBranchName ?
 					localize('push changesets branch', "Push {0} changeset{1} ({2} only)", syncCounts.outgoing, plural, pushPullBranchName) :
 					localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural);
-					
+
 			}
 		}
 		else {
