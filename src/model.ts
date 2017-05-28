@@ -17,6 +17,7 @@ import * as nls from 'vscode-nls';
 import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGroups, ResourceGroup, MergeGroup, ConflictGroup, StagingGroup, WorkingDirectoryGroup, UntrackedGroup, ResourceGroupId } from "./resourceGroups";
 import { interaction, PushCreatesNewHeadAction, DefaultRepoNotConfiguredAction } from "./interaction";
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
+import typedConfig from "./config";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
@@ -899,9 +900,13 @@ export class Model implements Disposable {
 
 	@throttle
 	public async getRefs(): Promise<Ref[]> {
-		const [branches, tags] = await Promise.all([this.repository.getBranches(), this.repository.getTags()]);
-		this._refs = [...branches, ...tags];
-		return this._refs;
+		if (typedConfig.useBookmarks) {
+			const bookmarks = await this.repository.getBookmarks()
+			return bookmarks
+		} else {
+			const [branches, tags] = await Promise.all([this.repository.getBranches(), this.repository.getTags()])
+			return [...branches, ...tags]
+		}
 	}
 
 	@throttle
@@ -987,10 +992,7 @@ export class Model implements Disposable {
 	}
 
 	private onFSChange(uri: Uri): void {
-		const config = workspace.getConfiguration('hg');
-		const autoRefresh = config.get<boolean>('autoRefresh');
-
-		if (!autoRefresh) {
+		if (!typedConfig.autoRefresh) {
 			return;
 		}
 
@@ -1004,10 +1006,7 @@ export class Model implements Disposable {
 	@debounce(1000)
 	private onHgrcChange(uri: Uri): void {
 		this._onDidChangeHgrc.fire();
-
-		const config = workspace.getConfiguration('hg');
-		const usingServer = config.get<string>('commandMode') === "server";
-		if (usingServer) {
+		if (typedConfig.commandMode === "server") {
 			this._hg.onConfigurationChange(true);
 		}
 	}

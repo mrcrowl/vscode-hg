@@ -63,7 +63,8 @@ export interface ICommitDetails {
 
 export enum RefType {
 	Branch,
-	Tag
+	Tag,
+	Bookmark
 }
 
 export interface Ref {
@@ -1181,7 +1182,7 @@ export class Repository {
 				}
 				return null;
 			})
-			.filter(ref => !!ref) as Ref[];
+			.filter(ref => !!ref) as Ref[]; 
 
 		return tagRefs;
 	}
@@ -1200,6 +1201,22 @@ export class Repository {
 			.filter(ref => !!ref) as Ref[];
 
 		return branchRefs;
+	}
+
+	async getBookmarks(): Promise<Ref[]> {
+		const bookmarksResult = await this.run(['bookmarks']);
+		const bookmarkRefs = bookmarksResult.stdout.split('\n')
+			.filter(line => !!line)
+			.map((line: string): Ref | null => {
+				let match = line.match(/^.(.).(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
+				if (match) {
+					return { name: match[2], commit: match[4], type: RefType.Bookmark };
+				}
+				return null;
+			})
+			.filter(ref => !!ref) as Ref[];
+
+		return bookmarkRefs;
 	}
 
 	async getPaths(): Promise<Path[]> {

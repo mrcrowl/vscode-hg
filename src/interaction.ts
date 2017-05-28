@@ -6,6 +6,7 @@ import { Resource, Model, State, Status, LogEntriesOptions } from "./model";
 import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus } from "./hg";
 import { humanise } from "./humanise";
 import * as os from "os";
+import typedConfig from "./config";
 const localize = nls.loadMessageBundle();
 
 const USE_CHANGED = "Use changed version";
@@ -206,18 +207,26 @@ export namespace interaction {
         return choice && choice.commit;
     }
 
-    export async function pickBranchOrTag(this: void, refs: Ref[]): Promise<UpdateRefItem | undefined> {
-        const config = workspace.getConfiguration('hg');
-        const checkoutType = config.get<string>('updateType') || 'all';
-        const includeTags = checkoutType === 'all' || checkoutType === 'tags';
-        const branches = refs.filter(ref => ref.type === RefType.Branch)
-            .map(ref => new UpdateRefItem(ref));
+    export async function pickRevision(this: void, refs: Ref[]): Promise<UpdateRefItem | undefined> {
+        const useBookmarks = typedConfig.useBookmarks
 
-        const tags = (includeTags ? refs.filter(ref => ref.type === RefType.Tag) : [])
-            .map(ref => new UpdateTagItem(ref));
+        const branches = !useBookmarks
+            ? refs.filter(ref => ref.type === RefType.Branch).map(ref => new UpdateRefItem(ref))
+            : []
 
-        const picks = [...branches, ...tags];
-        const placeHolder = 'Select a branch/tag to update to:';
+        const bookmarks = useBookmarks
+            ? refs.filter(ref => ref.type === RefType.Bookmark).map(ref => new UpdateBookmarkItem(ref))
+            : []
+
+        const tags = !useBookmarks
+            ? refs.filter(ref => ref.type === RefType.Tag).map(ref => new UpdateTagItem(ref))
+            : []
+
+
+        const picks = [...branches, ...bookmarks, ...tags];
+        const revType = useBookmarks ? "bookmark" : "branch/tag";
+
+        const placeHolder = `Select a ${revType} to update to:`;
         const choice = await window.showQuickPick<UpdateRefItem>(picks, { placeHolder });
         return choice;
     }
@@ -506,6 +515,10 @@ class UpdateTagItem extends UpdateRefItem {
     get description(): string {
         return localize('tag at', "Tag at {0}", this.shortCommit);
     }
+}
+
+class UpdateBookmarkItem extends UpdateRefItem {
+    protected get icon(): string { return '$(bookmark) ' }
 }
 
 class FileStatusQuickPickItem extends RunnableQuickPickItem {

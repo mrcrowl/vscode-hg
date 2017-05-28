@@ -603,7 +603,7 @@ export class CommandCenter {
 		}
 
 		const refs = await this.model.getRefs();
-		const choice = await interaction.pickBranchOrTag(refs);
+		const choice = await interaction.pickRevision(refs);
 
 		if (choice) {
 			await choice.run(this.model);
