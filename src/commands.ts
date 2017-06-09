@@ -720,28 +720,46 @@ export class CommandCenter {
 			return;
 		}
 
-		const { currentBranch } = this.model;
-		if (!currentBranch) {
-			return;
-		}
+		if (!typedConfig.useBookmarks) {
+			const { currentBranch } = this.model;
+			if (!currentBranch) {
+				return;
+			}
 
-		const otherBranchHeads = await this.model.getHeads({ branch: currentBranch.name, excludeSelf: true });
-		if (otherBranchHeads.length === 0) {
-			// 1 head
-			interaction.warnMergeOnlyOneHead(currentBranch.name);
-			return;
-		}
-		else if (otherBranchHeads.length === 1) {
-			// 2 heads
-			const [otherHead] = otherBranchHeads;
-			return await this.doMerge(otherHead.hash);
+			const otherBranchHeads = await this.model.getHeads({ branch: currentBranch.name, excludeSelf: true });
+			if (otherBranchHeads.length === 0) {
+				// 1 head
+				interaction.warnMergeOnlyOneHead(currentBranch.name);
+				return;
+			}
+			else if (otherBranchHeads.length === 1) {
+				// 2 heads
+				const [otherHead] = otherBranchHeads;
+				return await this.doMerge(otherHead.hash);
+			}
+			else {
+				// 3+ heads
+				const placeHolder = localize('choose branch head', "Branch {0} has {1} heads. Choose which to merge:", currentBranch.name, otherBranchHeads.length + 1);
+				const head = await interaction.pickHead(otherBranchHeads, placeHolder);
+				if (head) {
+					return await this.doMerge(head.hash);
+				}
+			}
 		}
 		else {
-			// 3+ heads
-			const placeHolder = localize('choose branch head', "Branch {0} has {1} heads. Choose which to merge:", currentBranch.name, otherBranchHeads.length + 1);
-			const head = await interaction.pickHead(otherBranchHeads, placeHolder);
-			if (head) {
-				return await this.doMerge(head.hash);
+			const otherHeads = await this.model.getHeads({ excludeSelf: true });
+			if (otherHeads.length === 0) {
+				// 1 head
+				interaction.warnMergeOnlyOneHead();
+				return;
+			}
+			else {
+				// 2+ heads
+				const placeHolder = localize('choose head', "Choose head to merge with:");
+				const head = await interaction.pickHead(otherHeads, placeHolder);
+				if (head) {
+					return await this.doMerge(head.hash);
+				}
 			}
 		}
 	}
@@ -860,22 +878,22 @@ export class CommandCenter {
 
 	@command('hg.log')
 	async log() {
-		interaction.presentLogSourcesMenu(this.createLogMenuAPI());
+		interaction.presentLogSourcesMenu(this.createLogMenuAPI(), typedConfig.useBookmarks);
 	}
 
 	@command('hg.logBranch')
 	async logBranch() {
-		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, this.createLogMenuAPI());
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, typedConfig.useBookmarks, this.createLogMenuAPI());
 	}
 
 	@command('hg.logDefault')
 	async logDefault() {
-		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, this.createLogMenuAPI());
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, typedConfig.useBookmarks, this.createLogMenuAPI());
 	}
 
 	@command('hg.logRepo')
 	async logRepo() {
-		interaction.presentLogMenu(CommitSources.Repo, {}, this.createLogMenuAPI());
+		interaction.presentLogMenu(CommitSources.Repo, {}, typedConfig.useBookmarks, this.createLogMenuAPI());
 	}
 
 	@command('hg.fileLog')
@@ -891,7 +909,7 @@ export class CommandCenter {
 		}
 
 		const logEntries = await this.model.getLogEntries({ file: uri });
-		const choice = await interaction.pickCommit(CommitSources.File, logEntries, commit => () => {
+		const choice = await interaction.pickCommit(CommitSources.File, logEntries, typedConfig.useBookmarks, commit => () => {
 			if (uri) {
 				this.diff(commit, uri);
 			}
@@ -947,6 +965,13 @@ export class CommandCenter {
 			if (!switched) {
 				return;
 			}
+		}
+
+		const bookmarkRefs = await this.model.getRefs();
+		const existingBookmarks = bookmarkRefs.filter(ref => ref.type === RefType.Bookmark) as Bookmark[];
+		const bookmark = await interaction.pickBookmarkToRemove(existingBookmarks);
+		if (bookmark) {
+			this.model.removeBookmark(bookmark.name)
 		}
 	}
 

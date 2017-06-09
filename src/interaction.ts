@@ -3,7 +3,7 @@ import * as path from "path";
 import { window, QuickPickItem, workspace, Uri } from "vscode";
 import { ChildProcess } from "child_process";
 import { Resource, Model, State, Status, LogEntriesOptions } from "./model";
-import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus } from "./hg";
+import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
 import { humanise } from "./humanise";
 import * as os from "os";
 import typedConfig from "./config";
@@ -76,7 +76,11 @@ export namespace interaction {
         return window.showWarningMessage(localize('multi head branch', "Branch '{0}' has multiple heads. Merge required before pushing.", branchWithMultipleHeads));
     }
 
-    export function warnMergeOnlyOneHead(branch: string | undefined) {
+    export function warnMergeOnlyOneHead(branch?: string) {
+        if (typedConfig.useBookmarks) {
+            return window.showWarningMessage(localize('only one head', "There is only 1 head. Nothing to merge.", branch));
+        }
+
         return window.showWarningMessage(localize('only one head', "There is only 1 head for branch '{0}'. Nothing to merge.", branch));
     }
 
@@ -192,7 +196,7 @@ export namespace interaction {
             prompt: localize('bookmark name', "Bookmark Name"),
             ignoreFocusOut: true,
         });
-        
+
         return bookmark;
     }
 
@@ -232,7 +236,8 @@ export namespace interaction {
     }
 
     export async function pickHead(heads: Commit[], placeHolder: string): Promise<Commit | undefined> {
-        const headChoices = heads.map(head => new CommitItem(head));
+        const useBookmarks = typedConfig.useBookmarks;
+        const headChoices = heads.map(head => new CommitItem(head, useBookmarks));
         const choice = await window.showQuickPick(headChoices, { placeHolder });
         return choice && choice.commit;
     }
@@ -284,41 +289,53 @@ export namespace interaction {
         return new LiteralRunnableQuickPickItem(`$(arrow-left)${NBSP}${NBSP}${goBack}`, `${to} ${description}`, action);
     }
 
-    export async function presentLogSourcesMenu(commands: LogMenuAPI) {
+    export async function presentLogSourcesMenu(commands: LogMenuAPI, useBookmarks: boolean) {
         const repoName = commands.getRepoName();
         const branchName = commands.getBranchName();
         const source = await interaction.pickLogSource(repoName, branchName);
         if (source) {
             const historyScope = localize('history scope', 'history scope');
-            const back = asBackItem(historyScope, () => presentLogSourcesMenu(commands));
-            return presentLogMenu(source.source, source.options, commands, back);
+            const back = asBackItem(historyScope, () => presentLogSourcesMenu(commands, useBookmarks));
+            return presentLogMenu(source.source, source.options, useBookmarks, commands, back);
         }
     }
 
-    export async function presentLogMenu(source: CommitSources, logOptions: LogEntryOptions, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
+    export async function presentLogMenu(source: CommitSources, logOptions: LogEntryOptions, useBookmarks: boolean, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
         const entries = await commands.getLogEntries(logOptions);
-        let result = await pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back);
+        let result = await pickCommitAsShowCommitDetailsRunnable(source, entries, useBookmarks, commands, back);
         while (result) {
             result = await result.run();
         }
     }
 
-    async function pickCommitAsShowCommitDetailsRunnable(source: CommitSources, entries: Commit[], commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+    type BookmarkQuickPick = QuickPickItem & { bookmark: Bookmark }
+    export async function pickBookmarkToRemove(bookmarks: Bookmark[]): Promise<Bookmark | undefined> {
+        const picks = bookmarks.map(b => ({ label: `$(bookmark) ${b.name}`, description: b.commit, bookmark: b } as BookmarkQuickPick));
+        const placeHolder = localize('pick bookmark', "Pick a bookmark to remove:");
+        const choice = await window.showQuickPick<BookmarkQuickPick>(picks, { placeHolder });
+        if (choice) {
+            return choice.bookmark;
+        }
+
+        return;
+    }
+
+    async function pickCommitAsShowCommitDetailsRunnable(source: CommitSources, entries: Commit[], useBookmarks: boolean, commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
         const backhere = asBackItem(
             describeLogEntrySource(source).toLowerCase(),
-            () => pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back)
+            () => pickCommitAsShowCommitDetailsRunnable(source, entries, useBookmarks, commands, back)
         );
         const commitPickedActionFactory = (commit: Commit) => async () => {
             const details = await commands.getCommitDetails(commit.hash);
             return interaction.presentCommitDetails(details, backhere, commands);
         };
 
-        const choice = await pickCommit(source, entries, commitPickedActionFactory, back);
+        const choice = await pickCommit(source, entries, useBookmarks, commitPickedActionFactory, back);
         return choice;
     }
 
-    export async function pickCommit(source: CommitSources, logEntries: Commit[], actionFactory: (commit) => RunnableAction, backItem?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
-        const logEntryPickItems = logEntries.map(entry => new LogEntryItem(entry, actionFactory(entry)));
+    export async function pickCommit(source: CommitSources, logEntries: Commit[], useBookmarks: boolean, actionFactory: (commit) => RunnableAction, backItem?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+        const logEntryPickItems = logEntries.map(entry => new LogEntryItem(entry, useBookmarks, actionFactory(entry)));
         const placeHolder = describeLogEntrySource(source);
         const pickItems = backItem ? [backItem, ...logEntryPickItems] : logEntryPickItems;
         const choice = await window.showQuickPick<RunnableQuickPickItem>(pickItems, {
@@ -506,22 +523,43 @@ abstract class RunnableQuickPickItem implements QuickPickItem {
 }
 
 class CommitItem implements RunnableQuickPickItem {
-    constructor(public readonly commit: Commit) { }
+    constructor(public readonly commit: Commit, protected useBookmarks: boolean) { }
     get shortHash() { return (this.commit.hash || '').substr(0, SHORT_HASH_LENGTH); }
-    get label() { return this.commit.branch; }
+    get label() {
+        if (this.useBookmarks) {
+            if (this.commit.bookmarks.length) {
+                const bookmarks = this.commit.bookmarks.join(", ");
+                return `$(bookmark) ${bookmarks}`;
+            }
+            return ""
+        } else {
+            return this.commit.branch;
+        }
+    }
     get detail() { return `${this.commit.revision}(${this.shortHash}) `; }
     get description() { return this.commit.message; }
     run() { }
 }
 
 class LogEntryItem extends CommitItem {
-    constructor(commit: Commit, private action: RunnableAction) {
-        super(commit);
+    constructor(commit: Commit, useBookmarks: boolean, private action: RunnableAction) {
+        super(commit, useBookmarks);
     }
     protected get age(): string {
         return humanise.ageFromNow(this.commit.date);
     }
-    get description() { return `${NBSP}${BULLET}${NBSP}${NBSP}#${this.commit.revision} \u2014 ${this.commit.branch}`; }
+    get description() {
+        let scope: string = "";
+        if (this.useBookmarks) {
+            if (this.commit.bookmarks.length) {
+                scope = '\u2014 $(bookmark) ' + this.commit.bookmarks.join(", ");
+            }
+        }
+        else {
+            scope = '\u2014 ' + this.commit.branch;
+        }
+        return `${NBSP}${BULLET}${NBSP}${NBSP}#${this.commit.revision}${scope}`;
+    }
     get label() { return this.commit.message; }
     get detail() { return `${NBSP}${NBSP}${NBSP}${this.commit.author}, ${this.age}`; }
     run() { return this.action(); }
