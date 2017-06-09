@@ -202,6 +202,8 @@ export enum Operation {
 	Forget = 1 << 20,
 	Merge = 1 << 21,
 	AddRemove = 1 << 22,
+	SetBookmark = 1 << 23,
+	RemoveBookmark = 1 << 24,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -645,6 +647,16 @@ export class Model implements Disposable {
 		return await this.getBookmarkNamesFromHeads(typedConfig.pushPullScope === 'default')
 	}
 
+	@throttle
+	async setBookmark(name: string, opts: { force: boolean  }): Promise<any> {
+		await this.run(Operation.SetBookmark, () => this.repository.bookmark(name, { force: opts.force }));
+	}
+
+	@throttle
+	async removeBookmark(name: string): Promise<any> {
+		await this.run(Operation.SetBookmark, () => this.repository.bookmark(name, { remove: true }));
+	}
+
 	get pushPullBranchName(): string | undefined {
 		if (typedConfig.useBookmarks) {
 			return undefined
@@ -928,7 +940,7 @@ export class Model implements Disposable {
 	public getParents(revision?: string): Promise<Commit[]> {
 		return this.repository.getParents(revision);
 	}
-
+	
 	@throttle
 	public async getBranchNamesWithMultipleHeads(branch?: string): Promise<string[]> {
 		const allHeads = await this.repository.getHeads(branch);

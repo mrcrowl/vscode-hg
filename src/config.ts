@@ -16,12 +16,20 @@ class Config {
         return value
     }
 
+    private update<T>(name: keyof Config, value: T) {
+        return this.config.update(name, value);
+    }
+
     get autoRefresh(): boolean {
         return this.get("autoRefresh", true)
     }
 
     get useBookmarks(): boolean {
         return this.get("useBookmarks", false)
+    }
+
+    setUseBookmarks(value: true) {
+        return this.update("useBookmarks", true)
     }
 
     get allowPushNewBranches(): boolean {

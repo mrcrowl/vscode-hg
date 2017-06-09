@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp, asciiOnly, writeStringToTempFile } from "./util";
+import { assign, uniqBy, groupBy, denodeify, IDisposable, toDisposable, dispose, mkdirp, asciiOnly, writeStringToTempFile, log } from "./util";
 import { EventEmitter, Event, OutputChannel, workspace, Disposable } from "vscode";
 import * as nls from 'vscode-nls';
 import { HgCommandServer } from "./hgserve";
@@ -649,6 +649,19 @@ export class Repository {
 		await this.run(args);
 	}
 
+	async bookmark(name: string, opts?: { remove?: boolean, force?: boolean }): Promise<void> {
+		const args = ['bookmark', name];
+		if (opts && opts.force) {
+			args.push('-f');
+		}
+
+		if (opts && opts.remove) {
+			args.push('-d');
+		}
+
+		await this.run(args);
+	}
+
 	async update(treeish: string, opts?: { discard: boolean }): Promise<void> {
 		const args = ['update', '-q'];
 
@@ -946,13 +959,11 @@ export class Repository {
 			args.push("-b", options.branch);
 		}
 
-		if (options && options.bookmarks)
-		{
-			for (const bookmark of options.bookmarks)
-			{
+		if (options && options.bookmarks) {
+			for (const bookmark of options.bookmarks) {
 				args.push('-B', bookmark);
-			}	
-		}	
+			}
+		}
 
 		if (path) {
 			args.push(path);

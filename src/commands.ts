@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, LineChange, SourceControlResourceState, SourceControl } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions } from "./hg";
+import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
 import * as path from 'path';
 import * as os from 'os';
@@ -597,13 +597,38 @@ export class CommandCenter {
 
 	@command('hg.update')
 	async update(): Promise<void> {
-		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update) ||
-			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)) {
-			this.focusScm();
-			return;
+		let refs: Ref[];
+
+		if (typedConfig.useBookmarks) {
+			// bookmarks
+			const bookmarkRefs = await this.model.getRefs() as Bookmark[]
+			const { isClean, repoStatus } = this.model;
+			const unclean = !isClean || (repoStatus && repoStatus.isMerge)
+			if (unclean) {
+				// unclean: only allow bookmarks already on the parents
+				const parents = await this.model.getParents();
+				refs = bookmarkRefs.filter(b => parents.some(p => p.hash.startsWith(b.commit!)));
+				if (refs.length === 0) {
+					// no current bookmarks, so fall back to warnings
+					await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update)
+						|| await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)
+					return;
+				}
+			}
+			else {
+				// clean: allow all bookmarks
+				refs = bookmarkRefs
+			}
+		} else {
+			// branches/tags
+			if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update) ||
+				await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)) {
+				this.focusScm();
+				return;
+			}
+			refs = await this.model.getRefs();
 		}
 
-		const refs = await this.model.getRefs();
 		const choice = await interaction.pickRevision(refs);
 
 		if (choice) {
@@ -876,6 +901,49 @@ export class CommandCenter {
 			choice.run();
 		}
 	}
+
+	@command('hg.setBookmark')
+	async setBookmark() {
+		if (!typedConfig.useBookmarks) {
+			return interaction.warnNotUsingBookmarks();
+		}
+
+		const bookmarkName = await interaction.inputBookmarkName();
+
+		if (bookmarkName) {
+			const bookmarkRefs = await this.model.getRefs();
+			const existingBookmarks = bookmarkRefs.filter(ref => ref.type === RefType.Bookmark) as Bookmark[];
+
+			const parents = await this.model.getParents();
+			const currentBookmark = existingBookmarks.filter(b => b.name === bookmarkName && parents.some(p => p.hash.startsWith(b.commit!)))[0];
+			if (currentBookmark) {
+				if (currentBookmark.active) {
+					return;
+				}
+
+				return this.model.update(bookmarkName);
+			}
+
+			const existingBookmarkNames = existingBookmarks.map((b: Bookmark) => b.name);
+			const alreadyExists = existingBookmarkNames.includes(bookmarkName);
+			if (alreadyExists) {
+				const force = await interaction.confirmForceSetBookmark(bookmarkName)
+				if (!force) {
+					return
+				}
+			}
+			this.model.setBookmark(bookmarkName, { force: alreadyExists })
+		}
+	}
+
+
+	@command('hg.removeBookmark')
+	async removeBookmark() {
+		if (!typedConfig.useBookmarks) {
+			return interaction.warnNotUsingBookmarks();
+		}
+	}
+
 
 	private async diffFile(rev1: Revision, rev2: Revision, file: IFileStatus) {
 		const uri = this.model.toUri(file.path);

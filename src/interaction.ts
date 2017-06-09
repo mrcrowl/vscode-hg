@@ -187,6 +187,24 @@ export namespace interaction {
         });
     }
 
+    export async function inputBookmarkName(): Promise<string | undefined> {
+        const bookmark = await window.showInputBox({
+            prompt: localize('bookmark name', "Bookmark Name"),
+            ignoreFocusOut: true,
+        });
+        
+        return bookmark;
+    }
+
+    export async function warnNotUsingBookmarks(): Promise<any> {
+        const message = localize('offer bookmarks', "Bookmarks work best when the hg.useBookmarks setting is enabled.")
+        const useBookmarks = localize("use bookmarks", "Use Bookmarks (workspace)");
+        const choice = await window.showInformationMessage(message, useBookmarks, "Cancel");
+        if (choice === useBookmarks) {
+            return typedConfig.setUseBookmarks(true)
+        }
+    }
+
     export async function warnBranchAlreadyExists(name: string): Promise<BranchExistsAction> {
         const updateTo = localize('upadte', "Update");
         const reopen = localize('reopen', "Re-open");
@@ -389,6 +407,13 @@ export namespace interaction {
         const discard = localize('discard', "Discard Changes");
         const choice = await window.showWarningMessage(message, { modal: true }, discard);
         return choice === discard;
+    }
+
+    export async function confirmForceSetBookmark(bookmark: string): Promise<boolean> {
+        const message = localize('confirm discard all', "Bookmark '{0}' already exists. Force?", bookmark);
+        const force = localize('force', "Force");
+        const choice = await window.showWarningMessage(message, { modal: true }, force);
+        return choice === force;
     }
 
     export async function confirmDiscardChanges(discardFilesnames: string[], addedFilenames: string[]): Promise<boolean> {
