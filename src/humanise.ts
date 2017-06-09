@@ -24,7 +24,7 @@ const FILE_LIST_LIMIT = 8;
 
 export namespace humanise {
 
-    export function formatFilesAsBulletedList(this: void, filenames: string[]): string {
+    export function formatFilesAsBulletedList(filenames: string[]): string {
         let extraCount = 0;
         if (filenames.length > (FILE_LIST_LIMIT + 1)) {
             extraCount = filenames.length - FILE_LIST_LIMIT;
@@ -41,7 +41,7 @@ export namespace humanise {
         return formatted;
     }
 
-    export function describeMerge(this: void, localBranchName: string, otherBranchName: string | undefined): string {
+    export function describeMerge(localBranchName: string, otherBranchName: string | undefined): string {
         if (!otherBranchName || localBranchName === otherBranchName) {
             return localize('merge', "Merge");
         }
@@ -50,7 +50,7 @@ export namespace humanise {
         }
     }
 
-    export function ageFromNow(this: void, date: Date): string {
+    export function ageFromNow(date: Date): string {
         const elapsedSeconds = timeSince(date) / 1e3;
         let elapsed = new TimeSpan(elapsedSeconds);
         if (elapsed.totalDays > 0) {
@@ -141,28 +141,28 @@ export namespace humanise {
         return Date.now() - date.getTime();
     }
 
-    function addSeconds(this: void, date: Date, numberOfSeconds: number): Date {
+    function addSeconds(date: Date, numberOfSeconds: number): Date {
         let adjustedDate: Date = new Date(date.getTime());
         adjustedDate.setSeconds(adjustedDate.getSeconds() + numberOfSeconds);
         return adjustedDate;
     }
 
-    function addDays(this: void, date: Date, numberOfDays: number): Date {
+    function addDays(date: Date, numberOfDays: number): Date {
         let adjustedDate: Date = new Date(date.getTime());
         adjustedDate.setDate(adjustedDate.getDate() + numberOfDays);
         return adjustedDate;
     }
 
-    function datePart(this: void, date: Date): Date {
+    function datePart(date: Date): Date {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
     }
 
-    function getWeek(this: void, date: Date): number {
+    function getWeek(date: Date): number {
         let oneJan = new Date(date.getFullYear(), 0, 1);
         return Math.ceil((((date.getTime() - oneJan.getTime()) / 86400000) + oneJan.getDay() + 1) / 7);
     }
 
-    function pluraliseQuantity(this: void, word: string, quantity: number, pluralSuffix: string = "s", singularSuffix: string = "", singleQuantifier: string | null = null) {
+    function pluraliseQuantity(word: string, quantity: number, pluralSuffix: string = "s", singularSuffix: string = "", singleQuantifier: string | null = null) {
         return quantity == 1 ? `${singleQuantifier || "1"} ${word}${singularSuffix}` : `${quantity} ${word}${pluralSuffix}`;
     }
 }

@@ -28,7 +28,7 @@ export const enum CommitSources { File, Branch, Repo }
 
 export namespace interaction {
 
-    export function statusCloning(this: void, clonePromise: Promise<any>) {
+    export function statusCloning(clonePromise: Promise<any>) {
         return window.setStatusBarMessage(localize('cloning', "Cloning hg repository..."), clonePromise);
     }
 
@@ -40,7 +40,7 @@ export namespace interaction {
         return window.showInformationMessage(localize('no changes', "There are no changes to commit."));
     }
 
-    export async function checkThenWarnOutstandingMerge(this: void, model: Model, scenario: WarnScenario): Promise<boolean> {
+    export async function checkThenWarnOutstandingMerge(model: Model, scenario: WarnScenario): Promise<boolean> {
         const { repoStatus } = model;
         if (repoStatus && repoStatus.isMerge) {
             window.showErrorMessage(localize('outstanding merge', "There is an outstanding merge in your working directory."));
@@ -49,7 +49,7 @@ export namespace interaction {
         return false;
     }
 
-    export async function checkThenWarnUnclean(this: void, model: Model, scenario: WarnScenario): Promise<boolean> {
+    export async function checkThenWarnUnclean(model: Model, scenario: WarnScenario): Promise<boolean> {
         if (!model.isClean) {
             let nextStep: string = "";
             if (scenario === WarnScenario.Merge) {
@@ -63,11 +63,20 @@ export namespace interaction {
         return false;
     }
 
-    export function warnBranchMultipleHeads(this: void, branchWithMultipleHeads: string) {
+    export function warnNonDistinctHeads(nonDistinctHeads: string[]) {
+        const nonDistinctHeadShortHashes = nonDistinctHeads.map(h => h.slice(0, SHORT_HASH_LENGTH)).join(", ");
+        return window.showWarningMessage(localize('non distinct heads', "{0} heads without bookmarks [{1}]. Set bookmark or merge heads before pushing.", nonDistinctHeads.length, nonDistinctHeadShortHashes));
+    }
+
+    export function warnNoActiveBookmark() {
+        return window.showWarningMessage(localize('no active bookmark', "Nothing to push. There is no active bookmark and pushPullScope is 'current'."));
+    }
+
+    export function warnBranchMultipleHeads(branchWithMultipleHeads: string) {
         return window.showWarningMessage(localize('multi head branch', "Branch '{0}' has multiple heads. Merge required before pushing.", branchWithMultipleHeads));
     }
 
-    export function warnMergeOnlyOneHead(this: void, branch: string | undefined) {
+    export function warnMergeOnlyOneHead(branch: string | undefined) {
         return window.showWarningMessage(localize('only one head', "There is only 1 head for branch '{0}'. Nothing to merge.", branch));
     }
 
@@ -91,11 +100,11 @@ export namespace interaction {
         return false;
     }
 
-    export function warnMultipleBranchMultipleHeads(this: void, branchesWithMultipleHeads: string[]) {
+    export function warnMultipleBranchMultipleHeads(branchesWithMultipleHeads: string[]) {
         return window.showWarningMessage(localize('multi head branches', "These branches have multiple heads: {0}. Merges required before pushing.", branchesWithMultipleHeads.join(",")));
     }
 
-    export async function warnDefaultRepositoryNotConfigured(this: void, message?: string): Promise<DefaultRepoNotConfiguredAction> {
+    export async function warnDefaultRepositoryNotConfigured(message?: string): Promise<DefaultRepoNotConfiguredAction> {
         const defaultMessage = localize('no default repo', "No default repository is configured.");
         const hgrcOption = localize('open hgrc', 'Open hgrc file');
         const choice = await window.showErrorMessage(message || defaultMessage, hgrcOption);
@@ -105,7 +114,7 @@ export namespace interaction {
         return DefaultRepoNotConfiguredAction.None;
     }
 
-    export function warnNoPaths(this: void, push: boolean) {
+    export function warnNoPaths(push: boolean) {
         if (push) {
             return warnDefaultRepositoryNotConfigured(localize('no paths to push', "Your repository has no paths configured to push to."));
         }
@@ -122,7 +131,7 @@ export namespace interaction {
         return window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
     }
 
-    export async function errorPromptOpenLog(this: void, err: any): Promise<boolean> {
+    export async function errorPromptOpenLog(err: any): Promise<boolean> {
         let message: string;
 
         switch (err.hgErrorCode) {
@@ -178,7 +187,7 @@ export namespace interaction {
         });
     }
 
-    export async function warnBranchAlreadyExists(this: void, name: string): Promise<BranchExistsAction> {
+    export async function warnBranchAlreadyExists(name: string): Promise<BranchExistsAction> {
         const updateTo = localize('upadte', "Update");
         const reopen = localize('reopen', "Re-open");
         const message = localize('branch already exists', "Branch '{0}' already exists. Update or Re-open?", name);
@@ -201,13 +210,13 @@ export namespace interaction {
         return input;
     }
 
-    export async function pickHead(this: void, heads: Commit[], placeHolder: string): Promise<Commit | undefined> {
+    export async function pickHead(heads: Commit[], placeHolder: string): Promise<Commit | undefined> {
         const headChoices = heads.map(head => new CommitItem(head));
         const choice = await window.showQuickPick(headChoices, { placeHolder });
         return choice && choice.commit;
     }
 
-    export async function pickRevision(this: void, refs: Ref[]): Promise<UpdateRefItem | undefined> {
+    export async function pickRevision(refs: Ref[]): Promise<UpdateRefItem | undefined> {
         const useBookmarks = typedConfig.useBookmarks
 
         const branches = !useBookmarks
@@ -231,7 +240,7 @@ export namespace interaction {
         return choice;
     }
 
-    function describeLogEntrySource(this: void, kind: CommitSources): string {
+    function describeLogEntrySource(kind: CommitSources): string {
         switch (kind) {
             case CommitSources.Branch: return localize('branch history', "Branch history");
             case CommitSources.Repo: return localize('repo history', "Repo history");
@@ -240,21 +249,21 @@ export namespace interaction {
         }
     }
 
-    function describeCommitOneLine(this: void, commit: Commit): string {
+    function describeCommitOneLine(commit: Commit): string {
         return `#${commit.revision} ${BULLET} ${commit.author}, ${humanise.ageFromNow(commit.date)} ${BULLET} ${commit.message}`;
     }
 
-    function asLabelItem(this: void, label: string, description: string = "", action: RunnableAction = NOOP): RunnableQuickPickItem {
+    function asLabelItem(label: string, description: string = "", action: RunnableAction = NOOP): RunnableQuickPickItem {
         return new LiteralRunnableQuickPickItem(label, description, action);
     }
 
-    function asBackItem(this: void, description: string, action: RunnableAction): RunnableQuickPickItem {
+    function asBackItem(description: string, action: RunnableAction): RunnableQuickPickItem {
         const goBack = localize('go back', 'go back');
         const to = localize('to', 'to');
         return new LiteralRunnableQuickPickItem(`$(arrow-left)${NBSP}${NBSP}${goBack}`, `${to} ${description}`, action);
     }
 
-    export async function presentLogSourcesMenu(this: void, commands: LogMenuAPI) {
+    export async function presentLogSourcesMenu(commands: LogMenuAPI) {
         const repoName = commands.getRepoName();
         const branchName = commands.getBranchName();
         const source = await interaction.pickLogSource(repoName, branchName);
@@ -265,7 +274,7 @@ export namespace interaction {
         }
     }
 
-    export async function presentLogMenu(this: void, source: CommitSources, logOptions: LogEntryOptions, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
+    export async function presentLogMenu(source: CommitSources, logOptions: LogEntryOptions, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
         const entries = await commands.getLogEntries(logOptions);
         let result = await pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back);
         while (result) {
@@ -273,7 +282,7 @@ export namespace interaction {
         }
     }
 
-    async function pickCommitAsShowCommitDetailsRunnable(this: void, source: CommitSources, entries: Commit[], commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+    async function pickCommitAsShowCommitDetailsRunnable(source: CommitSources, entries: Commit[], commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
         const backhere = asBackItem(
             describeLogEntrySource(source).toLowerCase(),
             () => pickCommitAsShowCommitDetailsRunnable(source, entries, commands, back)
@@ -287,7 +296,7 @@ export namespace interaction {
         return choice;
     }
 
-    export async function pickCommit(this: void, source: CommitSources, logEntries: Commit[], actionFactory: (commit) => RunnableAction, backItem?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
+    export async function pickCommit(source: CommitSources, logEntries: Commit[], actionFactory: (commit) => RunnableAction, backItem?: RunnableQuickPickItem): Promise<RunnableQuickPickItem | undefined> {
         const logEntryPickItems = logEntries.map(entry => new LogEntryItem(entry, actionFactory(entry)));
         const placeHolder = describeLogEntrySource(source);
         const pickItems = backItem ? [backItem, ...logEntryPickItems] : logEntryPickItems;
@@ -300,7 +309,7 @@ export namespace interaction {
         return choice;
     }
 
-    export async function presentCommitDetails(this: void, details: CommitDetails, back: RunnableQuickPickItem, commands: LogMenuAPI): Promise<RunnableQuickPickItem | undefined> {
+    export async function presentCommitDetails(details: CommitDetails, back: RunnableQuickPickItem, commands: LogMenuAPI): Promise<RunnableQuickPickItem | undefined> {
         const placeHolder = describeCommitOneLine(details);
         const fileActionFactory = (f: IFileStatus) => () => {
             return commands.diffToParent(f, details);
@@ -322,7 +331,7 @@ export namespace interaction {
         return choice;
     }
 
-    export async function pickLogSource(this: void, repoName: string, branchName: string | undefined): Promise<LogSourcePickItem | undefined> {
+    export async function pickLogSource(repoName: string, branchName: string | undefined): Promise<LogSourcePickItem | undefined> {
         const branchLabel: string = '$(git-branch)';//localize('branch', 'branch');
         const repoLabel: string = `$(repo)`;// ${localize('repo', 'repo')}`;
         const branch: LogSourcePickItem = { description: branchLabel, label: branchName || "???", source: CommitSources.Branch, options: { branch: "." } };
@@ -338,7 +347,7 @@ export namespace interaction {
         return choice;
     }
 
-    export async function pickRemotePath(this: void, paths: Path[]): Promise<string | undefined> {
+    export async function pickRemotePath(paths: Path[]): Promise<string | undefined> {
         const picks = paths.map(p => ({ label: p.name, description: p.url } as QuickPickItem));
         const placeHolder = localize('pick remote', "Pick a remote to push to:");
         const choice = await window.showQuickPick<QuickPickItem>(picks, { placeHolder });
@@ -349,12 +358,12 @@ export namespace interaction {
         return;
     }
 
-    export function warnUnresolvedFiles(this: void, unresolvedCount: number) {
+    export function warnUnresolvedFiles(unresolvedCount: number) {
         const fileOrFiles = unresolvedCount === 1 ? localize('file', 'file') : localize('files', 'files');
         window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
     }
 
-    export async function confirmRollback(this: void, { revision, kind, commitDetails: _ }: HgRollbackDetails) {
+    export async function confirmRollback({ revision, kind, commitDetails: _ }: HgRollbackDetails) {
         // prompt
         const rollback = "Rollback";
         const message = localize('rollback', "Rollback to revision {0}? (undo {1})", revision, kind);
@@ -362,7 +371,7 @@ export namespace interaction {
         return choice === rollback;
     }
 
-    export async function inputCommitMessage(this: void, message: string, defaultMessage?: string) {
+    export async function inputCommitMessage(message: string, defaultMessage?: string) {
         if (message) {
             return message;
         }
@@ -382,7 +391,7 @@ export namespace interaction {
         return choice === discard;
     }
 
-    export async function confirmDiscardChanges(this: void, discardFilesnames: string[], addedFilenames: string[]): Promise<boolean> {
+    export async function confirmDiscardChanges(discardFilesnames: string[], addedFilenames: string[]): Promise<boolean> {
         let message: string;
         let addedMessage: string = "";
         if (addedFilenames.length > 0) {
@@ -407,7 +416,7 @@ export namespace interaction {
         return choice === discard;
     }
 
-    export async function confirmDeleteMissingFilesForCommit(this: void, filenames: string[]): Promise<boolean> {
+    export async function confirmDeleteMissingFilesForCommit(filenames: string[]): Promise<boolean> {
         let message: string;
         if (filenames.length === 1) {
             message = localize('confirm delete missing', "Did you want to delete '{0}' in this commit?", path.basename(filenames[0]));
@@ -422,7 +431,7 @@ export namespace interaction {
         return choice === deleteOption;
     }
 
-    export async function handleChoices(this: void, stdout: string, limit: number): Promise<string> {
+    export async function handleChoices(stdout: string, limit: number): Promise<string> {
         /* other [merge rev] changed letters.txt which local [working copy] deleted
     use (c)hanged version, leave (d)eleted, or leave (u)nresolved*/
         const [options, prompt, ..._] = stdout.split('\n').reverse();
@@ -455,7 +464,7 @@ export namespace interaction {
         }
     }
 
-    export function errorUntrackedFilesDiffer(this: void, filenames: string[]) {
+    export function errorUntrackedFilesDiffer(filenames: string[]) {
         const fileList = humanise.formatFilesAsBulletedList(filenames);
         const message = localize('untracked files differ', "Merge failed!\n\nUntracked files in your working directory would be overwritten by files of the same name from the merge revision:\n\n{0}\n\nEither track these files, move them, or delete them before merging.", fileList);
         window.showErrorMessage(message, { modal: true });

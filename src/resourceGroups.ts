@@ -127,7 +127,7 @@ export class WorkingDirectoryGroup extends ResourceGroup {
 	}
 }
 
-export function groupStatuses(this: void, {
+export function groupStatuses({
 	respositoryRoot,
 	statusGroups: { conflict, staging, merge, working, untracked },
 	fileStatuses,
@@ -208,7 +208,7 @@ export function groupStatuses(this: void, {
 	}
 }
 
-function toMergeStatus(this: void, status: string): MergeStatus {
+function toMergeStatus(status: string): MergeStatus {
 	switch (status) {
 		case 'R': return MergeStatus.RESOLVED;
 		case 'U': return MergeStatus.UNRESOLVED;

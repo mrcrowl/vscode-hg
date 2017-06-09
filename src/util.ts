@@ -105,7 +105,7 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
-export function partition<T>(this: void, array: T[], fn: (el: T, i: number, ary: T[]) => boolean): [T[], T[]] {
+export function partition<T>(array: T[], fn: (el: T, i: number, ary: T[]) => boolean): [T[], T[]] {
 	return array.reduce((result: [T[], T[]], element: T, i: number) => {
 		if (fn(element, i, array)) {
 			result[0].push(element)

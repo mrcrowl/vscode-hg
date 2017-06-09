@@ -394,7 +394,7 @@ function getChanName(chan: string) {
 const UINT32_SIZE = 4;
 const UINT8_SIZE = 1;
 
-async function serverSendCommand(this: void, server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
+async function serverSendCommand(server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
     if (!server) {
         throw new Error("Must start the command server before issuing commands");
     }
@@ -410,7 +410,7 @@ async function serverSendCommand(this: void, server: ChildProcess, encoding: str
     await writeBufferToStdIn(server, buffer);
 };
 
-async function serverSendLineInput(this: void, server: ChildProcess, encoding: string, text: string) {
+async function serverSendLineInput(server: ChildProcess, encoding: string, text: string) {
     if (!server) {
         throw new Error("Must start the command server before issuing commands");
     }
@@ -423,7 +423,7 @@ async function serverSendLineInput(this: void, server: ChildProcess, encoding: s
     await writeBufferToStdIn(server, buffer);
 };
 
-function writeBufferToStdIn(this: void, server: ChildProcess, buffer: Buffer): Promise<any> {
+function writeBufferToStdIn(server: ChildProcess, buffer: Buffer): Promise<any> {
     return new Promise((c, e) => server.stdin.write(buffer, c));
 }
 
