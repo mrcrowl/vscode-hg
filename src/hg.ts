@@ -32,11 +32,13 @@ export interface LogEntryRepositoryOptions extends LogEntryOptions {
 export interface LogEntryOptions {
 	revQuery?: string;
 	branch?: string;
+	bookmark?: string;
 }
 
 export interface PushOptions extends SyncOptions {
 	allowPushNewBranches?: boolean;
 	branch: string | undefined;
+	bookmarks?: string[] | undefined;
 }
 
 export interface SyncOptions {
@@ -50,7 +52,7 @@ export interface IMergeResult {
 export interface IRepoStatus {
 	isMerge: boolean;
 	parents: Ref[];
-	
+
 }
 
 export interface IFileStatus {
@@ -67,7 +69,8 @@ export interface ICommitDetails {
 export enum RefType {
 	Branch,
 	Tag,
-	Bookmark
+	Bookmark,
+	Commit
 }
 
 export interface Ref {
@@ -77,6 +80,7 @@ export interface Ref {
 }
 
 export interface Bookmark extends Ref {
+	name: string;
 	active: boolean;
 }
 
@@ -255,7 +259,7 @@ export interface IHgErrorData {
 export class HgRollbackDetails {
 	revision: number;
 	kind: string;
-	commitDetails: ICommitDetails|undefined;
+	commitDetails: ICommitDetails | undefined;
 }
 
 export class HgError {
@@ -526,6 +530,7 @@ export interface Commit extends Revision {
 	message: string;
 	author: string;
 	date: Date;
+	bookmarks: string[];
 }
 
 export interface CommitDetails extends Commit {
@@ -846,10 +851,9 @@ export class Repository {
 	async countIncoming(options?: SyncOptions): Promise<number> {
 		try {
 			const args = ['incoming', '-q'];
-			if (options && options.branch)
-			{
+			if (options && options.branch) {
 				args.push('-b', options.branch);
-			}	
+			}
 			const incomingResult = await this.run(args);
 			if (!incomingResult.stdout) {
 				return 0;
@@ -880,10 +884,9 @@ export class Repository {
 	async countOutgoing(options?: SyncOptions): Promise<number> {
 		try {
 			const args = ['outgoing', '-q'];
-			if (options && options.branch)
-			{
+			if (options && options.branch) {
 				args.push('-b', options.branch);
-			}	
+			}
 			const result = await this.run(args);
 
 			if (!result.stdout) {
@@ -912,10 +915,9 @@ export class Repository {
 	async pull(options?: SyncOptions): Promise<void> {
 		const args = ['pull'];
 
-		if (options && options.branch)
-		{
+		if (options && options.branch) {
 			args.push("-b", options.branch);
-		}	
+		}
 
 		try {
 			await this.run(args);
@@ -940,9 +942,16 @@ export class Repository {
 			args.push('--new-branch');
 		}
 
-		if (options && options.branch)
-		{
+		if (options && options.branch) {
 			args.push("-b", options.branch);
+		}
+
+		if (options && options.bookmarks)
+		{
+			for (const bookmark of options.bookmarks)
+			{
+				args.push('-B', bookmark);
+			}	
 		}	
 
 		if (path) {
@@ -1017,14 +1026,32 @@ export class Repository {
 		const summaryResult = await this.run(['summary', '-q']);
 		const summary = summaryResult.stdout;
 		const lines = summary.trim().split('\n');
-		const parents = lines.filter(line => line.startsWith("parent:"))
+		const parentLines = lines.filter(line => line.startsWith("parent:"));
+		const parents = parentLines.length ? this.parseParentLines(parentLines) : [];
+
 		const commitLine = lines.filter(line => line.startsWith("commit:"))[0];
 		if (commitLine) {
 			const isMerge = /\bmerge\b/.test(commitLine);
-			return { isMerge }
+			return { isMerge, parents };
 		}
 
-		return { isMerge: false };
+		return { isMerge: false, parents };
+	}
+
+	parseParentLines(parentLines: string[]): Ref[] {
+		// e.g. "parent: 44:2f88476fceca tip"
+		const refs: Ref[] = [];
+		for (const line of parentLines) {
+			const match = line.match(/^parent:\s+(\d+):([a-f0-9]+)/);
+			if (match) {
+				const [_, rev, hash] = match;
+				refs.push({
+					type: RefType.Commit,
+					commit: hash
+				});
+			}
+		}
+		return refs;
 	}
 
 	async getLastCommitMessage(): Promise<string> {
@@ -1128,8 +1155,8 @@ export class Repository {
 	}
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
-		//                       0=rev|1=hash|2=date       |3=author     |4=brnch |5=commit message
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}\\n`;
+		//                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=commit message           |6=bookmarks (\t delimited)
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}:{join(bookmarks,'\t')}\\n`;
 		const args = ['log', '-T', templateFormat]
 
 		if (revQuery) {
@@ -1156,12 +1183,13 @@ export class Repository {
 		const logEntries = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
-				const [revision, hash, hgDate, author, branch, message] = line.split(":", 6);
+				const [revision, hash, hgDate, author, branch, message, tabDelimBookmarks] = line.split(":", 7);
+				const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
 				const [unixDateSeconds, _] = hgDate.split(' ').map(part => parseFloat(part));
 				return {
 					revision: parseInt(revision),
 					date: new Date(unixDateSeconds * 1e3),
-					hash, branch, message, author
+					hash, branch, message, author, bookmarks
 				}
 			})
 			.filter(ref => !!ref) as Commit[];
@@ -1172,10 +1200,10 @@ export class Repository {
 		return this.getLogEntries({ revQuery: `parents(${revision || ""})` });
 	}
 
-	async getHeads(branch?: string, excludeSelf?: boolean): Promise<Commit[]> {
-		const except = excludeSelf ? " - ." : "";
+	async getHeads(options?: { branch?: string, excludeSelf?: boolean }): Promise<Commit[]> {
+		const except = options && options.excludeSelf ? " - ." : "";
 		const revQuery = `head() and not closed()${except}`;
-		return this.getLogEntries({ revQuery, branch });
+		return this.getLogEntries({ revQuery, branch: options && options.branch });
 	}
 
 	async getTags(): Promise<Ref[]> {
@@ -1189,7 +1217,7 @@ export class Repository {
 				}
 				return null;
 			})
-			.filter(ref => !!ref) as Ref[]; 
+			.filter(ref => !!ref) as Ref[];
 
 		return tagRefs;
 	}

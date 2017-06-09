@@ -16,6 +16,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import { partition } from "./util";
 import * as nls from 'vscode-nls';
+import typedConfig from "./config";
 
 const localize = nls.loadMessageBundle();
 
@@ -649,11 +650,19 @@ export class CommandCenter {
 		await this.model.pull();
 	}
 
-	private createPushOptions(): PushOptions | undefined {
-		const config = workspace.getConfiguration('hg');
-		const allowPushNewBranches = config.get<boolean>('allowPushNewBranches') || false;
+	private async createPushOptions(): Promise<PushOptions> {
+		if (typedConfig.useBookmarks) {
+			const bookmarks = await this.model.enumeratePushBookmarkNames();
+			const branch = (typedConfig.pushPullScope === 'default') ? 'default' : undefined;
+			return {
+				allowPushNewBranches: typedConfig.allowPushNewBranches,
+				bookmarks,
+				branch
+			};
+		}
+
 		return {
-			allowPushNewBranches: !!allowPushNewBranches,
+			allowPushNewBranches: typedConfig.allowPushNewBranches,
 			branch: this.model.pushPullBranchName
 		};
 	}
@@ -739,24 +748,54 @@ export class CommandCenter {
 		}
 	}
 
-	@command('hg.push')
-	async push(): Promise<void> {
-		const paths = await this.model.getPaths();
+	private async validateBookmarkPush(): Promise<boolean> {
+		const pushPullScope = typedConfig.pushPullScope;
+		if (pushPullScope === "current") {
+			if (this.model.activeBookmark) {
+				return true;
+			}
+			interaction.warnNoActiveBookmark();
+			return false;
+		}
 
-		// check for branches with 2+ heads		
+		// 'all' or 'default'		
+		const nonDistinctHeadHashes = await this.model.getHashesOfNonDistinctBookmarkHeads(pushPullScope === 'default');
+		if (nonDistinctHeadHashes.length > 0) {
+			interaction.warnNonDistinctHeads(nonDistinctHeadHashes);
+			return false;
+		}
+		return true
+	}
+
+	private async validateBranchPush(): Promise<boolean> {
 		const branch = this.model.pushPullBranchName;
 		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads(branch);
 		if (multiHeadBranchNames.length === 1) {
 			const [branch] = multiHeadBranchNames;
 			interaction.warnBranchMultipleHeads(branch);
-			return;
+			return false;
 		}
 		else if (multiHeadBranchNames.length > 1) {
 			interaction.warnMultipleBranchMultipleHeads(multiHeadBranchNames);
-			return;
+			return false;
 		}
 
-		await this.model.push(undefined, this.createPushOptions());
+		return true;
+	}
+
+	@command('hg.push')
+	async push(): Promise<void> {
+		const paths = await this.model.getPaths();
+
+		// check for branches with 2+ heads		
+		const validated = typedConfig.useBookmarks ?
+			await this.validateBookmarkPush() :
+			await this.validateBranchPush();
+
+		if (validated) {
+			const pushOptions = await this.createPushOptions();
+			await this.model.push(undefined, pushOptions);
+		}
 	}
 
 	@command('hg.pushTo')
@@ -773,7 +812,8 @@ export class CommandCenter {
 
 		const chosenPath = await interaction.pickRemotePath(paths);
 		if (chosenPath) {
-			this.model.push(chosenPath, this.createPushOptions());
+			const pushOptions = await this.createPushOptions();
+			this.model.push(chosenPath, pushOptions);
 		}
 	}
 

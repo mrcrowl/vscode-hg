@@ -18,14 +18,13 @@ import { groupStatuses, IStatusGroups, IGroupStatusesParams, createEmptyStatusGr
 import { interaction, PushCreatesNewHeadAction, DefaultRepoNotConfiguredAction } from "./interaction";
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import typedConfig from "./config";
+import { PushPullScopeOptions } from "./config";
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
 
 const localize = nls.loadMessageBundle();
 const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
-
-type PushPullBranchOptions = "default" | "current" | "all" | undefined;
 
 export interface LogEntriesOptions {
 	file?: Uri;
@@ -636,15 +635,27 @@ export class Model implements Disposable {
 		return undefined;
 	}
 
-	get pushPullBranchName(): string | undefined {
-		const config = workspace.getConfiguration('hg');
-		return this.branchOptionToBranchName(config.get<PushPullBranchOptions>('pushPullBranch'));
+	async enumeratePushBookmarkNames(): Promise<string[]> {
+		if (!typedConfig.useBookmarks) {
+			return []
+		}
+		if (typedConfig.pushPullScope === 'current') {
+			return this.activeBookmark ? [this.activeBookmark.name] : [];
+		}
+		return await this.getBookmarkNamesFromHeads(typedConfig.pushPullScope === 'default')
 	}
 
-	private branchOptionToBranchName(branchOptions: PushPullBranchOptions): string | undefined {
+	get pushPullBranchName(): string | undefined {
+		if (typedConfig.useBookmarks) {
+			return undefined
+		}
+		return this.expandScopeOption(typedConfig.pushPullScope, this.currentBranch);
+	}
+
+	private expandScopeOption(branchOptions: PushPullScopeOptions, ref: Ref | undefined): string | undefined {
 		switch (branchOptions) {
 			case "current":
-				return this.currentBranch ? this.currentBranch.name : undefined;
+				return ref ? ref.name : undefined;
 
 			case "default":
 				return "default";
@@ -933,9 +944,28 @@ export class Model implements Disposable {
 	}
 
 	@throttle
+	public async getHashesOfNonDistinctBookmarkHeads(defaultOnly: boolean): Promise<string[]> {
+		const defaultOrAll = defaultOnly ? "default" : undefined
+		const allHeads = await this.repository.getHeads({ branch: defaultOrAll });
+		const headsWithoutBookmarks = allHeads.filter(h => h.bookmarks.length === 0);
+		if (headsWithoutBookmarks.length > 1) { // allow one version of any branch with no bookmark
+			return headsWithoutBookmarks.map(h => h.hash);
+		}
+		return []
+	}
+
+	@throttle
+	public async getBookmarkNamesFromHeads(defaultOnly: boolean): Promise<string[]> {
+		const defaultOrAll = defaultOnly ? "default" : undefined
+		const allHeads = await this.repository.getHeads({ branch: defaultOrAll });
+		const headsWithBookmarks = allHeads.filter(h => h.bookmarks.length > 0);
+		return headsWithBookmarks.reduce((prev, curr) => [...prev, ...curr.bookmarks], <string[]>[]);
+	}
+
+	@throttle
 	public getHeads(options: { branch?: string; excludeSelf?: boolean } = {}): Promise<Commit[]> {
 		const { branch, excludeSelf } = options;
-		return this.repository.getHeads(branch, excludeSelf);
+		return this.repository.getHeads({ branch, excludeSelf });
 	}
 
 	@throttle

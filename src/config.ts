@@ -1,5 +1,8 @@
 import { workspace } from "vscode"
 
+export type PushPullScopeOptions = "default" | "current" | "all" | undefined;
+export type CommandModeOptions = "server" | "cli" | undefined;
+
 class Config {
     private get config() {
         return workspace.getConfiguration('hg')
@@ -21,8 +24,20 @@ class Config {
         return this.get("useBookmarks", false)
     }
 
-    get commandMode(): "server" | "cli" {
-        return this.get<"server" | "cli">("commandMode", "cli")
+    get allowPushNewBranches(): boolean {
+        return this.get("allowPushNewBranches", false);
+    }
+
+    get commandMode(): CommandModeOptions {
+        return this.get<CommandModeOptions>("commandMode", "cli")
+    }
+
+    get pushPullScope(): PushPullScopeOptions {
+        return this.get<PushPullScopeOptions>("pushPullScope", "all");
+    }
+
+    get pushPullBranch(): PushPullScopeOptions {
+        return this.get<PushPullScopeOptions>("pushPullBranch", this.pushPullScope);
     }
 }
 

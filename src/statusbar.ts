@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, Command, EventEmitter, Event, workspace } from "vscode";
-import { RefType, Ref } from "./hg";
+import { RefType, Ref, Repository, Bookmark, IRepoStatus } from "./hg";
 import { Model, Operation } from './model';
 import { anyEvent, dispose } from './util';
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
@@ -15,6 +15,11 @@ import { activate } from "./main";
 
 const localize = nls.loadMessageBundle();
 const enum SyncStatus { None = 0, Pushing = 1, Pulling = 2 }
+
+interface CurrentRef {
+	ref: Ref | undefined;
+	icon: string;
+}
 
 class BranchStatusBar {
 
@@ -26,25 +31,40 @@ class BranchStatusBar {
 		model.onDidChange(this._onDidChange.fire, this._onDidChange, this.disposables);
 	}
 
+	chooseCurrentRef(useBookmarks: boolean, currentBranch: Ref | undefined, activeBookmark: Bookmark | undefined, repoStatus: IRepoStatus | undefined): CurrentRef {
+		const mergeIcon = (repoStatus && repoStatus.isMerge) ? "$(git-merge)" : "";
+
+		if (useBookmarks) {
+			if (activeBookmark) {
+				return { ref: activeBookmark, icon: mergeIcon || '$(bookmark)' };
+			}
+			else if (repoStatus) {
+				return { ref: repoStatus.parents[0], icon: mergeIcon || '$(issue-opened)' };
+			}
+			else {
+				return { ref: { type: RefType.Commit, name: "" }, icon: mergeIcon || '$(issue-opened)' };
+			}
+		}
+		else {
+			return { ref: currentBranch, icon: mergeIcon || '$(git-branch)' };
+		}
+	}
+
 	get command(): Command | undefined {
 		const useBookmarks = typedConfig.useBookmarks
 		const { currentBranch, activeBookmark, repoStatus } = this.model
-		const currentRef = useBookmarks ? activeBookmark : currentBranch;
+		const currentRef: CurrentRef = this.chooseCurrentRef(useBookmarks, currentBranch, activeBookmark, repoStatus);
 
-		if (!currentRef && !useBookmarks) {
+		if (!currentRef.ref) {
 			return undefined
 		}
 
-		const icon = repoStatus && repoStatus.isMerge
-			? '$(git-merge) '
-			: useBookmarks
-				? '$(bookmark) '
-				: '$(git-branch) '
-
-		const title = icon
-			+ currentRef.name
-			+ (this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '')
-			+ (this.model.mergeGroup.resources.length > 0 ? '!' : '');
+		const label = (currentRef.ref.name || currentRef.ref.commit)!;
+		const title =
+			currentRef.icon + ' ' +
+			label +
+			(this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '') +
+			(this.model.mergeGroup.resources.length > 0 ? '!' : '');
 
 		return {
 			command: 'hg.update',

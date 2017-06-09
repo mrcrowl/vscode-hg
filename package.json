@@ -754,6 +754,21 @@
             "%config.pushPullBranch.default%"
           ],
           "default": "all"
+        },
+        "hg.pushPullScope": {
+          "type": "string",
+          "description": "%config.pushPullScope%",
+          "enum": [
+            "all",
+            "current",
+            "default"
+          ],
+          "enumDescriptions": [
+            "%config.pushPullScope.all%",
+            "%config.pushPullScope.current%",
+            "%config.pushPullScope.default%"
+          ],
+          "default": "all"
         }
       }
     }
