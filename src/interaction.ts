@@ -196,13 +196,16 @@ export namespace interaction {
         return bookmark;
     }
 
-    export async function warnNotUsingBookmarks(): Promise<any> {
-        const message = localize('offer bookmarks', "Bookmarks work best when the hg.useBookmarks setting is enabled.")
+    export async function warnNotUsingBookmarks(): Promise<boolean> {
+        const message = localize('offer bookmarks', "Bookmarks requires the hg.useBookmarks setting to be enabled.")
         const useBookmarks = localize("use bookmarks", "Use Bookmarks (workspace)");
-        const choice = await window.showInformationMessage(message, useBookmarks, "Cancel");
+        const choice = await window.showInformationMessage(message, useBookmarks);
         if (choice === useBookmarks) {
-            return typedConfig.setUseBookmarks(true)
+            await typedConfig.setUseBookmarks(true)
+            return true
         }
+
+        return false
     }
 
     export async function warnBranchAlreadyExists(name: string): Promise<BranchExistsAction> {

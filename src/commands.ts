@@ -905,7 +905,10 @@ export class CommandCenter {
 	@command('hg.setBookmark')
 	async setBookmark() {
 		if (!typedConfig.useBookmarks) {
-			return interaction.warnNotUsingBookmarks();
+			const switched = await interaction.warnNotUsingBookmarks();
+			if (!switched) {
+				return;
+			}
 		}
 
 		const bookmarkName = await interaction.inputBookmarkName();
@@ -940,10 +943,12 @@ export class CommandCenter {
 	@command('hg.removeBookmark')
 	async removeBookmark() {
 		if (!typedConfig.useBookmarks) {
-			return interaction.warnNotUsingBookmarks();
+			const switched = await interaction.warnNotUsingBookmarks();
+			if (!switched) {
+				return;
+			}
 		}
 	}
-
 
 	private async diffFile(rev1: Revision, rev2: Revision, file: IFileStatus) {
 		const uri = this.model.toUri(file.path);
