@@ -598,13 +598,15 @@ export class CommandCenter {
 	@command('hg.update')
 	async update(): Promise<void> {
 		let refs: Ref[];
+		let unclean = false;
 
 		if (typedConfig.useBookmarks) {
 			// bookmarks
 			const bookmarkRefs = await this.model.getRefs() as Bookmark[]
 			const { isClean, repoStatus } = this.model;
-			const unclean = !isClean || (repoStatus && repoStatus.isMerge)
+			unclean = !isClean || (repoStatus && repoStatus.isMerge) || false
 			if (unclean) {
+
 				// unclean: only allow bookmarks already on the parents
 				const parents = await this.model.getParents();
 				refs = bookmarkRefs.filter(b => parents.some(p => p.hash.startsWith(b.commit!)));
@@ -629,7 +631,7 @@ export class CommandCenter {
 			refs = await this.model.getRefs();
 		}
 
-		const choice = await interaction.pickRevision(refs);
+		const choice = await interaction.pickUpdateRevision(refs, unclean);
 
 		if (choice) {
 			await choice.run(this.model);
@@ -673,27 +675,6 @@ export class CommandCenter {
 		}
 
 		await this.model.pull();
-	}
-
-	private async createPushOptions(): Promise<PushOptions> {
-		if (typedConfig.useBookmarks) {
-			const bookmarks = await this.model.enumeratePushBookmarkNames();
-			const branch = (typedConfig.pushPullScope === 'default') ? 'default' : undefined;
-			return {
-				allowPushNewBranches: typedConfig.allowPushNewBranches,
-				bookmarks,
-				branch
-			};
-		}
-
-		return {
-			allowPushNewBranches: typedConfig.allowPushNewBranches,
-			branch: this.model.pushPullBranchName
-		};
-	}
-
-	private createPullOptions(): SyncOptions | undefined {
-		return { branch: this.model.pushPullBranchName };
 	}
 
 	@command('hg.mergeWithLocal')
@@ -836,7 +817,7 @@ export class CommandCenter {
 			await this.validateBranchPush();
 
 		if (validated) {
-			const pushOptions = await this.createPushOptions();
+			const pushOptions = await this.model.createPushOptions();
 			await this.model.push(undefined, pushOptions);
 		}
 	}
@@ -855,7 +836,7 @@ export class CommandCenter {
 
 		const chosenPath = await interaction.pickRemotePath(paths);
 		if (chosenPath) {
-			const pushOptions = await this.createPushOptions();
+			const pushOptions = await this.model.createPushOptions();
 			this.model.push(chosenPath, pushOptions);
 		}
 	}

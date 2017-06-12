@@ -21,7 +21,7 @@ interface CurrentRef {
 	icon: string;
 }
 
-class BranchStatusBar {
+class ScopeStatusBar {
 
 	private _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> { return this._onDidChange.event; }
@@ -84,6 +84,7 @@ interface SyncStatusBarState {
 	nextCheckTime: Date;
 	hasPaths: boolean;
 	branch: Ref | undefined;
+	bookmark: Bookmark | undefined;
 	syncCounts: { incoming: number, outgoing: number };
 }
 
@@ -98,6 +99,7 @@ class SyncStatusBar {
 		syncStatus: SyncStatus.None,
 		hasPaths: false,
 		branch: undefined,
+		bookmark: undefined,
 		syncCounts: { incoming: 0, outgoing: 0 }
 	};
 
@@ -143,19 +145,20 @@ class SyncStatusBar {
 			...this.state,
 			hasPaths: this.model.paths.length > 0,
 			branch: this.model.currentBranch,
+			bookmark: this.model.activeBookmark,
 			syncCounts: this.model.syncCounts,
 			autoInOut: this.model.autoInOutState
 		};
 	}
 
-	private describeAutoInOutStatus(pushPullBranchName: string | undefined): { icon: string, message?: string, status: AutoInOutStatuses } {
+	private describeAutoInOutStatus(refName: string | undefined): { icon: string, message?: string, status: AutoInOutStatuses } {
 		const { autoInOut } = this.state;
 		switch (autoInOut.status) {
 			case AutoInOutStatuses.Enabled:
 				if (autoInOut.nextCheckTime) {
 					const time = autoInOut.nextCheckTime.toLocaleTimeString();
-					const message = pushPullBranchName ?
-						localize('synced next check branch', '{0} is synced (next check {1})', pushPullBranchName, time) :
+					const message = refName ?
+						localize('synced next check scoped', '{0} is synced (next check {1})', refName, time) :
 						localize('synced next check', 'Synced (next check {0})', time);
 
 					return { icon: '$(check)', message, status: AutoInOutStatuses.Enabled };
@@ -169,8 +172,8 @@ class SyncStatusBar {
 
 			case AutoInOutStatuses.Disabled:
 			default:
-				const message = pushPullBranchName ?
-					localize('pull branch', 'Pull ({0} only)', pushPullBranchName) :
+				const message = refName ?
+					localize('pull scoped', 'Pull ({0} only)', refName) :
 					localize('pull', 'Pull');
 				return { icon: '$(cloud-download)', message, status: AutoInOutStatuses.Disabled };
 		}
@@ -181,9 +184,11 @@ class SyncStatusBar {
 			return undefined;
 		}
 
-		const pushPullBranchName = this.model.pushPullBranchName;
-		const branch = this.state.branch;
-		let autoInOut = this.describeAutoInOutStatus(pushPullBranchName);
+		const { pushPullBranchName, pushPullBookmarkName } = this.model;
+		const { bookmark, branch } = this.state;
+		const useBookmarks = typedConfig.useBookmarks;
+		const scopeName = useBookmarks ? pushPullBookmarkName : pushPullBranchName;
+		let autoInOut = this.describeAutoInOutStatus(scopeName);
 		let icon = autoInOut.icon;
 		let text = '';
 		let command = 'hg.pull';
@@ -191,14 +196,14 @@ class SyncStatusBar {
 		let syncCounts = this.state.syncCounts;
 		let plural = '';
 
-		if (branch) {
+		if ((branch && !useBookmarks) || (bookmark && useBookmarks)) {
 			if (syncCounts && syncCounts.incoming) {
 				text = `${syncCounts.incoming}↓ ${syncCounts.outgoing}↑`;
 				icon = '$(cloud-download)';
 				command = 'hg.pull';
 				plural = (syncCounts.incoming === 1) ? '' : 's';
-				tooltip = pushPullBranchName ?
-					localize('pull changesets branch', "Pull {0} changeset{1} ({2} only)", syncCounts.incoming, plural, pushPullBranchName) :
+				tooltip = scopeName ?
+					localize('pull changesets scoped', "Pull {0} changeset{1} ({2} only)", syncCounts.incoming, plural, scopeName) :
 					localize('pull changesets', "Pull {0} changeset{1}", syncCounts.incoming, plural);
 			}
 			else if (syncCounts && syncCounts.outgoing) {
@@ -211,13 +216,11 @@ class SyncStatusBar {
 				icon = '$(cloud-upload)';
 				command = 'hg.push';
 				plural = (syncCounts.outgoing === 1) ? '' : 's';
-				tooltip = pushPullBranchName ?
-					localize('push changesets branch', "Push {0} changeset{1} ({2} only)", syncCounts.outgoing, plural, pushPullBranchName) :
+				tooltip = scopeName ?
+					localize('push changesets scoped', "Push {0} changeset{1} ({2} only)", syncCounts.outgoing, plural, scopeName) :
 					localize('push changesets', "Push {0} changeset{1}", syncCounts.outgoing, plural);
-
 			}
-		}
-		else {
+		} else {
 			command = '';
 			tooltip = '';
 		}
@@ -247,25 +250,25 @@ class SyncStatusBar {
 export class StatusBarCommands {
 
 	private syncStatusBar: SyncStatusBar;
-	private branchStatusBar: BranchStatusBar;
+	private scopeStatusBar: ScopeStatusBar;
 	private disposables: Disposable[] = [];
 
 	constructor(model: Model) {
 		this.syncStatusBar = new SyncStatusBar(model);
-		this.branchStatusBar = new BranchStatusBar(model);
+		this.scopeStatusBar = new ScopeStatusBar(model);
 	}
 
 	get onDidChange(): Event<void> {
 		return anyEvent(
 			this.syncStatusBar.onDidChange,
-			this.branchStatusBar.onDidChange
+			this.scopeStatusBar.onDidChange
 		);
 	}
 
 	get commands(): Command[] {
 		const result: Command[] = [];
 
-		const update = this.branchStatusBar.command;
+		const update = this.scopeStatusBar.command;
 
 		if (update) {
 			result.push(update);
@@ -282,7 +285,7 @@ export class StatusBarCommands {
 
 	dispose(): void {
 		this.syncStatusBar.dispose();
-		this.branchStatusBar.dispose();
+		this.scopeStatusBar.dispose();
 		this.disposables = dispose(this.disposables);
 	}
 }

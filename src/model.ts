@@ -7,7 +7,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
-import { Hg, Repository, Ref, Path, PushOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
+import { Hg, Repository, Ref, Path, PushOptions, PullOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { watch } from './watch';
@@ -648,13 +648,13 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async setBookmark(name: string, opts: { force: boolean  }): Promise<any> {
+	async setBookmark(name: string, opts: { force: boolean }): Promise<any> {
 		await this.run(Operation.SetBookmark, () => this.repository.bookmark(name, { force: opts.force }));
 	}
 
 	@throttle
 	async removeBookmark(name: string): Promise<any> {
-		await this.run(Operation.SetBookmark, () => this.repository.bookmark(name, { remove: true }));
+		await this.run(Operation.RemoveBookmark, () => this.repository.bookmark(name, { remove: true }));
 	}
 
 	get pushPullBranchName(): string | undefined {
@@ -662,6 +662,46 @@ export class Model implements Disposable {
 			return undefined
 		}
 		return this.expandScopeOption(typedConfig.pushPullScope, this.currentBranch);
+	}
+
+	get pushPullBookmarkName(): string | undefined {
+		if (!typedConfig.useBookmarks) {
+			return undefined
+		}
+		return this.expandScopeOption(typedConfig.pushPullScope, this.activeBookmark);
+	}
+
+	private async createSyncOptions(): Promise<SyncOptions> {
+		if (typedConfig.useBookmarks) {
+			const branch = (typedConfig.pushPullScope === 'default') ? 'default' : undefined;
+			const bookmarks = await this.enumeratePushBookmarkNames();
+			return { branch, bookmarks }
+		}
+		else {
+			return { branch: this.pushPullBranchName }
+		}
+	}
+
+	public async createPullOptions(): Promise<PullOptions> {
+		const syncOptions = await this.createSyncOptions();
+
+		if (typedConfig.useBookmarks) {
+			// bookmarks
+			return syncOptions
+		}
+		else {
+			// branches		
+			return { branch: syncOptions.branch }
+		}
+	}
+
+	public async createPushOptions(): Promise<PushOptions> {
+		const pullOptions = await this.createPullOptions();
+
+		return {
+			allowPushNewBranches: typedConfig.allowPushNewBranches,
+			...pullOptions
+		}
 	}
 
 	private expandScopeOption(branchOptions: PushPullScopeOptions, ref: Ref | undefined): string | undefined {
@@ -712,7 +752,8 @@ export class Model implements Disposable {
 			if (delayMillis) {
 				await delay(delayMillis);
 			}
-			this._syncCounts.incoming = await this.repository.countIncoming({ branch: this.pushPullBranchName });
+			const options: SyncOptions = await this.createSyncOptions();
+			this._syncCounts.incoming = await this.repository.countIncoming(options);
 			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {
@@ -732,7 +773,8 @@ export class Model implements Disposable {
 			if (delayMillis) {
 				await delay(delayMillis);
 			}
-			this._syncCounts.outgoing = await this.repository.countOutgoing({ branch: this.pushPullBranchName });
+			const options: SyncOptions = await this.createSyncOptions();
+			this._syncCounts.outgoing = await this.repository.countOutgoing(options);
 			this._onDidChangeRemoteState.fire();
 		}
 		catch (e) {
@@ -940,7 +982,7 @@ export class Model implements Disposable {
 	public getParents(revision?: string): Promise<Commit[]> {
 		return this.repository.getParents(revision);
 	}
-	
+
 	@throttle
 	public async getBranchNamesWithMultipleHeads(branch?: string): Promise<string[]> {
 		const allHeads = await this.repository.getHeads(branch);

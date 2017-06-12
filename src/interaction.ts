@@ -242,7 +242,7 @@ export namespace interaction {
         return choice && choice.commit;
     }
 
-    export async function pickRevision(refs: Ref[]): Promise<UpdateRefItem | undefined> {
+    export async function pickUpdateRevision(refs: Ref[], unclean: boolean = false): Promise<UpdateRefItem | undefined> {
         const useBookmarks = typedConfig.useBookmarks
 
         const branches = !useBookmarks
@@ -261,7 +261,7 @@ export namespace interaction {
         const picks = [...branches, ...bookmarks, ...tags];
         const revType = useBookmarks ? "bookmark" : "branch/tag";
 
-        const placeHolder = `Select a ${revType} to update to:`;
+        const placeHolder = `Select a ${revType} to update to: ${unclean ? "(only showing local bookmarks while working directory unclean)" : ""}`
         const choice = await window.showQuickPick<UpdateRefItem>(picks, { placeHolder });
         return choice;
     }

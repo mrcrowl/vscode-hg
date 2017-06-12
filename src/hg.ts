@@ -35,14 +35,16 @@ export interface LogEntryOptions {
 	bookmark?: string;
 }
 
-export interface PushOptions extends SyncOptions {
+export interface PushOptions extends PullOptions {
 	allowPushNewBranches?: boolean;
-	branch: string | undefined;
-	bookmarks?: string[] | undefined;
+}
+
+export interface PullOptions extends SyncOptions {
 }
 
 export interface SyncOptions {
-	branch: string | undefined;
+	bookmarks?: string[];
+	branch?: string;
 }
 
 export interface IMergeResult {
@@ -867,14 +869,9 @@ export class Repository {
 			if (options && options.branch) {
 				args.push('-b', options.branch);
 			}
-			const incomingResult = await this.run(args);
-			if (!incomingResult.stdout) {
-				return 0;
-			}
 
-			const numIncoming = incomingResult.stdout.trim().split("\n").length;
-			return numIncoming;
-		}
+			return this.runIncomingOutgoingCount(args, options && options.bookmarks);
+		}	
 		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) { // expected result from hg when none
 				return 0;
@@ -894,19 +891,46 @@ export class Repository {
 		}
 	}
 
+	async runIncomingOutgoingCount(args: string[], bookmarksFilter: string[] | undefined): Promise<number> {
+		if (bookmarksFilter) {
+			// filtered count (based on list of bookmarks)
+
+			args.push('-T', "{rev}:{node}:{join(bookmarks,'\\t')}\\n")
+
+			const incomingResult = await this.run(args);
+			const incomingCount = incomingResult.stdout.trim().split('\n')
+				.filter(line => !!line)
+				.map((line: string): string[] => {
+					const [revision, hash, tabDelimBookmarks] = line.split(":", 3);
+					const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
+					return bookmarks // <-- the bookmarks for this commit
+				})
+				.filter(bookmarksForCommit => {
+					return bookmarksFilter.some(bookmark => bookmarksForCommit.includes(bookmark));
+				}).length;
+
+			return incomingCount;
+		}
+		else {
+			// simple count
+
+			const incomingResult = await this.run(args);
+			if (!incomingResult.stdout) {
+				return 0;
+			}
+			const numIncoming = incomingResult.stdout.trim().split("\n").length;
+			return numIncoming;
+		}
+	}
+
 	async countOutgoing(options?: SyncOptions): Promise<number> {
 		try {
 			const args = ['outgoing', '-q'];
 			if (options && options.branch) {
 				args.push('-b', options.branch);
 			}
-			const result = await this.run(args);
 
-			if (!result.stdout) {
-				return 0;
-			}
-
-			return result.stdout.trim().split("\n").length;
+			return this.runIncomingOutgoingCount(args, options && options.bookmarks);
 		}
 		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
@@ -930,6 +954,12 @@ export class Repository {
 
 		if (options && options.branch) {
 			args.push("-b", options.branch);
+		}
+
+		if (options && options.bookmarks) {
+			for (const bookmark of options.bookmarks) {
+				args.push('-B', bookmark);
+			}
 		}
 
 		try {
@@ -1167,7 +1197,7 @@ export class Repository {
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=commit message           |6=bookmarks (\t delimited)
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}:{join(bookmarks,'\t')}\\n`;
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}:{join(bookmarks,'\\t')}\\n`;
 		const args = ['log', '-T', templateFormat]
 
 		if (revQuery) {
