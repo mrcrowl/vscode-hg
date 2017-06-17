@@ -22,6 +22,10 @@ class Config {
         return this.config.update(name, value);
     }
 
+    get autoUpdate(): boolean {
+        return this.get("autoUpdate", true);
+    }
+
     get autoRefresh(): boolean {
         return this.get("autoRefresh", true);
     }

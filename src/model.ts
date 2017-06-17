@@ -684,14 +684,15 @@ export class Model implements Disposable {
 
 	public async createPullOptions(): Promise<PullOptions> {
 		const syncOptions = await this.createSyncOptions();
+		const autoUpdate = typedConfig.autoUpdate;
 
 		if (typedConfig.useBookmarks) {
 			// bookmarks
-			return syncOptions
+			return { ...syncOptions, autoUpdate }
 		}
 		else {
 			// branches		
-			return { branch: syncOptions.branch }
+			return { branch: syncOptions.branch, autoUpdate }
 		}
 	}
 
@@ -783,7 +784,7 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async pull(options?: SyncOptions): Promise<void> {
+	async pull(options?: PullOptions): Promise<void> {
 		await this.run(Operation.Pull, async () => {
 			try {
 				await this.repository.pull(options)
@@ -869,8 +870,7 @@ export class Model implements Disposable {
 				return await this.repository.cat(relativePath, ref)
 			}
 			catch (e) {
-				if (e && e instanceof HgError && e.hgErrorCode === 'NoSuchFile')
-				{
+				if (e && e instanceof HgError && e.hgErrorCode === 'NoSuchFile') {
 					return '';
 				}
 

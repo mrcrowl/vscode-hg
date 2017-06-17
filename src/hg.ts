@@ -40,6 +40,7 @@ export interface PushOptions extends PullOptions {
 }
 
 export interface PullOptions extends SyncOptions {
+	autoUpdate: boolean;
 }
 
 export interface SyncOptions {
@@ -1003,7 +1004,7 @@ export class Repository {
 		return count;
 	}
 
-	async pull(options?: SyncOptions): Promise<void> {
+	async pull(options?: PullOptions): Promise<void> {
 		const args = ['pull'];
 
 		if (options && options.branch) {
@@ -1015,6 +1016,11 @@ export class Repository {
 				args.push('-B', bookmark);
 			}
 		}
+
+		if (options && options.autoUpdate)
+		{
+			args.push('-u');
+		}	
 
 		try {
 			await this.run(args);
