@@ -381,16 +381,6 @@ class StreamReader {
     }
 }
 
-function getChanName(chan: string) {
-    switch (chan) {
-        case "o": return "output";
-        case "r": return "result";
-        case "e": return "error";
-        case "d": return "debug";
-        default: throw new Error(`Unknown channel '${chan}'`);
-    }
-};
-
 const UINT32_SIZE = 4;
 const UINT8_SIZE = 1;
 
@@ -418,7 +408,7 @@ async function serverSendLineInput(server: ChildProcess, encoding: string, text:
     const totalBufferSize = textLength + UINT32_SIZE;
     const buffer = new Buffer(totalBufferSize);
     buffer.writeUInt32BE(textLength, 0);
-    buffer.write(`${text}\n`, UINT32_SIZE, textLength, encoding);
+    buffer.write(`${text}\n`, UINT32_SIZE, textLength, "ascii");
     // logger.info(`hgserve:stdin:${text}\n`);
     await writeBufferToStdIn(server, buffer);
 };

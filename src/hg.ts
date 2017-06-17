@@ -1005,7 +1005,7 @@ export class Repository {
 	}
 
 	async pull(options?: PullOptions): Promise<void> {
-		const args = ['pull'];
+		const args = ['pull', '-q'];
 
 		if (options && options.branch) {
 			args.push("-b", options.branch);
@@ -1017,10 +1017,9 @@ export class Repository {
 			}
 		}
 
-		if (options && options.autoUpdate)
-		{
+		if (options && options.autoUpdate) {
 			args.push('-u');
-		}	
+		}
 
 		try {
 			await this.run(args);
