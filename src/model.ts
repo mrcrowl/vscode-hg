@@ -943,13 +943,22 @@ export class Model implements Disposable {
 		disposables.push(watcher);
 
 		const onHgChange = mapEvent(onRawHgChange, ({ filename }) => Uri.file(path.join(dotHgPath, filename)));
-		const onRelevantHgChange = filterEvent(onHgChange, uri => !/\/\.hg\/index\.lock$/.test(uri.fsPath));
-		const onHgrcChange = filterEvent(onHgChange, uri => /\/\.hg\/hgrc$/.test(uri.path));
+		const onRelevantHgChange = filterEvent(onHgChange, uri => {
+			const isRelevant = !/[\\\/]\.hg[\\\/](\w?lock.*|.*\.log)$/.test(uri.fsPath);
+			return isRelevant;
+		});
+		const onHgrcChange = filterEvent(onHgChange, uri => {
+			const isHgrc = /[\\\/]\.hg[\\\/]hgrc$/.test(uri.fsPath);
+			return isHgrc;
+		});
 		onRelevantHgChange(this.onFSChange, this, disposables);
 		onRelevantHgChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, disposables);
 		onHgrcChange(this.onHgrcChange, this, disposables);
 
-		const onNonHgChange = filterEvent(this.onWorkspaceChange, uri => !/\/\.hg\//.test(uri.fsPath));
+		const onNonHgChange = filterEvent(this.onWorkspaceChange, uri => {
+			const isNonHgChange = !/[\\\/]\.hg[\\\/]?/.test(uri.fsPath);
+			return isNonHgChange
+		});
 		onNonHgChange(this.onFSChange, this, disposables);
 
 		this.repositoryDisposable = combinedDisposable(disposables);
