@@ -6,7 +6,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
+import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
 import { Hg, Repository, Ref, Path, PushOptions, PullOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
@@ -265,8 +265,8 @@ export class Model implements Disposable {
 	private _onDidChangeState = new EventEmitter<State>();
 	readonly onDidChangeState: Event<State> = this._onDidChangeState.event;
 
-	private _onDidChangeRemoteState = new EventEmitter<void>();
-	readonly onDidChangeInOutState: Event<void> = this._onDidChangeRemoteState.event;
+	private _onDidChangeInOutState = new EventEmitter<void>();
+	readonly onDidChangeInOutState: Event<void> = this._onDidChangeInOutState.event;
 
 	private _onDidChangeResources = new EventEmitter<void>();
 	readonly onDidChangeResources: Event<void> = this._onDidChangeResources.event;
@@ -326,7 +326,7 @@ export class Model implements Disposable {
 			...this._autoInOutState,
 			...state
 		}
-		this._onDidChangeRemoteState.fire();
+		this._onDidChangeInOutState.fire();
 	}
 
 	get repoName(): string { return path.basename(this.repository.root); }
@@ -637,7 +637,7 @@ export class Model implements Disposable {
 		return undefined;
 	}
 
-	async enumeratePushBookmarkNames(): Promise<string[]> {
+	async enumerateSyncBookmarkNames(): Promise<string[]> {
 		if (!typedConfig.useBookmarks) {
 			return []
 		}
@@ -674,7 +674,7 @@ export class Model implements Disposable {
 	private async createSyncOptions(): Promise<SyncOptions> {
 		if (typedConfig.useBookmarks) {
 			const branch = (typedConfig.pushPullScope === 'default') ? 'default' : undefined;
-			const bookmarks = await this.enumeratePushBookmarkNames();
+			const bookmarks = await this.enumerateSyncBookmarkNames();
 			return { branch, bookmarks }
 		}
 		else {
@@ -745,7 +745,7 @@ export class Model implements Disposable {
 			// immediate UI update with expected
 			if (expectedDelta) {
 				this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
-				this._onDidChangeRemoteState.fire();
+				this._onDidChangeInOutState.fire();
 			}
 
 			// then confirm after delay
@@ -754,7 +754,7 @@ export class Model implements Disposable {
 			}
 			const options: SyncOptions = await this.createSyncOptions();
 			this._syncCounts.incoming = await this.repository.countIncoming(options);
-			this._onDidChangeRemoteState.fire();
+			this._onDidChangeInOutState.fire();
 		}
 		catch (e) {
 			throw e;
@@ -766,7 +766,7 @@ export class Model implements Disposable {
 			// immediate UI update with expected
 			if (expectedDelta) {
 				this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
-				this._onDidChangeRemoteState.fire();
+				this._onDidChangeInOutState.fire();
 			}
 
 			// then confirm after delay
@@ -775,7 +775,7 @@ export class Model implements Disposable {
 			}
 			const options: SyncOptions = await this.createSyncOptions();
 			this._syncCounts.outgoing = await this.repository.countOutgoing(options);
-			this._onDidChangeRemoteState.fire();
+			this._onDidChangeInOutState.fire();
 		}
 		catch (e) {
 			throw e;
@@ -786,7 +786,7 @@ export class Model implements Disposable {
 	async pull(options?: SyncOptions): Promise<void> {
 		await this.run(Operation.Pull, async () => {
 			try {
-				await this.repository.pull()
+				await this.repository.pull(options)
 			}
 			catch (e) {
 				if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {

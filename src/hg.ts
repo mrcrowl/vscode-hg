@@ -45,6 +45,7 @@ export interface PullOptions extends SyncOptions {
 export interface SyncOptions {
 	bookmarks?: string[];
 	branch?: string;
+	revs?: string[];
 }
 
 export interface IMergeResult {
@@ -865,13 +866,10 @@ export class Repository {
 
 	async countIncoming(options?: SyncOptions): Promise<number> {
 		try {
-			const args = ['incoming', '-q'];
-			if (options && options.branch) {
-				args.push('-b', options.branch);
-			}
-
-			return this.runIncomingOutgoingCount(args, options && options.bookmarks);
-		}	
+			return options && options.bookmarks && options.bookmarks.length
+				? await this.countIncomingForBookmarks(options.bookmarks, options)
+				: await this.countIncomingOutgoingSimple("incoming", options);
+		}
 		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) { // expected result from hg when none
 				return 0;
@@ -891,36 +889,58 @@ export class Repository {
 		}
 	}
 
-	async runIncomingOutgoingCount(args: string[], bookmarksFilter: string[] | undefined): Promise<number> {
-		if (bookmarksFilter) {
-			// filtered count (based on list of bookmarks)
-
-			args.push('-T', "{rev}:{node}:{join(bookmarks,'\\t')}\\n")
-
-			const incomingResult = await this.run(args);
-			const incomingCount = incomingResult.stdout.trim().split('\n')
-				.filter(line => !!line)
-				.map((line: string): string[] => {
-					const [revision, hash, tabDelimBookmarks] = line.split(":", 3);
-					const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
-					return bookmarks // <-- the bookmarks for this commit
-				})
-				.filter(bookmarksForCommit => {
-					return bookmarksFilter.some(bookmark => bookmarksForCommit.includes(bookmark));
-				}).length;
-
-			return incomingCount;
+	async countIncomingOutgoingSimple(command: "incoming" | "outgoing", options?: SyncOptions): Promise<number> {
+		const args = [command, '-q'];
+		if (options && options.branch) {
+			args.push('-b', options.branch);
 		}
-		else {
-			// simple count
-
-			const incomingResult = await this.run(args);
-			if (!incomingResult.stdout) {
-				return 0;
+		if (options && options.revs) {
+			for (const rev of options.revs) {
+				args.push('-r', rev);
 			}
-			const numIncoming = incomingResult.stdout.trim().split("\n").length;
-			return numIncoming;
 		}
+		const commandResult = await this.run(args);
+		if (commandResult.stdout) {
+			const count = commandResult.stdout.trim().split("\n").length;
+			return count;
+		}
+		return 0;
+	}
+
+	async countIncomingForBookmarks(bookmarks: string[], options?: SyncOptions): Promise<number> {
+		const args = ['incoming', '-q'];
+		if (options && options.branch) {
+			args.push('-b', options.branch);
+		}
+
+		// have any of our bookmarks changed on the remote?
+		// ...results will look something like:
+		// -----------------------------------------
+		//    hobbit                    02e814f73802
+		//    lotr                      f074f6108afc
+		const bookmarkResult = await this.run([...args, '--bookmarks']);
+		const bookmarkChangedPattern = /\s*(.*?)\s+(\S+)\s*$/g;
+		const hashesOfBookmarkedRevisions: string[] = [];
+		for (const line of bookmarkResult.stdout.trim().split('\n')) {
+			const match = line && bookmarkChangedPattern.exec(line)
+			if (!match) {
+				continue;
+			}
+
+			const [_, bookmark, hash] = match;
+			if (!bookmarks.includes(bookmark)) {
+				continue;
+			}
+
+			hashesOfBookmarkedRevisions.push(hash)
+		}
+
+		if (hashesOfBookmarkedRevisions.length === 0) {
+			return 0
+		}
+
+		// count how many changesets for the interested revs		
+		return this.countIncomingOutgoingSimple("incoming", { ...options, revs: hashesOfBookmarkedRevisions });
 	}
 
 	async countOutgoing(options?: SyncOptions): Promise<number> {
@@ -930,7 +950,9 @@ export class Repository {
 				args.push('-b', options.branch);
 			}
 
-			return this.runIncomingOutgoingCount(args, options && options.bookmarks);
+			return options && options.bookmarks && options.bookmarks.length
+				? await this.countOutgoingForBookmarks(options.bookmarks, options)
+				: await this.countIncomingOutgoingSimple("outgoing", options);
 		}
 		catch (err) {
 			if (err instanceof HgError && err.exitCode === 1) // expected result from hg when none
@@ -947,6 +969,30 @@ export class Repository {
 
 			throw err;
 		}
+	}
+
+	async countOutgoingForBookmarks(bookmarks: string[], options?: SyncOptions): Promise<number> {
+		// filtered count (based on list of bookmarks)
+
+		const args = ['outgoing', '-q'];
+		if (options && options.branch) {
+			args.push('-b', options.branch);
+		}
+		args.push('-T', "{rev}:{node}:{join(bookmarks,'\\t')}\\n")
+
+		const outgoingResult = await this.run(args);
+		const count = outgoingResult.stdout.trim().split('\n')
+			.filter(line => !!line)
+			.map((line: string): string[] => {
+				const [revision, hash, tabDelimBookmarks] = line.split(":", 3);
+				const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
+				return bookmarks // <-- the bookmarks for this commit
+			})
+			.filter(bookmarksForCommit => {
+				return bookmarks.some(bookmark => bookmarksForCommit.includes(bookmark));
+			}).length;
+
+		return count;
 	}
 
 	async pull(options?: SyncOptions): Promise<void> {
