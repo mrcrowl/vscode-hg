@@ -1,6 +1,7 @@
-node_modules/**
+node_modules
 out*/**
 *.vsix
 .vscodeignore
 *.xcf
-images/production/*
+images/production
+test/sandbox
