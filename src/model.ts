@@ -852,26 +852,37 @@ export class Model implements Disposable {
 		});
 	}
 
+	repositoryContains(uri: Uri): boolean {
+		if (uri.fsPath) {
+			return uri.fsPath.startsWith(this.repository.root);
+		}
+		return true;
+	}
+
 	async show(ref: string, uri: Uri): Promise<string> {
 		// TODO@Joao: should we make this a general concept?
 		await this.whenIdle();
 
 		return await this.run(Operation.Show, async () => {
 			const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
-			const args = ['cat', relativePath];
-			if (ref) {
-				args.push('-r', ref);
+			try {
+				return await this.repository.cat(relativePath, ref)
 			}
-			const result = await this.repository.hg.exec(this.repository.root, args, { log: false });
+			catch (e) {
+				if (e && e instanceof HgError && e.hgErrorCode === 'NoSuchFile')
+				{
+					return '';
+				}
 
-			if (result.exitCode !== 0) {
-				throw new HgError({
-					message: localize('cantshow', "Could not show object"),
-					exitCode: result.exitCode
-				});
+				if (e.exitCode !== 0) {
+					throw new HgError({
+						message: localize('cantshow', "Could not show object"),
+						exitCode: e.exitCode
+					});
+				}
+
+				throw e;
 			}
-
-			return result.stdout;
 		});
 	}
 

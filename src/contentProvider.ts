@@ -68,12 +68,16 @@ export class HgContentProvider {
 		let ref = uri.query;
 
 		try {
-			const result = await this.model.show(ref, uri);
-			return result;
+			if (this.model.repositoryContains(uri)) {
+				const result = await this.model.show(ref, uri);
+				return result;
+			}
 		}
 		catch (err) {
-			return '';
+			// no-op
 		}
+
+		return '';
 	}
 
 	private cleanup(): void {

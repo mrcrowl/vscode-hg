@@ -458,7 +458,6 @@ export class Hg {
 			this.log(`hg ${args.join(' ')}: ${Math.floor(msFromHighResTime(durationHR))}ms\n`);
 		}
 
-
 		if (result.exitCode) {
 			let hgErrorCode: string | undefined = void 0;
 
@@ -472,7 +471,7 @@ export class Hg {
 				hgErrorCode = HgErrorCodes.NoSuchFile;
 			}
 
-			if (options.log !== false && result.stderr) {
+			if (options.logErrors !== false && result.stderr) {
 				this.log(`${result.stderr}\n`);
 			}
 
@@ -650,6 +649,15 @@ export class Repository {
 		args.push.apply(args, paths);
 
 		await this.run(args);
+	}
+
+	async cat(relativePath: string, ref?: string): Promise<string> {
+		const args = ['cat', relativePath];
+		if (ref) {
+			args.push('-r', ref);
+		}
+		const result = await this.run(args, { logErrors: false });
+		return result.stdout;
 	}
 
 	async bookmark(name: string, opts?: { remove?: boolean, force?: boolean }): Promise<void> {
