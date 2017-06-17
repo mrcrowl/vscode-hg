@@ -785,6 +785,7 @@
   "devDependencies": {
     "@types/node": "^7.0.4",
     "@types/tmp": "0.0.33",
+    "tmp": "0.0.31",
     "vscode": "^1.1.0"
   }
 }

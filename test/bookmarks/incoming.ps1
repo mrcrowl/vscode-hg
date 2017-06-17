@@ -33,6 +33,14 @@ Empty-Directory $sandbox
 $local = Init-Repo "$sandbox\local"
 $remote = Init-Repo "$sandbox\remote"
 
+# configure vscode settings
+Make-Directory "$local\.vscode"
+Set-Content "$local\.vscode\settings.json" @"
+{
+    "hg.useBookmarks": true
+}
+"@
+
 # connect local --> remote
 Set-Location $local
 Set-Content .hg\hgrc @"
