@@ -37,7 +37,8 @@ $remote = Init-Repo "$sandbox\remote"
 Make-Directory "$local\.vscode"
 Set-Content "$local\.vscode\settings.json" @"
 {
-    "hg.useBookmarks": true
+    "hg.useBookmarks": true,
+    "hg.autoInOutInterval": 10000
 }
 "@
 

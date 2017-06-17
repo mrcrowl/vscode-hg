@@ -8,6 +8,7 @@ import { workspace, Disposable } from 'vscode';
 import { HgErrorCodes, HgError } from "./hg";
 import { Model, Operation, Operations } from "./model";
 import { throttle } from './decorators';
+import typedConfig from "./config";
 
 export const enum AutoInOutStatuses {
 	Disabled,
@@ -22,7 +23,6 @@ export interface AutoInOutState {
 }
 
 const STARTUP_DELAY = 3 * 1000 /* three seconds */;
-const INTERVAL = 3 * 60 * 1000 /* three minutes */;
 const OPS_AFFECTING_IN_OUT = Operation.Commit | Operation.Rollback | Operation.Update | Operation.Push | Operation.Pull;
 const opAffectsInOut = (op: Operation): boolean => (OPS_AFFECTING_IN_OUT & op) > 0;
 
@@ -39,15 +39,13 @@ export class AutoIncomingOutgoing {
 	}
 
 	private onConfiguration(): void {
-		const hgConfig = workspace.getConfiguration('hg');
-
-		if (hgConfig.get<boolean>('autoInOut') === false) {
-			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Disabled })
-			this.disable();
-		}
-		else {
+		if (typedConfig.autoInOut) {
 			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Enabled })
 			this.enable();
+		}
+		else {
+			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Disabled })
+			this.disable();
 		}
 	}
 
@@ -57,7 +55,7 @@ export class AutoIncomingOutgoing {
 		}
 
 		setTimeout(() => this.refresh(), STARTUP_DELAY); // delay to let 'status' run first
-		this.timer = setInterval(() => this.refresh(), INTERVAL);
+		this.timer = setInterval(() => this.refresh(), typedConfig.autoInOutInterval);
 	}
 
 	disable(): void {
@@ -118,7 +116,7 @@ export class AutoIncomingOutgoing {
 
 	@throttle
 	private async refresh(): Promise<void> {
-		const nextCheckTime = new Date(Date.now() + INTERVAL);
+		const nextCheckTime = new Date(Date.now() + typedConfig.autoInOutInterval);
 		this.model.changeAutoInoutState({ nextCheckTime });
 
 		try {
