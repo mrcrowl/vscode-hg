@@ -55,7 +55,7 @@ export class AutoIncomingOutgoing {
 		}
 
 		setTimeout(() => this.refresh(), STARTUP_DELAY); // delay to let 'status' run first
-		this.timer = setInterval(() => this.refresh(), typedConfig.autoInOutInterval);
+		this.timer = setInterval(() => this.refresh(), typedConfig.autoInOutIntervalMillis);
 	}
 
 	disable(): void {
@@ -116,7 +116,7 @@ export class AutoIncomingOutgoing {
 
 	@throttle
 	private async refresh(): Promise<void> {
-		const nextCheckTime = new Date(Date.now() + typedConfig.autoInOutInterval);
+		const nextCheckTime = new Date(Date.now() + typedConfig.autoInOutIntervalMillis);
 		this.model.changeAutoInoutState({ nextCheckTime });
 
 		try {

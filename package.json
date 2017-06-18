@@ -698,9 +698,19 @@
           "description": "%config.autoInOut%",
           "default": true
         },
+        "hg.autoInOutInterval": {
+          "type": "boolean",
+          "description": "%config.autoInOutInterval%",
+          "default": true
+        },
         "hg.autoRefresh": {
           "type": "boolean",
           "description": "%config.autoRefresh%",
+          "default": true
+        },
+        "hg.autoUpdate": {
+          "type": "boolean",
+          "description": "%config.autoUpdate%",
           "default": true
         },
         "hg.commandMode": {

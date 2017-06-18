@@ -3,7 +3,7 @@ import { workspace } from "vscode"
 export type PushPullScopeOptions = "default" | "current" | "all" | undefined;
 export type CommandModeOptions = "server" | "cli" | undefined;
 
-const DEFAULT_AUTO_IN_OUT_INTERVAL = 3 * 60 * 1000 /* three minutes */;
+const DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS = 3 * 60 /* three minutes */;
 
 class Config {
     private get config() {
@@ -35,7 +35,11 @@ class Config {
     }
 
     get autoInOutInterval(): number {
-        return this.get("autoInOutInterval", DEFAULT_AUTO_IN_OUT_INTERVAL);
+        return this.get("autoInOutInterval", DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS);
+    }
+
+    get autoInOutIntervalMillis(): number {
+        return this.autoInOutInterval * 1000;
     }
 
     get useBookmarks(): boolean {
