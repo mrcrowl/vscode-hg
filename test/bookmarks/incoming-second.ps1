@@ -1,33 +1,18 @@
-. .\test\include\util.ps1
-
-$ErrorActionPreference = "Stop"
-
 Push-Location
 
-$sandbox = "$PWD\test\sandbox"
-Make-Directory $sandbox
-Empty-Directory $sandbox
+. .\test\include\util.ps1
 
-$local = Init-Repo "$sandbox\local"
-$remote = Init-Repo "$sandbox\remote"
+$local, $remote = Make-Local-Remote-Repos $PWD
 
 # configure vscode settings
-Make-Directory "$local\.vscode"
-Set-Content "$local\.vscode\settings.json" @"
-{
-    "hg.useBookmarks": true,
-    "hg.autoInOutInterval": 10000
+Write-VSCode-Settings $local  @{
+    "hg.useBookmarks"      = $true;
+    "hg.autoUpdate"        = $true;
+    "hg.autoInOutInterval" = 10;
 }
-"@
-
-# connect local --> remote
-Set-Location $local
-Set-Content .hg\hgrc @"
-[paths]
-default = ../remote
-"@
 
 # write file, bookmark, commit, push --> remote
+Set-Location $local
 Set-Content abcd.txt "Hello world"
 hg add abcd.txt
 hg book "hobbit"
@@ -69,7 +54,8 @@ Set-Location $local
 hg update 0 | out-null
 hg bookmark "lotr"
 
-Write-Host "`nExpect 1 incoming changeset for $local on bookmark 'lotr'" -ForegroundColor Green
-Write-Host "`nAfter pull frodo.txt should appear." -ForegroundColor Green
+Write-Host
+Write-Host "Expect 1 incoming changeset for $local on bookmark 'lotr'" -ForegroundColor Green
+Write-Host "After pull frodo.txt should appear." -ForegroundColor Green
 
 Pop-Location

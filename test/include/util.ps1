@@ -1,3 +1,4 @@
+$ErrorActionPreference = "Stop"
 
 function Empty-Directory([string] $path)
 {
@@ -22,4 +23,32 @@ function Init-Repo([string] $path)
 
     Pop-Location
     return $path
+}
+
+function Make-Local-Remote-Repos(
+    [Parameter()]
+    [ValidateNotNullOrEmpty()] 
+    [string] $root= $(throw "Make-Local-Remote-Repos() -- `$root is mandatory"))
+{
+    $sandbox = "$root\test\sandbox"
+    Make-Directory $sandbox
+    Empty-Directory $sandbox
+
+    $local = Init-Repo "$sandbox\local"
+    $remote = Init-Repo "$sandbox\remote"
+
+    # connect local --> remote
+    Set-Content "$local\.hg\hgrc" @"
+[paths]
+default = ../remote
+"@
+
+    return $local, $remote
+}
+
+function Write-VSCode-Settings([string] $workspace, $settings)
+{
+    Make-Directory "$workspace\.vscode"
+    $settingsJSON = $settings | ConvertTo-Json
+    Set-Content "$workspace\.vscode\settings.json" $settingsJSON
 }

@@ -11,13 +11,15 @@ Write-VSCode-Settings $local  @{
     "hg.autoInOutInterval" = 10;
 }
 
-# write file, bookmark, commit, push --> remote
+# write file, bookmark, commit, push --> remote, change, commit
 Set-Location $local
 Set-Content abcd.txt "Hello world"
 hg add abcd.txt
 hg book "hobbit"
 hg ci -m "Initial commit"
 hg push -B hobbit | out-null
+Set-Content abcd.txt "Greetings world"
+hg ci -m "Local commit #2"
 
 # in remote: update, activate bookmark, change file, commit
 Set-Location $remote
@@ -51,7 +53,9 @@ $hash = $matches[2]
 hg incoming -q -r $hash
 
 Write-Host
-Write-Host "Expect 2 incoming changesets for $local on bookmark 'hobbit'" -ForegroundColor Green
-Write-Host "After pull abcd.txt should contain 'Farewell world'" -ForegroundColor Green
+Write-Host "In $($local):"
+Write-Host "Expect bookmarks 'hobbit' and 'hobbit@default' (divergence)" -ForegroundColor Green
+Write-Host "Expect 2 incoming/1 outgoing changesets on bookmark 'hobbit'" -ForegroundColor Green
+Write-Host "Pull should succeed, but autoUpdate should complain 'not linear update'" -ForegroundColor Green
 
 Pop-Location
