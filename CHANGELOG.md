@@ -1,4 +1,26 @@
 
+**v1.1.3**
+=============================================
+
+## What's New
+  - [Bookmarks](https://www.mercurial-scm.org/wiki/Bookmarks) support
+    - You can now choose between named-branches or bookmarks.
+    - Set `"hg.useBookmarks": true` for bookmarks.
+    - New supporting commands: 
+      - Set Bookmark
+      - Remove Bookmark
+    - Also affects: update / push / pull / autoInOut
+    - See [#10](https://github.com/mrcrowl/vscode-hg/issues/10) for complete details.
+
+  - Auto update after pull: `hg.autoUpdate` [#15](https://github.com/mrcrowl/vscode-hg/issues/15)
+    - On by default
+
+  Shoutout to [ajansveld](https://github.com/ajansveld) for the ideas and help with testing these new features.
+
+## Changes to settings
+  - The new `hg.autoUpdate` setting is on by default.
+  - New setting `hg.pushPullScope` replaces `hg.pushPullBranch` (which is now deprecated) but remains for backwards compatibility. Using `hg.pushPullScope` affects both named-branches and bookmarks modes.
+
 **v1.0.7**
 =============================================
 

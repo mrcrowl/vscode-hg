@@ -64,22 +64,38 @@
 `hg.enabled { boolean }`
   * Enables Hg as a source control manager in VS Code.
 
-`hg.path { string | null }`
-  * Specifies an explicit `hg` file path to use.
-  * This should only be used if `hg` cannot be found automatically.
-  * The default behaviour is to search for `hg` in commonly-known install locations and on the PATH.
+`hg.useBookmarks { boolean }`
+  * Choose between [bookmarks](https://www.mercurial-scm.org/wiki/Bookmarks) vs. [named-branches](https://www.mercurial-scm.org/wiki/NamedBranches):  
+  `"false"` — named-branches mode (default)  
+  `"true"` — bookmarks mode  
+
+`hg.pushPullScope { all | current | default }`
+  * Specifies what to include in Push/Pull operations.
+  * Depends on the choice of `hg.useBookmarks`.
+  * For named-branches mode: &nbsp; (i.e. `hg.useBookmarks` = false)  
+  `"all"` &mdash; all branches / unrestricted (this is the default)  
+  `"current"` &mdash; only includes changesets for the current branch  
+  `"default"` &mdash; only includes changesets for the _default_ branch
+  * For bookmarks mode: &nbsp; (i.e. `hg.useBookmarks` = true)  
+  `"all"` &mdash; all bookmarks / unrestricted (this is the default)  
+  `"current"` &mdash; only includes changesets for the active bookmark  
+  `"default"` &mdash; only includes changesets for bookmarks on the _default_ branch
+
+`hg.pushPullBranch` _**DEPRECATED**_ `{ all | current | default }`
+  * Use `hg.pushPullScope` instead.
+  * Specifies which branch(es) should be included in Push/Pull operations. 
+  * Included only for backwards compatibility.
   
+`hg.autoUpdate { boolean }`
+  * Enables automatic update of working directory to branch/bookmark head after pulling (equivalent to `hg pull --update`)  
+  `"true"` &mdash; enabled  
+  `"false"` &mdash; disabled, manual update/merge required
+
 `hg.autoInOut { boolean }`
   * Enables automatic counting of incoming/outgoing changes.
   * When enabled, these show in the status bar.
   * Updated every 3 minutes, or whenever a commit/push/pull is done.
   * Note: when `hg.pushPullBranch` is set to `"current"` or `"default"` then only the respective branch will be included in the counts.
-
-`hg.pushPullBranch { all | current | default }`
-  * Specifies which branch(es) should be included in Push/Pull operations.  
-  `"all"` &mdash; all branches / unrestricted (this is the default)  
-  `"current"` &mdash; only includes changesets for the current branch  
-  `"default"` &mdash; only includes changesets for the _default_ branch
   
 `hg.autoRefresh { boolean }`
   * Enables automatic refreshing of Source Control tab and badge counter when files within the project change:  
@@ -96,6 +112,11 @@
   * Overrides the warning that normally occurs when a new branch is pushed:  
   `"true"` &mdash; new branches are pushed without warning (default).  
   `"false"` &mdash; shows a prompt when new branches are being pushed (e.g `hg push --new-branch`)
+
+`hg.path { string | null }`
+  * Specifies an explicit `hg` file path to use.
+  * This should only be used if `hg` cannot be found automatically.
+  * The default behaviour is to search for `hg` in commonly-known install locations and on the PATH.
   
 `hg.commandMode`
   * Controls the method used to communicate with `hg`.
@@ -107,4 +128,4 @@
 
 # Acknowledgements
 
-* [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy)
+[ajansveld](https://github.com/ajansveld), [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy)
