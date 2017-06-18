@@ -928,10 +928,10 @@ export class Repository {
 		//    hobbit                    02e814f73802
 		//    lotr                      f074f6108afc
 		const bookmarkResult = await this.run([...args, '--bookmarks']);
-		const bookmarkChangedPattern = /\s*(.*?)\s+(\S+)\s*$/g;
+		const bookmarkChangedPattern = /\s*(.*?)\s+(\S+)\s*$/;
 		const hashesOfBookmarkedRevisions: string[] = [];
 		for (const line of bookmarkResult.stdout.trim().split('\n')) {
-			const match = line && bookmarkChangedPattern.exec(line)
+			const match = line && line.match(bookmarkChangedPattern)
 			if (!match) {
 				continue;
 			}
