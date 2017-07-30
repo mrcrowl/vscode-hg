@@ -2,6 +2,12 @@
 
 ### Integrated Mercurial source control, using the new SCM API in VS Code 1.11+
 
+# Prerequisites
+
+> **Note**: This extension leverages your 
+> machine's Mercurial (hg) installation,  
+> so you need to [install Mercurial](https://www.mercurial-scm.org) first. 
+
 -----
 
 ![Hg](images/hg.png) 
@@ -30,11 +36,6 @@
  * Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/mrcrowl/vscode-hg/issues) (_yes_, I see the irony).
  * Feel free to submit [pull requests](https://github.com/mrcrowl/vscode-hg/pulls).
 
-# Getting Started
-
-> **Note**: This extension leverages your 
-> machine's Mercurial (hg) installation,  
-> so you need to [install Mercurial](https://www.mercurial-scm.org) first. 
 
 ## Switch to Hg
 
