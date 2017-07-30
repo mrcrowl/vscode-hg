@@ -944,7 +944,7 @@ export class Model implements Disposable {
 
 		const onHgChange = mapEvent(onRawHgChange, ({ filename }) => Uri.file(path.join(dotHgPath, filename)));
 		const onRelevantHgChange = filterEvent(onHgChange, uri => {
-			const isRelevant = !/[\\\/]\.hg[\\\/](\w?lock.*|.*\.log)$/.test(uri.fsPath);
+			const isRelevant = !/[\\\/]\.hg[\\\/](\w?lock.*|.*\.log(-\w+)?)$/.test(uri.fsPath);
 			return isRelevant;
 		});
 		const onHgrcChange = filterEvent(onHgChange, uri => {
