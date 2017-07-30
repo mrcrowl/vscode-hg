@@ -1255,8 +1255,8 @@ export class Repository {
 	}
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
-		//                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=commit message           |6=bookmarks (\t delimited)
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{sub('[\\n\\r]+',' ',desc)}:{join(bookmarks,'\\t')}\\n`;
+		//                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=bkmarks (\t delim)  |6=commit message           
+		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{join(bookmarks,'\\t')}:{sub('[\\n\\r]+',' ',desc)}\\n`;
 		const args = ['log', '-T', templateFormat]
 
 		if (revQuery) {
@@ -1283,7 +1283,9 @@ export class Repository {
 		const logEntries = result.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Commit | null => {
-				const [revision, hash, hgDate, author, branch, message, tabDelimBookmarks] = line.split(":", 7);
+				const parts = line.split(":");
+				const [revision, hash, hgDate, author, branch, tabDelimBookmarks] = parts;
+				const message = parts.slice(6).join(":");
 				const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
 				const [unixDateSeconds, _] = hgDate.split(' ').map(part => parseFloat(part));
 				return {
