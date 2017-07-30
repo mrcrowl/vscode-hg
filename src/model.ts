@@ -803,7 +803,7 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async push(path?: string, options?: PushOptions): Promise<void> {
+	async push(path: string |undefined, options: PushOptions): Promise<void> {
 		return await this.run(Operation.Push, async () => {
 			try {
 				this._lastPushPath = path;
@@ -1005,7 +1005,7 @@ export class Model implements Disposable {
 
 	@throttle
 	public async getBranchNamesWithMultipleHeads(branch?: string): Promise<string[]> {
-		const allHeads = await this.repository.getHeads(branch);
+		const allHeads = await this.repository.getHeads({ branch });
 		const multiHeadBranches: string[] = [];
 		const headsPerBranch = groupBy(allHeads, h => h.branch)
 		for (const branch in headsPerBranch) {

@@ -474,7 +474,7 @@ export class CommandCenter {
 		}
 	}
 
-	private async smartCommit(getCommitMessage: () => Promise<string>, opts?: CommitOptions): Promise<boolean> {
+	private async smartCommit(getCommitMessage: () => Promise<string | undefined>, opts?: CommitOptions): Promise<boolean> {
 		// validate no conflicts
 		const numConflictResources = this.model.conflictGroup.resources.length;
 		if (numConflictResources > 0) {

@@ -40,7 +40,7 @@ export interface PushOptions extends PullOptions {
 }
 
 export interface PullOptions extends SyncOptions {
-	autoUpdate: boolean;
+	autoUpdate: boolean; // run an update after the pull?
 }
 
 export interface SyncOptions {
