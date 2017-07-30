@@ -1,4 +1,11 @@
 
+**v1.1.5**
+=============================================
+
+## Bug fixes
+  - Changeset descriptions were being truncated at the first colon in "Hg: Log" and "Hg: View File History..." commands [#20](https://github.com/mrcrowl/vscode-hg/issues/20)
+  - Fixed conflict with blackbox logging extension [thanks @ajansveld] [#14](https://github.com/mrcrowl/vscode-hg/issues/14)
+
 **v1.1.3**
 =============================================
 
