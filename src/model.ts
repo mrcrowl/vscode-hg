@@ -6,7 +6,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands } from "vscode";
+import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation } from "vscode";
 import { Hg, Repository, Ref, Path, PushOptions, PullOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
@@ -803,7 +803,7 @@ export class Model implements Disposable {
 	}
 
 	@throttle
-	async push(path: string |undefined, options: PushOptions): Promise<void> {
+	async push(path: string | undefined, options: PushOptions): Promise<void> {
 		return await this.run(Operation.Push, async () => {
 			try {
 				this._lastPushPath = path;
@@ -887,7 +887,7 @@ export class Model implements Disposable {
 	}
 
 	private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
-		return window.withScmProgress(async () => {
+		return window.withProgress({ location: ProgressLocation.Scm }, async () => {
 			this._operations = this._operations.start(operation);
 			this._onRunOperation.fire(operation);
 
