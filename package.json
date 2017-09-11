@@ -316,15 +316,15 @@
         },
         {
           "command": "hg.init",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
+          "when": "config.hg.enabled && hgState == norepo"
         },
         {
           "command": "hg.openhgrc",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.refresh",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.openChange",
@@ -340,111 +340,111 @@
         },
         {
           "command": "hg.openChangeFromUri",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.openFileFromUri",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.commit",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.commitStaged",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.commitAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.undoRollback",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.update",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.branch",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.setBookmark",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.removeBookmark",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.pull",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.push",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.pushTo",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.mergeHeads",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.mergeWithLocal",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.showOutput",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.fileLog",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.log",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.logBranch",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.logDefault",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         },
         {
           "command": "hg.logRepo",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgState == idle"
         }
       ],
       "scm/title": [
