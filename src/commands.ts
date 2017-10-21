@@ -10,7 +10,7 @@ import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
 import * as os from 'os';
-import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, ResourceGroupProxy, isSCMResourceGroup } from "./resourceGroups";
+import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, isSCMResourceGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
