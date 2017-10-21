@@ -41,6 +41,10 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	}
 
 	const model = new Model(hg);
+	disposables.push(model);
+	const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', `${model.repositories.length}`);
+	model.onDidOpenRepository(onRepository, null, disposables);
+	model.onDidCloseRepository(onRepository, null, disposables);
 
 	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
@@ -58,7 +62,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 		contentProvider,
 		// autoInOut,
 		// mergeDecorator,
-		model
+		// model
 	);
 
 	if (/^[01]/.test(info.version)) {

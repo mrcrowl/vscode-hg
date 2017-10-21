@@ -404,6 +404,8 @@ export class Repository implements IDisposable {
         this.disposables.push(statusBar);
         statusBar.onDidChange(() => this._sourceControl.statusBarCommands = statusBar.commands, null, this.disposables);
         this._sourceControl.statusBarCommands = statusBar.commands;
+
+        this.status();
     }
 
     provideOriginalResource(uri: Uri): Uri | undefined {

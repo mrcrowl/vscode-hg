@@ -60,6 +60,8 @@ export class ResourceGroup {
 
 		_resourceGroup.resourceStates = _resources;
 		_resourceGroup.hideWhenEmpty = true;
+
+		this._resourceUriIndex = ResourceGroup.indexResources(_resources);
 	}
 
 	private static indexResources(resources: Resource[]): Map<string, Resource> {
@@ -208,9 +210,4 @@ function toMergeStatus(status: string): MergeStatus {
 	}
 }
 
-/** The type of argument that is returned for a command executed on a "scm/resourceGroup/context" */
-export interface ResourceGroupProxy {
-	_id: ResourceGroupId;
-}
-
-export const isResourceGroupProxy = (obj: any): obj is ResourceGroupProxy => (<ResourceGroupProxy>obj)._id !== undefined;
+export const isSCMResourceGroup = (obj: any): obj is SourceControlResourceGroup => (<SourceControlResourceGroup>obj).resourceStates !== undefined;

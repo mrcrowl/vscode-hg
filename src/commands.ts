@@ -10,7 +10,7 @@ import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
 import * as os from 'os';
-import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, ResourceGroupProxy, isResourceGroupProxy } from "./resourceGroups";
+import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, ResourceGroupProxy, isSCMResourceGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
@@ -244,15 +244,15 @@ export class CommandCenter {
 
 	@command('hg.openFiles')
 	openFiles(...resources: (Resource | ResourceGroupProxy)[]): Promise<void> {
-		// if (resources.length === 1) {
-		// 	// a resource group proxy object?
-		// 	const [resourceGroupProxy] = resources;
-		// 	if (isResourceGroupProxy(resourceGroupProxy)) {
-		// 		const groupId = resourceGroupProxy._id;
-		// 		const resourceGroup = this.model.getResourceGroupById(groupId);
-		// 		return this.openFile(...resourceGroup.resources);
-		// 	}
-		// }
+		if (resources.length === 1) {
+			// a resource group proxy object?
+			const [resourceGroupProxy] = resources;
+			if (isSCMResourceGroup(resourceGroupProxy)) {
+				const groupId = resourceGroupProxy.id
+				const resources = resourceGroupProxy.resourceStates as Resource[];
+				return this.openFile(...resources);
+			}
+		}
 
 		return this.openFile(...<Resource[]>resources);
 	}
@@ -355,6 +355,16 @@ export class CommandCenter {
 
 	@command('hg.forget')
 	async forget(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			const resource = this.getSCMResource();
+
+			if (!resource) {
+				return;
+			}
+
+			resourceStates = [resource];
+		}
+		
 		const scmResources = resourceStates
 			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
 

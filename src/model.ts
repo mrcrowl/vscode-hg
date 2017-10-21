@@ -291,8 +291,7 @@ export class Model implements Disposable {
 	// 	await this.status();
 	// }
 
-	getOpenRepositories(): Repository[]
-	{
+	getOpenRepositories(): Repository[] {
 		return this.openRepositories.map(r => r.repository);
 	}
 
@@ -344,11 +343,11 @@ export class Model implements Disposable {
 				return liveRepository;
 			}
 
-			if (hint === repository.mergeGroup ||
-				 hint === repository.workingDirectoryGroup || 
-				 hint === repository.stagingGroup || 
-				 hint === repository.untrackedGroup || 
-				 hint === repository.conflictGroup) {
+			if (hint === repository.mergeGroup.resourceGroup ||
+				hint === repository.workingDirectoryGroup.resourceGroup ||
+				hint === repository.stagingGroup.resourceGroup ||
+				hint === repository.untrackedGroup.resourceGroup ||
+				hint === repository.conflictGroup.resourceGroup) {
 				return liveRepository;
 			}
 		}

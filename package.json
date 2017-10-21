@@ -320,11 +320,11 @@
         },
         {
           "command": "hg.openhgrc",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.refresh",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.openChange",
@@ -340,321 +340,321 @@
         },
         {
           "command": "hg.openChangeFromUri",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.openFileFromUri",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commit",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitStaged",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitAll",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.undoRollback",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.update",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.branch",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.setBookmark",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.removeBookmark",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pull",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.push",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pushTo",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeHeads",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeWithLocal",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.showOutput",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.fileLog",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.log",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logBranch",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logDefault",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logRepo",
-          "when": "config.hg.enabled && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         }
       ],
       "scm/title": [
         {
           "command": "hg.init",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == norepo"
+          "when": "config.hg.enabled"
         },
         {
           "command": "hg.commit",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.refresh",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pull",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.push",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pushTo",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitStaged",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitAll",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.undoRollback",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.unstageAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.cleanAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeHeads",
           "group": "5_merge",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeWithLocal",
           "group": "5_merge",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.showOutput",
           "group": "6_output",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle"
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         }
       ],
       "scm/resourceGroup/context": [
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == staging",
           "group": "inline"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.addAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == untracked",
           "group": "1_modification"
         },
         {
           "command": "hg.addAll",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == untracked",
           "group": "inline"
         },
         {
           "command": "hg.openFiles",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0",
           "group": "navigation"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup != untracked",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup != untracked",
           "group": "navigation"
         }
       ],
       "scm/resourceState/context": [
         {
           "command": "hg.resolveAgain",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == conflict",
           "group": "inline"
         },
         {
           "command": "hg.markResolved",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == conflict",
           "group": "inline"
         },
         {
           "command": "hg.resolveAgain",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == conflict",
           "group": "0_resolution"
         },
         {
           "command": "hg.markResolved",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == conflict",
           "group": "0_resolution"
         },
         {
           "command": "hg.unresolve",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == merge",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == merge",
           "group": "1_modification"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == staging",
           "group": "navigation"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == staging",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == staging",
           "group": "inline"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "navigation"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.add",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == untracked",
           "group": "inline"
         },
         {
           "command": "hg.add",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == untracked",
           "group": "1_modification"
         },
         {
           "command": "hg.openFiles",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0",
           "group": "navigation"
         },
         {
           "command": "hg.forget",
-          "when": "config.hg.enabled && scmProvider == hg && hgState == idle && scmResourceGroup == working",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && scmResourceGroup == working",
           "group": "2_modification"
         }
       ],
