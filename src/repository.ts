@@ -20,15 +20,17 @@ const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 const localize = nls.loadMessageBundle();
 const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
 
+type BadgeOptions = 'off' | 'all' | 'tracked';
+
 function getIconUri(iconName: string, theme: string): Uri {
     return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
 }
 
 export interface LogEntriesOptions {
-	file?: Uri;
-	revQuery?: string;
-	branch?: string;
-	limit?: number;
+    file?: Uri;
+    revQuery?: string;
+    branch?: string;
+    limit?: number;
 }
 
 export enum RepositoryState {
@@ -258,6 +260,9 @@ export class Repository implements IDisposable {
     private _onDidChangeState = new EventEmitter<RepositoryState>();
     readonly onDidChangeState: Event<RepositoryState> = this._onDidChangeState.event;
 
+    private _onDidChangeStatus = new EventEmitter<void>();
+    readonly onDidChangeStatus: Event<void> = this._onDidChangeStatus.event;
+
     private _onDidChangeInOutState = new EventEmitter<void>();
     readonly onDidChangeInOutState: Event<void> = this._onDidChangeInOutState.event;
 
@@ -269,8 +274,8 @@ export class Repository implements IDisposable {
         return anyEvent<any>(this.onDidChangeState, this.onDidChangeResources, this.onDidChangeInOutState);
     }
 
-	private _onDidChangeOriginalResource = new EventEmitter<Uri>();
-	readonly onDidChangeOriginalResource: Event<Uri> = this._onDidChangeOriginalResource.event;
+    private _onDidChangeOriginalResource = new EventEmitter<Uri>();
+    readonly onDidChangeOriginalResource: Event<Uri> = this._onDidChangeOriginalResource.event;
 
     private _onRunOperation = new EventEmitter<Operation>();
     readonly onRunOperation: Event<Operation> = this._onRunOperation.event;
@@ -440,21 +445,21 @@ export class Repository implements IDisposable {
     }
 
     async whenIdleAndFocused(): Promise<void> {
-		while (true) {
-			if (!this.operations.isIdle()) {
-				await eventToPromise(this.onDidRunOperation);
-				continue;
-			}
+        while (true) {
+            if (!this.operations.isIdle()) {
+                await eventToPromise(this.onDidRunOperation);
+                continue;
+            }
 
-			if (!window.state.focused) {
-				const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
-				await eventToPromise(onDidFocusWindow);
-				continue;
-			}
+            if (!window.state.focused) {
+                const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
+                await eventToPromise(onDidFocusWindow);
+                continue;
+            }
 
-			return;
-		}
-	}
+            return;
+        }
+    }
 
     @debounce(1000)
     private onHgrcChange(uri: Uri): void {
@@ -466,23 +471,45 @@ export class Repository implements IDisposable {
 
 
     @throttle
-    async add(...resources: Resource[]): Promise<void> {
-        if (resources.length === 0) {
+    async add(...uris: Uri[]): Promise<void> {
+        let resources: Resource[];
+        if (uris.length === 0) {
             resources = this._groups.untracked.resources;
+        } else {
+            resources = this.mapResources(uris);
         }
         const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
         await this.run(Operation.Add, () => this.repository.add(relativePaths));
     }
 
     @throttle
-    async forget(...resources: Resource[]): Promise<void> {
+    async forget(...uris: Uri[]): Promise<void> {
+        const resources = this.mapResources(uris);
         const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
         await this.run(Operation.Forget, () => this.repository.forget(relativePaths));
     }
 
+    mapResources(resourceUris: Uri[]): Resource[] {
+        const resources: Resource[] = [];
+        const { conflict, merge, working, untracked, staging } = this._groups;
+        const groups = [working, staging, merge, untracked, conflict];
+        nextUri: for (const uri of resourceUris) {
+            for (const group of groups) {
+                const resource = group.getResource(uri);
+                if (resource) {
+                    resources.push(resource);
+                    break nextUri;
+                }
+            }
+        }
+        return resources;
+    }
+
     @throttle
-    async stage(...resources: Resource[]): Promise<void> {
+    async stage(...resourceUris: Uri[]): Promise<void> {
         await this.run(Operation.Stage, async () => {
+            let resources = this.mapResources(resourceUris);
+
             if (resources.length === 0) {
                 resources = this._groups.working.resources;
             }
@@ -521,31 +548,34 @@ export class Repository implements IDisposable {
 
     // file uri --> workspace-relative path	
     public mapFileUriToWorkspaceRelativePath(fileUri: Uri): string {
-        const relativePath = path.relative(this.workspaceRootPath, fileUri.fsPath).replace(/[\/\\]/g, path.sep);
+        const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/[\/\\]/g, path.sep);
         return relativePath;
     }
 
     // repo-relative path --> workspace-relative path	
     private mapRepositoryRelativePathToWorkspaceRelativePath(repoRelativeFilepath: string): string {
         const fsPath = path.join(this.repository.root, repoRelativeFilepath);
-        const relativePath = path.relative(this.workspaceRootPath, fsPath).replace(/[\/\\]/g, path.sep);
+        const relativePath = path.relative(this.repository.root, fsPath).replace(/[\/\\]/g, path.sep);
         return relativePath;
     }
 
     @throttle
-    async resolve(resources: Resource[], opts: { mark?: boolean } = {}): Promise<void> {
+    async resolve(uris: Uri[], opts: { mark?: boolean } = {}): Promise<void> {
+        const resources = this.mapResources(uris);
         const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
         await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths, opts));
     }
 
     @throttle
-    async unresolve(resources: Resource[]): Promise<void> {
+    async unresolve(uris: Uri[]): Promise<void> {
+        const resources = this.mapResources(uris);
         const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
         await this.run(Operation.Unresolve, () => this.repository.unresolve(relativePaths));
     }
 
     @throttle
-    async unstage(...resources: Resource[]): Promise<void> {
+    async unstage(...uris: Uri[]): Promise<void> {
+        let resources = this.mapResources(uris);
         if (resources.length === 0) {
             resources = this._groups.staging.resources;
         }
@@ -571,7 +601,7 @@ export class Repository implements IDisposable {
         });
     }
 
-    async cleanOrUpdate(...resources) {
+    async cleanOrUpdate(...resources: Uri[]) {
         const parents = await this.getParents();
         if (parents.length > 1) {
             return this.update(".", { discard: true });
@@ -581,7 +611,8 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    async clean(...resources: Resource[]): Promise<void> {
+    async clean(...uris: Uri[]): Promise<void> {
+        let resources = this.mapResources(uris);
         await this.run(Operation.Clean, async () => {
             const toRevert: string[] = [];
             const toForget: string[] = [];
@@ -649,7 +680,7 @@ export class Repository implements IDisposable {
                             const resource = this.findTrackedResourceByUri(uri);
                             return resource;
                         }).filter(r => !!r) as Resource[];
-                        this.stage(...previouslyCommmitedResourcesToStage);
+                        this.stage(...previouslyCommmitedResourcesToStage.map(r => r.resourceUri));
                     }
                 }
             }
@@ -921,8 +952,8 @@ export class Repository implements IDisposable {
 
     private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
         if (this.state !== RepositoryState.Idle) {
-			throw new Error('Repository not initialized');
-		}
+            throw new Error('Repository not initialized');
+        }
 
         return window.withProgress({ location: ProgressLocation.SourceControl }, async () => {
             this._operations = this._operations.start(operation);
@@ -933,7 +964,7 @@ export class Repository implements IDisposable {
                 const result = await runOperation();
 
                 if (!isReadOnly(operation)) {
-                    await this.refresh();
+                    await this.updateModelState();
                 }
 
                 return result;
@@ -958,15 +989,14 @@ export class Repository implements IDisposable {
     }
 
     private async unlocked<T>(): Promise<void> {
-		let attempt = 1;
-        
-        while (attempt <= 10 && await exists(path.join(this.repository.root, '.hg', 'index.lock')))
-        {
+        let attempt = 1;
+
+        while (attempt <= 10 && await exists(path.join(this.repository.root, '.hg', 'index.lock'))) {
             await timeout(Math.pow(attempt, 2) * 50);
             attempt++;
         }
     }
-    
+
     private async updateRepositoryPaths() {
         try {
             this._paths = await this.repository.getPaths();
@@ -1079,7 +1109,7 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    private async refresh(): Promise<void> {
+    private async updateModelState(): Promise<void> {
         this._repoStatus = await this.repository.getSummary();
 
         const useBookmarks = typedConfig.useBookmarks
@@ -1106,31 +1136,55 @@ export class Repository implements IDisposable {
         };
 
         this._groups = groupStatuses(groupInput);
-        this._onDidChangeResources.fire();
-    }
- 
-	private get hgrcPath(): string { return path.join(this.repository.root, ".hg", "hgrc"); }
-
-	async hgrcPathIfExists(): Promise<string | undefined> {
-		const filePath: string = this.hgrcPath;
-		const exists = await new Promise((c, e) => fs.exists(filePath, c));
-		if (exists) {
-			return filePath;
-		}
+        this._sourceControl.count = this.count;
+        this._onDidChangeStatus.fire();
     }
 
-	async createHgrc(): Promise<string> {
-		const filePath: string = this.hgrcPath;
-		const fd = fs.openSync(filePath, 'w');
-		fs.writeSync(fd, `[paths]
+    get count(): number {
+        const countBadge = workspace.getConfiguration('hg').get<BadgeOptions>('countBadge');
+
+        switch (countBadge) {
+            case 'off':
+                return 0;
+
+            case 'tracked':
+                return this.mergeGroup.resources.length
+                    + this.stagingGroup.resources.length
+                    + this.workingDirectoryGroup.resources.length
+                    + this.conflictGroup.resources.length;
+
+            case 'all':
+            default:
+                return this.mergeGroup.resources.length
+                    + this.stagingGroup.resources.length
+                    + this.workingDirectoryGroup.resources.length
+                    + this.conflictGroup.resources.length
+                    + this.untrackedGroup.resources.length
+        }
+    }
+
+    private get hgrcPath(): string { return path.join(this.repository.root, ".hg", "hgrc"); }
+
+    async hgrcPathIfExists(): Promise<string | undefined> {
+        const filePath: string = this.hgrcPath;
+        const exists = await new Promise((c, e) => fs.exists(filePath, c));
+        if (exists) {
+            return filePath;
+        }
+    }
+
+    async createHgrc(): Promise<string> {
+        const filePath: string = this.hgrcPath;
+        const fd = fs.openSync(filePath, 'w');
+        fs.writeSync(fd, `[paths]
 ; Uncomment line below to add a remote path:
 ; default = https://bitbucket.org/<yourname>/<repo>
 `, 0, 'utf-8');
-		fs.closeSync(fd);
-		return filePath;
-	}
-       
-	dispose(): void {
-		this.disposables = dispose(this.disposables);
-	}
+        fs.closeSync(fd);
+        return filePath;
+    }
+
+    dispose(): void {
+        this.disposables = dispose(this.disposables);
+    }
 }

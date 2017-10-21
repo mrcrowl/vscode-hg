@@ -150,7 +150,7 @@ export class HgFinder {
 				const getVersion = (path: string) => {
 					// make sure hg executes
 					this.logAttempt(path);
-					cp.exec('hg --version', (err, stdout: Buffer) => {
+					cp.exec('hg --version', { encoding:"utf-8" }, (err, stdout: Buffer) => {
 						if (err) {
 							return e('hg not found');
 						}

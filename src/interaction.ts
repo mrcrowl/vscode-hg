@@ -2,11 +2,12 @@ import * as nls from "vscode-nls";
 import * as path from "path";
 import { window, QuickPickItem, workspace, Uri } from "vscode";
 import { ChildProcess } from "child_process";
-import { Resource, Model, State, Status, LogEntriesOptions } from "./model";
+import { Model } from "./model";
 import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
 import { humanise } from "./humanise";
 import * as os from "os";
 import typedConfig from "./config";
+import { Repository, Resource, Status, LogEntriesOptions } from "./repository";
 const localize = nls.loadMessageBundle();
 
 const USE_CHANGED = "Use changed version";
@@ -40,8 +41,8 @@ export namespace interaction {
         return window.showInformationMessage(localize('no changes', "There are no changes to commit."));
     }
 
-    export async function checkThenWarnOutstandingMerge(model: Model, scenario: WarnScenario): Promise<boolean> {
-        const { repoStatus } = model;
+    export async function checkThenWarnOutstandingMerge(repository: Repository, scenario: WarnScenario): Promise<boolean> {
+        const { repoStatus } = repository;
         if (repoStatus && repoStatus.isMerge) {
             window.showErrorMessage(localize('outstanding merge', "There is an outstanding merge in your working directory."));
             return true;
@@ -49,8 +50,8 @@ export namespace interaction {
         return false;
     }
 
-    export async function checkThenWarnUnclean(model: Model, scenario: WarnScenario): Promise<boolean> {
-        if (!model.isClean) {
+    export async function checkThenWarnUnclean(repository: Repository, scenario: WarnScenario): Promise<boolean> {
+        if (!repository.isClean) {
             let nextStep: string = "";
             if (scenario === WarnScenario.Merge) {
                 const discardAllChanges = localize('command.cleanAll', "Discard All Changes");

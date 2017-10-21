@@ -1,9 +1,9 @@
-import { Resource, MergeStatus, Status } from "./model";
 import { HgError, IFileStatus, IRepoStatus } from "./hg";
 import { Uri, SourceControlResourceGroup, SourceControl } from "vscode";
 import * as path from "path";
 import * as nls from "vscode-nls";
 import * as fs from "fs";
+import { Resource, Status, MergeStatus } from "./repository";
 
 const localize = nls.loadMessageBundle();
 
@@ -42,7 +42,7 @@ export function createEmptyStatusGroups(scm: SourceControl): [IStatusGroups, Sou
 }
 
 export class ResourceGroup {
-
+	get resourceGroup(): SourceControlResourceGroup { return this._resourceGroup; }
 	get id(): ResourceGroupId { return this._resourceGroup.id as ResourceGroupId; }
 	get contextKey(): string { return this._resourceGroup.id; }
 	get label(): string { return this._resourceGroup.label; }
@@ -52,24 +52,25 @@ export class ResourceGroup {
 		this._resources = [];
 	}
 
-	private _resourceUriIndex: Map<string, boolean>;
+	private _resourceUriIndex: Map<string, Resource>;
 
 	constructor(
 		private readonly _resourceGroup: SourceControlResourceGroup,
 		private _resources: Resource[]) {
 
+		_resourceGroup.resourceStates = _resources;
 		_resourceGroup.hideWhenEmpty = true;
 	}
 
-	private static indexResources(resources: Resource[]): Map<string, boolean> {
-		const index = new Map<string, boolean>();
-		resources.forEach(r => index.set(r.resourceUri.toString(), true));
+	private static indexResources(resources: Resource[]): Map<string, Resource> {
+		const index = new Map<string, Resource>();
+		resources.forEach(r => index.set(r.resourceUri.toString(), r));
 		return index;
 	}
 
 	getResource(uri: Uri): Resource | undefined {
 		const uriString = uri.toString();
-		return this.resources.filter(r => r.resourceUri.toString() === uriString)[0];
+		return this._resourceUriIndex.get(uriString);
 	}
 
 	includes(resource: Resource): boolean {
@@ -191,11 +192,11 @@ export function groupStatuses({
 	}
 
 	return {
-		conflict: new ConflictGroup(conflictResources),
-		merge: new MergeGroup(mergeResources),
-		staging: new StagingGroup(stagingResources),
-		working: new WorkingDirectoryGroup(workingDirectoryResources),
-		untracked: new UntrackedGroup(untrackedResources)
+		conflict: new ConflictGroup(conflict.resourceGroup, conflictResources),
+		merge: new MergeGroup(merge.resourceGroup, mergeResources),
+		staging: new StagingGroup(staging.resourceGroup, stagingResources),
+		working: new WorkingDirectoryGroup(working.resourceGroup, workingDirectoryResources),
+		untracked: new UntrackedGroup(untracked.resourceGroup, untrackedResources)
 	}
 }
 

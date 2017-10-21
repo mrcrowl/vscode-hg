@@ -6,7 +6,8 @@
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
-import { Model, Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions } from "./model";
+import { Model } from "./model";
+import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
 import * as os from 'os';
 import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, ResourceGroupProxy, isResourceGroupProxy } from "./resourceGroups";
@@ -24,18 +25,23 @@ interface Command {
 	commandId: string;
 	key: string;
 	method: Function;
-	skipModelCheck: boolean;
+	options: CommandOptions;
+}
+
+interface CommandOptions {
+	repository?: boolean;
+	diff?: boolean;
 }
 
 const Commands: Command[] = [];
 
-function command(commandId: string, skipModelCheck = false): Function {
+function command(commandId: string, options: CommandOptions = {}): Function {
 	return (target: any, key: string, descriptor: any) => {
 		if (!(typeof descriptor.value === 'function')) {
 			throw new Error('not supported');
 		}
 
-		Commands.push({ commandId, key, method: descriptor.value, skipModelCheck });
+		Commands.push({ commandId, key, method: descriptor.value, options });
 	};
 }
 
@@ -53,16 +59,20 @@ export class CommandCenter {
 			this.model = model;
 		}
 
-		this.disposables = Commands
-			.map(({ commandId, key, method, skipModelCheck }) => {
-				const command = this.createCommand(commandId, key, method, skipModelCheck);
+		this.disposables = Commands.map(({ commandId, key, method, options }) => {
+			const command = this.createCommand(commandId, key, method, options);
+
+			if (options.diff) {
+				return commands.registerDiffInformationCommand(commandId, command);
+			} else {
 				return commands.registerCommand(commandId, command);
-			});
+			}
+		});
 	}
 
-	@command('hg.refresh')
-	async refresh(): Promise<void> {
-		await this.model.status();
+	@command('hg.refresh', { repository: true })
+	async refresh(repository: Repository): Promise<void> {
+		await repository.status();
 	}
 
 	@command('hg.openResource')
@@ -156,7 +166,7 @@ export class CommandCenter {
 		return '';
 	}
 
-	@command('hg.clone', true)
+	@command('hg.clone', { repository: true })
 	async clone(): Promise<void> {
 		const url = await interaction.inputRepoUrl();
 		if (!url) {
@@ -185,20 +195,49 @@ export class CommandCenter {
 
 	@command('hg.init')
 	async init(): Promise<void> {
-		await this.model.init();
+		const homeUri = Uri.file(os.homedir());
+		const defaultUri = workspace.workspaceFolders && workspace.workspaceFolders.length > 0
+			? Uri.file(workspace.workspaceFolders[0].uri.fsPath)
+			: homeUri;
 
-	}
-	@command('hg.openhgrc')
-	async openhgrc(): Promise<void> {
-		let hgrcPath = await this.model.hgrcPathIfExists();
-		if (!hgrcPath) {
-			hgrcPath = await this.model.createHgrc();
+		const result = await window.showOpenDialog({
+			canSelectFiles: false,
+			canSelectFolders: true,
+			canSelectMany: false,
+			defaultUri,
+			openLabel: localize('init repo', "Initialize Repository")
+		});
+
+		if (!result || result.length === 0) {
+			return;
 		}
 
-		const hgrcUri = new vscode.Uri().with({
-			scheme: 'file',
-			path: hgrcPath
-		})
+		const uri = result[0];
+
+		if (homeUri.toString().startsWith(uri.toString())) {
+			const yes = localize('create repo', "Initialize Repository");
+			const answer = await window.showWarningMessage(localize('are you sure', "This will create an Hg repository in '{0}'. Are you sure you want to continue?", uri.fsPath), yes);
+
+			if (answer !== yes) {
+				return;
+			}
+		}
+
+		const path = uri.fsPath;
+		await this.hg.init(path);
+		await this.model.tryOpenRepository(path);
+
+		// await this.model.init();
+
+	}
+	@command('hg.openhgrc', { repository: true })
+	async openhgrc(repository: Repository): Promise<void> {
+		let hgrcPath = await repository.hgrcPathIfExists();
+		if (!hgrcPath) {
+			hgrcPath = await repository.createHgrc();
+		}
+
+		const hgrcUri = Uri.file(hgrcPath)
 		commands.executeCommand("vscode.open", hgrcUri);
 	}
 
@@ -285,9 +324,9 @@ export class CommandCenter {
 		return await this._openResource(resource);
 	}
 
-	@command('hg.addAll')
-	async addAll(): Promise<void> {
-		return await this.model.add();
+	@command('hg.addAll', { repository: true })
+	async addAll(repository: Repository): Promise<void> {
+		return await repository.add();
 	}
 
 	@command('hg.add')
@@ -302,29 +341,31 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates
+		const scmResources = resourceStates
 			.filter(s => s instanceof Resource && s.resourceGroup instanceof UntrackedGroup) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.add(...resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.add(...uris));
 	}
 
 	@command('hg.forget')
 	async forget(...resourceStates: SourceControlResourceState[]): Promise<void> {
-		const resources = resourceStates
+		const scmResources = resourceStates
 			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.forget(...resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.forget(...uris));
 	}
 
-	@command('hg.stage')
+	@command('hg.stage') // run by repo
 	async stage(...resourceStates: SourceControlResourceState[]): Promise<void> {
 		if (resourceStates.length === 0) {
 			const resource = this.getSCMResource();
@@ -336,19 +377,20 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates
+		const scmResources = resourceStates
 			.filter(s => s instanceof Resource && (s.resourceGroup instanceof WorkingDirectoryGroup || s.resourceGroup instanceof MergeGroup)) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.stage(...resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.stage(...uris));
 	}
 
-	@command('hg.stageAll')
-	async stageAll(): Promise<void> {
-		return await this.model.stage();
+	@command('hg.stageAll', { repository: true })
+	async stageAll(repository: Repository): Promise<void> {
+		await repository.stage();
 	}
 
 	@command('hg.markResolved')
@@ -357,16 +399,17 @@ export class CommandCenter {
 			return;
 		}
 
-		const resources = resourceStates.filter(s =>
+		const scmResources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.resourceGroup instanceof ConflictGroup &&
 			s.mergeStatus === MergeStatus.UNRESOLVED) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.resolve(resources, { mark: true });
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.resolve(resources, { mark: true }));
 	}
 
 	@command('hg.resolveAgain')
@@ -375,16 +418,17 @@ export class CommandCenter {
 			return;
 		}
 
-		const resources = resourceStates.filter(s =>
+		const scmResources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.resourceGroup instanceof ConflictGroup &&
 			s.mergeStatus === MergeStatus.UNRESOLVED) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.resolve(resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.resolve(resources));
 	}
 
 	@command('hg.unresolve')
@@ -393,16 +437,16 @@ export class CommandCenter {
 			return;
 		}
 
-		const resources = resourceStates.filter(s =>
+		const scmResources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.resourceGroup instanceof MergeGroup &&
 			s.mergeStatus !== MergeStatus.UNRESOLVED) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
-
-		return await this.model.unresolve(resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.unresolve(resources));
 	}
 
 	@command('hg.unstage')
@@ -417,20 +461,21 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates.filter(s =>
+		const scmResources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.resourceGroup instanceof StagingGroup) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		return await this.model.unstage(...resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.unstage(...uris));
 	}
 
-	@command('hg.unstageAll')
-	async unstageAll(): Promise<void> {
-		return await this.model.unstage();
+	@command('hg.unstageAll', { repository: true })
+	async unstageAll(repository: Repository): Promise<void> {
+		return await repository.unstage();
 	}
 
 	@command('hg.clean')
@@ -445,15 +490,15 @@ export class CommandCenter {
 			resourceStates = [resource];
 		}
 
-		const resources = resourceStates.filter(s =>
+		const scmResources = resourceStates.filter(s =>
 			s instanceof Resource &&
 			s.isDirtyStatus) as Resource[];
 
-		if (!resources.length) {
+		if (!scmResources.length) {
 			return;
 		}
 
-		const [discardResources, addedResources] = partition(resources, s => s.status !== Status.ADDED);
+		const [discardResources, addedResources] = partition(scmResources, s => s.status !== Status.ADDED);
 		if (discardResources.length > 0) {
 			const confirmFilenames = discardResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
 			const addedFilenames = addedResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
@@ -463,34 +508,36 @@ export class CommandCenter {
 			}
 		}
 
-		await this.model.cleanOrUpdate(...resources);
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.cleanOrUpdate(...uris));
+
 	}
 
-	@command('hg.cleanAll')
-	async cleanAll(): Promise<void> {
+	@command('hg.cleanAll', { repository: true })
+	async cleanAll(repository: Repository): Promise<void> {
 		if (await interaction.confirmDiscardAllChanges()) {
-			const resources = this.model.workingDirectoryGroup.resources;
-			await this.model.cleanOrUpdate(...resources);
+			const resources = repository.workingDirectoryGroup.resources;
+			await repository.cleanOrUpdate(...resources.map(r => r.resourceUri));
 		}
 	}
 
-	private async smartCommit(getCommitMessage: () => Promise<string | undefined>, opts?: CommitOptions): Promise<boolean> {
+	private async smartCommit(repository: Repository, getCommitMessage: () => Promise<string | undefined>, opts?: CommitOptions): Promise<boolean> {
 		// validate no conflicts
-		const numConflictResources = this.model.conflictGroup.resources.length;
+		const numConflictResources = repository.conflictGroup.resources.length;
 		if (numConflictResources > 0) {
 			interaction.warnResolveConflicts();
 			return false;
 		}
 
-		const isMergeCommit = this.model.repoStatus && this.model.repoStatus.isMerge;
+		const isMergeCommit = repository.repoStatus && repository.repoStatus.isMerge;
 		if (isMergeCommit) {
 			// merge-commit
 			opts = { scope: CommitScope.ALL };
 		}
 		else {
 			// validate non-merge commit
-			const numWorkingResources = this.model.workingDirectoryGroup.resources.length;
-			const numStagingResources = this.model.stagingGroup.resources.length;
+			const numWorkingResources = repository.workingDirectoryGroup.resources.length;
+			const numStagingResources = repository.stagingGroup.resources.length;
 			if (!opts || opts.scope === undefined) {
 				if (numStagingResources > 0) {
 					opts = {
@@ -505,9 +552,9 @@ export class CommandCenter {
 			}
 
 			if (opts.scope === CommitScope.CHANGES) {
-				const missingResources = this.model.workingDirectoryGroup.resources.filter(r => r.status === Status.MISSING);
+				const missingResources = repository.workingDirectoryGroup.resources.filter(r => r.status === Status.MISSING);
 				if (missingResources.length > 0) {
-					const missingFilenames = missingResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+					const missingFilenames = missingResources.map(r => repository.mapResourceToWorkspaceRelativePath(r));
 					const deleteConfirmed = await interaction.confirmDeleteMissingFilesForCommit(missingFilenames);
 					if (!deleteConfirmed) {
 						return false;
@@ -532,54 +579,55 @@ export class CommandCenter {
 			return false;
 		}
 
-		await this.model.commit(message, opts);
+		await repository.commit(message, opts);
 
 		return true;
 	}
 
-	private async commitWithAnyInput(opts?: CommitOptions): Promise<void> {
+
+	private async commitWithAnyInput(repository: Repository, opts?: CommitOptions): Promise<void> {
 		const message = scm.inputBox.value;
-		const didCommit = await this.smartCommit(() => interaction.inputCommitMessage(message), opts);
+		const didCommit = await this.smartCommit(repository, () => interaction.inputCommitMessage(message), opts);
 
 		if (message && didCommit) {
 			scm.inputBox.value = "";
 		}
 	}
 
-	@command('hg.commit')
-	async commit(): Promise<void> {
-		await this.commitWithAnyInput();
+	@command('hg.commit', { repository: true })
+	async commit(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository);
 	}
 
-	@command('hg.commitWithInput')
-	async commitWithInput(): Promise<void> {
-		const didCommit = await this.smartCommit(async () => scm.inputBox.value);
+	@command('hg.commitWithInput', { repository: true })
+	async commitWithInput(repository: Repository): Promise<void> {
+		const didCommit = await this.smartCommit(repository, async () => repository.sourceControl.inputBox.value);
 
 		if (didCommit) {
 			scm.inputBox.value = "";
 		}
 	}
 
-	@command('hg.commitStaged')
-	async commitStaged(): Promise<void> {
-		await this.commitWithAnyInput({ scope: CommitScope.STAGED_CHANGES });
+	@command('hg.commitStaged', { repository: true })
+	async commitStaged(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository, { scope: CommitScope.STAGED_CHANGES });
 	}
 
-	@command('hg.commitAll')
-	async commitAll(): Promise<void> {
-		await this.commitWithAnyInput({ scope: CommitScope.ALL_WITH_ADD_REMOVE });
+	@command('hg.commitAll', { repository: true })
+	async commitAll(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository, { scope: CommitScope.ALL_WITH_ADD_REMOVE });
 	}
 
 	private focusScm() {
 		commands.executeCommand("workbench.view.scm");
 	}
 
-	@command('hg.undoRollback')
-	async undoRollback(): Promise<void> {
+	@command('hg.undoRollback', { repository: true })
+	async undoRollback(repository: Repository): Promise<void> {
 		try {
-			const rollback = await this.model.rollback(true); // dry-run
+			const rollback = await repository.rollback(true); // dry-run
 			if (await interaction.confirmRollback(rollback)) {
-				await this.model.rollback(false, rollback); // real-thing
+				await repository.rollback(false, rollback); // real-thing
 
 				if (rollback.kind === "commit" && rollback.commitDetails) {
 					scm.inputBox.value = rollback.commitDetails.message;
@@ -595,25 +643,25 @@ export class CommandCenter {
 	}
 
 
-	@command('hg.update')
-	async update(): Promise<void> {
+	@command('hg.update', { repository: true })
+	async update(repository: Repository): Promise<void> {
 		let refs: Ref[];
 		let unclean = false;
 
 		if (typedConfig.useBookmarks) {
 			// bookmarks
-			const bookmarkRefs = await this.model.getRefs() as Bookmark[]
-			const { isClean, repoStatus } = this.model;
+			const bookmarkRefs = await repository.getRefs() as Bookmark[]
+			const { isClean, repoStatus } = repository;
 			unclean = !isClean || (repoStatus && repoStatus.isMerge) || false
 			if (unclean) {
 
 				// unclean: only allow bookmarks already on the parents
-				const parents = await this.model.getParents();
+				const parents = await repository.getParents();
 				refs = bookmarkRefs.filter(b => parents.some(p => p.hash.startsWith(b.commit!)));
 				if (refs.length === 0) {
 					// no current bookmarks, so fall back to warnings
-					await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update)
-						|| await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)
+					await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Update)
+						|| await interaction.checkThenWarnUnclean(repository, WarnScenario.Update)
 					return;
 				}
 			}
@@ -623,12 +671,12 @@ export class CommandCenter {
 			}
 		} else {
 			// branches/tags
-			if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Update) ||
-				await interaction.checkThenWarnUnclean(this.model, WarnScenario.Update)) {
+			if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Update) ||
+				await interaction.checkThenWarnUnclean(repository, WarnScenario.Update)) {
 				this.focusScm();
 				return;
 			}
-			refs = await this.model.getRefs();
+			refs = await repository.getRefs();
 		}
 
 		const choice = await interaction.pickUpdateRevision(refs, unclean);
@@ -638,8 +686,8 @@ export class CommandCenter {
 		}
 	}
 
-	@command('hg.branch')
-	async branch(): Promise<void> {
+	@command('hg.branch', { repository: true })
+	async branch(repository: Repository): Promise<void> {
 		const result = await interaction.inputBranchName();
 		if (!result) {
 			return;
@@ -647,24 +695,24 @@ export class CommandCenter {
 
 		const name = result.replace(/^\.|\/\.|\.\.|~|\^|:|\/$|\.lock$|\.lock\/|\\|\*|\s|^\s*$|\.$/g, '-');
 		try {
-			await this.model.branch(name);
+			await repository.branch(name);
 		}
 		catch (e) {
 			if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.BranchAlreadyExists) {
 				const action = await interaction.warnBranchAlreadyExists(name);
 				if (action === BranchExistsAction.Reopen) {
-					await this.model.branch(name, { allowBranchReuse: true });
+					await repository.branch(name, { allowBranchReuse: true });
 				}
 				else if (action === BranchExistsAction.UpdateTo) {
-					await this.model.update(name);
+					await repository.update(name);
 				}
 			}
 		}
 	}
 
-	@command('hg.pull')
-	async pull(): Promise<void> {
-		const paths = await this.model.getPaths();
+	@command('hg.pull', { repository: true })
+	async pull(repository: Repository): Promise<void> {
+		const paths = await repository.getPaths();
 
 		if (paths.length === 0) {
 			const action = await interaction.warnNoPaths(false);
@@ -674,41 +722,41 @@ export class CommandCenter {
 			return;
 		}
 
-		const pullOptions = await this.model.createPullOptions();
-		await this.model.pull(pullOptions);
+		const pullOptions = await repository.createPullOptions();
+		await repository.pull(pullOptions);
 	}
-
-	@command('hg.mergeWithLocal')
-	async mergeWithLocal() {
-		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Merge) ||
-			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Merge)) {
+	
+	@command('hg.mergeWithLocal', { repository: true })
+	async mergeWithLocal(repository: Repository) {
+		if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Merge) ||
+			await interaction.checkThenWarnUnclean(repository, WarnScenario.Merge)) {
 			this.focusScm();
 			return;
 		}
 
-		const otherHeads = await this.model.getHeads({ excludeSelf: true });
+		const otherHeads = await repository.getHeads({ excludeSelf: true });
 		const placeholder = localize('choose head', "Choose head to merge into working directory:");
 		const head = await interaction.pickHead(otherHeads, placeholder);
 		if (head) {
-			return await this.doMerge(head.hash, head.branch);
+			return await this.doMerge(repository, head.hash, head.branch);
 		}
 	}
 
-	@command('hg.mergeHeads')
-	async mergeHeads() {
-		if (await interaction.checkThenWarnOutstandingMerge(this.model, WarnScenario.Merge) ||
-			await interaction.checkThenWarnUnclean(this.model, WarnScenario.Merge)) {
+	@command('hg.mergeHeads', { repository: true })
+	async mergeHeads(repository: Repository) {
+		if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Merge) ||
+			await interaction.checkThenWarnUnclean(repository, WarnScenario.Merge)) {
 			this.focusScm();
 			return;
 		}
 
 		if (!typedConfig.useBookmarks) {
-			const { currentBranch } = this.model;
+			const { currentBranch } = repository;
 			if (!currentBranch) {
 				return;
 			}
 
-			const otherBranchHeads = await this.model.getHeads({ branch: currentBranch.name, excludeSelf: true });
+			const otherBranchHeads = await repository.getHeads({ branch: currentBranch.name, excludeSelf: true });
 			if (otherBranchHeads.length === 0) {
 				// 1 head
 				interaction.warnMergeOnlyOneHead(currentBranch.name);
@@ -717,19 +765,19 @@ export class CommandCenter {
 			else if (otherBranchHeads.length === 1) {
 				// 2 heads
 				const [otherHead] = otherBranchHeads;
-				return await this.doMerge(otherHead.hash);
+				return await this.doMerge(repository, otherHead.hash);
 			}
 			else {
 				// 3+ heads
 				const placeHolder = localize('choose branch head', "Branch {0} has {1} heads. Choose which to merge:", currentBranch.name, otherBranchHeads.length + 1);
 				const head = await interaction.pickHead(otherBranchHeads, placeHolder);
 				if (head) {
-					return await this.doMerge(head.hash);
+					return await this.doMerge(repository, head.hash);
 				}
 			}
 		}
 		else {
-			const otherHeads = await this.model.getHeads({ excludeSelf: true });
+			const otherHeads = await repository.getHeads({ excludeSelf: true });
 			if (otherHeads.length === 0) {
 				// 1 head
 				interaction.warnMergeOnlyOneHead();
@@ -740,23 +788,23 @@ export class CommandCenter {
 				const placeHolder = localize('choose head', "Choose head to merge with:");
 				const head = await interaction.pickHead(otherHeads, placeHolder);
 				if (head) {
-					return await this.doMerge(head.hash);
+					return await this.doMerge(repository, head.hash);
 				}
 			}
 		}
 	}
 
-	private async doMerge(otherRevision: string, otherBranchName?: string) {
+	private async doMerge(repository: Repository, otherRevision: string, otherBranchName?: string) {
 		try {
-			const result = await this.model.merge(otherRevision);
-			const { currentBranch } = this.model;
+			const result = await repository.merge(otherRevision);
+			const { currentBranch } = repository;
 
 			if (result.unresolvedCount > 0) {
 				interaction.warnUnresolvedFiles(result.unresolvedCount);
 			}
 			else if (currentBranch) {
 				const defaultMergeMessage = await humanise.describeMerge(currentBranch.name!, otherBranchName);
-				const didCommit = await this.smartCommit(async () => await interaction.inputCommitMessage("", defaultMergeMessage));
+				const didCommit = await this.smartCommit(repository, async () => await interaction.inputCommitMessage("", defaultMergeMessage));
 
 				if (didCommit) {
 					scm.inputBox.value = "";
@@ -773,10 +821,10 @@ export class CommandCenter {
 		}
 	}
 
-	private async validateBookmarkPush(): Promise<boolean> {
+	private async validateBookmarkPush(repository: Repository): Promise<boolean> {
 		const pushPullScope = typedConfig.pushPullScope;
 		if (pushPullScope === "current") {
-			if (this.model.activeBookmark) {
+			if (repository.activeBookmark) {
 				return true;
 			}
 			interaction.warnNoActiveBookmark();
@@ -784,7 +832,7 @@ export class CommandCenter {
 		}
 
 		// 'all' or 'default'		
-		const nonDistinctHeadHashes = await this.model.getHashesOfNonDistinctBookmarkHeads(pushPullScope === 'default');
+		const nonDistinctHeadHashes = await repository.getHashesOfNonDistinctBookmarkHeads(pushPullScope === 'default');
 		if (nonDistinctHeadHashes.length > 0) {
 			interaction.warnNonDistinctHeads(nonDistinctHeadHashes);
 			return false;
@@ -792,9 +840,9 @@ export class CommandCenter {
 		return true
 	}
 
-	private async validateBranchPush(): Promise<boolean> {
-		const branch = this.model.pushPullBranchName;
-		const multiHeadBranchNames = await this.model.getBranchNamesWithMultipleHeads(branch);
+	private async validateBranchPush(repository: Repository): Promise<boolean> {
+		const branch = repository.pushPullBranchName;
+		const multiHeadBranchNames = await repository.getBranchNamesWithMultipleHeads(branch);
 		if (multiHeadBranchNames.length === 1) {
 			const [branch] = multiHeadBranchNames;
 			interaction.warnBranchMultipleHeads(branch);
@@ -808,24 +856,24 @@ export class CommandCenter {
 		return true;
 	}
 
-	@command('hg.push')
-	async push(): Promise<void> {
-		const paths = await this.model.getPaths();
+	@command('hg.push', { repository: true })
+	async push(repository: Repository): Promise<void> {
+		const paths = await repository.getPaths();
 
 		// check for branches with 2+ heads		
 		const validated = typedConfig.useBookmarks ?
-			await this.validateBookmarkPush() :
-			await this.validateBranchPush();
+			await this.validateBookmarkPush(repository) :
+			await this.validateBranchPush(repository);
 
 		if (validated) {
-			const pushOptions = await this.model.createPushOptions();
-			await this.model.push(undefined, pushOptions);
+			const pushOptions = await repository.createPushOptions();
+			await repository.push(undefined, pushOptions);
 		}
 	}
 
-	@command('hg.pushTo')
-	async pushTo(): Promise<void> {
-		const paths = await this.model.getPaths();
+	@command('hg.pushTo', { repository: true })
+	async pushTo(repository: Repository): Promise<void> {
+		const paths = await repository.getPaths();
 
 		if (paths.length === 0) {
 			const action = await interaction.warnNoPaths(true);
@@ -837,45 +885,45 @@ export class CommandCenter {
 
 		const chosenPath = await interaction.pickRemotePath(paths);
 		if (chosenPath) {
-			const pushOptions = await this.model.createPushOptions();
-			this.model.push(chosenPath, pushOptions);
+			const pushOptions = await repository.createPushOptions();
+			repository.push(chosenPath, pushOptions);
 		}
 	}
 
-	@command('hg.showOutput')
+	@command('hg.showOutput', { repository: true })
 	showOutput(): void {
 		this.outputChannel.show();
 	}
 
-	createLogMenuAPI(): LogMenuAPI {
+	createLogMenuAPI(repository: Repository): LogMenuAPI {
 		return {
-			getRepoName: () => this.model.repoName,
-			getBranchName: () => this.model.currentBranch && this.model.currentBranch.name,
-			getCommitDetails: (revision: string) => this.model.getCommitDetails(revision),
-			getLogEntries: (options: LogEntriesOptions) => this.model.getLogEntries(options),
+			getRepoName: () => repository.repoName,
+			getBranchName: () => repository.currentBranch && repository.currentBranch.name,
+			getCommitDetails: (revision: string) => repository.getCommitDetails(revision),
+			getLogEntries: (options: LogEntriesOptions) => repository.getLogEntries(options),
 			diffToLocal: (file: IFileStatus, commit: CommitDetails) => { },
-			diffToParent: (file: IFileStatus, commit: CommitDetails) => this.diffFile(commit.parent1, commit, file)
+			diffToParent: (file: IFileStatus, commit: CommitDetails) => this.diffFile(repository, commit.parent1, commit, file)
 		}
 	}
 
-	@command('hg.log')
-	async log() {
-		interaction.presentLogSourcesMenu(this.createLogMenuAPI(), typedConfig.useBookmarks);
+	@command('hg.log', { repository: true })
+	async log(repository: Repository) {
+		interaction.presentLogSourcesMenu(this.createLogMenuAPI(repository), typedConfig.useBookmarks);
 	}
 
-	@command('hg.logBranch')
-	async logBranch() {
-		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, typedConfig.useBookmarks, this.createLogMenuAPI());
+	@command('hg.logBranch', { repository: true })
+	async logBranch(repository: Repository) {
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
-	@command('hg.logDefault')
-	async logDefault() {
-		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, typedConfig.useBookmarks, this.createLogMenuAPI());
+	@command('hg.logDefault', { repository: true })
+	async logDefault(repository: Repository) {
+		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
-	@command('hg.logRepo')
-	async logRepo() {
-		interaction.presentLogMenu(CommitSources.Repo, {}, typedConfig.useBookmarks, this.createLogMenuAPI());
+	@command('hg.logRepo', { repository: true })
+	async logRepo(repository: Repository) {
+		interaction.presentLogMenu(CommitSources.Repo, {}, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
 	@command('hg.fileLog')
@@ -890,7 +938,13 @@ export class CommandCenter {
 			}
 		}
 
-		const logEntries = await this.model.getLogEntries({ file: uri });
+		const repository = this.model.getRepository(uri);
+		if (!repository)
+		{
+			return;
+		}
+
+		const logEntries = await repository.getLogEntries({ file: uri });
 		const choice = await interaction.pickCommit(CommitSources.File, logEntries, typedConfig.useBookmarks, commit => () => {
 			if (uri) {
 				this.diff(commit, uri);
@@ -902,8 +956,8 @@ export class CommandCenter {
 		}
 	}
 
-	@command('hg.setBookmark')
-	async setBookmark() {
+	@command('hg.setBookmark', { repository: true })
+	async setBookmark(repository: Repository) {
 		if (!typedConfig.useBookmarks) {
 			const switched = await interaction.warnNotUsingBookmarks();
 			if (!switched) {
@@ -914,17 +968,17 @@ export class CommandCenter {
 		const bookmarkName = await interaction.inputBookmarkName();
 
 		if (bookmarkName) {
-			const bookmarkRefs = await this.model.getRefs();
+			const bookmarkRefs = await repository.getRefs();
 			const existingBookmarks = bookmarkRefs.filter(ref => ref.type === RefType.Bookmark) as Bookmark[];
 
-			const parents = await this.model.getParents();
+			const parents = await repository.getParents();
 			const currentBookmark = existingBookmarks.filter(b => b.name === bookmarkName && parents.some(p => p.hash.startsWith(b.commit!)))[0];
 			if (currentBookmark) {
 				if (currentBookmark.active) {
 					return;
 				}
 
-				return this.model.update(bookmarkName);
+				return repository.update(bookmarkName);
 			}
 
 			const existingBookmarkNames = existingBookmarks.map((b: Bookmark) => b.name);
@@ -935,13 +989,13 @@ export class CommandCenter {
 					return
 				}
 			}
-			this.model.setBookmark(bookmarkName, { force: alreadyExists })
+			repository.setBookmark(bookmarkName, { force: alreadyExists })
 		}
 	}
 
 
-	@command('hg.removeBookmark')
-	async removeBookmark() {
+	@command('hg.removeBookmark', { repository: true })
+	async removeBookmark(repository: Repository) {
 		if (!typedConfig.useBookmarks) {
 			const switched = await interaction.warnNotUsingBookmarks();
 			if (!switched) {
@@ -949,16 +1003,16 @@ export class CommandCenter {
 			}
 		}
 
-		const bookmarkRefs = await this.model.getRefs();
+		const bookmarkRefs = await repository.getRefs();
 		const existingBookmarks = bookmarkRefs.filter(ref => ref.type === RefType.Bookmark) as Bookmark[];
 		const bookmark = await interaction.pickBookmarkToRemove(existingBookmarks);
 		if (bookmark) {
-			this.model.removeBookmark(bookmark.name)
+			repository.removeBookmark(bookmark.name)
 		}
 	}
 
-	private async diffFile(rev1: Revision, rev2: Revision, file: IFileStatus) {
-		const uri = this.model.toUri(file.path);
+	private async diffFile(repository: Repository, rev1: Revision, rev2: Revision, file: IFileStatus) {
+		const uri = repository.toUri(file.path);
 		const left = uri.with({ scheme: 'hg', query: rev1.hash });
 		const right = uri.with({ scheme: 'hg', query: rev2.hash });
 		const baseName = path.basename(uri.fsPath);
@@ -980,14 +1034,33 @@ export class CommandCenter {
 		}
 	}
 
-	private createCommand(id: string, key: string, method: Function, skipModelCheck: boolean): (...args: any[]) => Promise<any> | undefined {
-		const result = (...args) => {
-			if (!skipModelCheck && !this.model) {
-				interaction.informHgNotSupported();
-				return;
-			}
+	private createCommand(id: string, key: string, method: Function, options: CommandOptions): (...args: any[]) => Promise<any> | undefined {
+		const res = (...args) => {
+			let result: Promise<any>;
 
-			const result = Promise.resolve(method.apply(this, args));
+			if (!options.repository) {
+				result = Promise.resolve(method.apply(this, args));
+			} else {
+				// try to guess the repository based on the first argument
+				const repository = this.model.getRepository(args[0]);
+				let repositoryPromise: Promise<Repository | undefined>;
+
+				if (repository) {
+					repositoryPromise = Promise.resolve(repository);
+				} else if (this.model.repositories.length === 1) {
+					repositoryPromise = Promise.resolve(this.model.repositories[0]);
+				} else {
+					repositoryPromise = this.model.pickRepository();
+				}
+
+				result = repositoryPromise.then(repository => {
+					if (!repository) {
+						return Promise.resolve();
+					}
+
+					return Promise.resolve(method.apply(this, [repository, ...args]));
+				});
+			}
 
 			return result.catch(async err => {
 				const openLog = await interaction.errorPromptOpenLog(err);
@@ -1001,9 +1074,8 @@ export class CommandCenter {
 		};
 
 		// patch this object, so people can call methods directly
-		this[key] = result;
-
-		return result;
+		this[key] = res;
+		return res;
 	}
 
 	private getSCMResource(uri?: Uri): Resource | undefined {
@@ -1019,12 +1091,49 @@ export class CommandCenter {
 
 		if (uri.scheme === 'file') {
 			const uriString = uri.toString();
+			const repository = this.model.getRepository(uri);
 
-			return this.model.workingDirectoryGroup.getResource(uri)
-				|| this.model.stagingGroup.getResource(uri)
-				|| this.model.untrackedGroup.getResource(uri)
-				|| this.model.mergeGroup.getResource(uri);
+			if (!repository) {
+				return undefined;
+			}
+
+			return repository.workingDirectoryGroup.getResource(uri)
+				|| repository.stagingGroup.getResource(uri)
+				|| repository.untrackedGroup.getResource(uri)
+				|| repository.mergeGroup.getResource(uri)
+				|| repository.conflictGroup.getResource(uri);
 		}
+	}
+
+	private runByRepository<T>(resource: Uri, fn: (repository: Repository, resource: Uri) => Promise<T>): Promise<T[]>;
+	private runByRepository<T>(resources: Uri[], fn: (repository: Repository, resources: Uri[]) => Promise<T>): Promise<T[]>;
+	private async runByRepository<T>(arg: Uri | Uri[], fn: (repository: Repository, resources: any) => Promise<T>): Promise<T[]> {
+		const resources = arg instanceof Uri ? [arg] : arg;
+		const isSingleResource = arg instanceof Uri;
+
+		const groups = resources.reduce((result, resource) => {
+			const repository = this.model.getRepository(resource);
+
+			if (!repository) {
+				console.warn('Could not find hg repository for ', resource);
+				return result;
+			}
+
+			const tuple = result.filter(p => p[0] === repository)[0];
+
+			if (tuple) {
+				tuple.resources.push(resource);
+			} else {
+				result.push({ repository, resources: [resource] });
+			}
+
+			return result;
+		}, [] as { repository: Repository, resources: Uri[] }[]);
+
+		const promises = groups
+			.map(({ repository, resources }) => fn(repository as Repository, isSingleResource ? resources[0] : resources));
+
+		return Promise.all(promises);
 	}
 
 	dispose(): void {

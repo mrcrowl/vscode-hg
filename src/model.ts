@@ -6,7 +6,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation, SourceControlResourceGroup, SourceControl, WorkspaceFoldersChangeEvent, TextEditor } from "vscode";
+import { Uri, Command, EventEmitter, Event, SourceControlResourceState, SourceControlResourceDecorations, Disposable, window, workspace, commands, ProgressLocation, SourceControlResourceGroup, SourceControl, WorkspaceFoldersChangeEvent, TextEditor, QuickPickItem } from "vscode";
 import { Hg, Repository as BaseRepository, Ref, Path, PushOptions, PullOptions, Commit, HgErrorCodes, HgError, IFileStatus, HgRollbackDetails, IRepoStatus, IMergeResult, LogEntryOptions, LogEntryRepositoryOptions, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { anyEvent, eventToPromise, filterEvent, mapEvent, EmptyDisposable, combinedDisposable, dispose, groupBy, partition, delay } from "./util";
 import { memoize, throttle, debounce, sequentialize } from "./decorators";
@@ -19,6 +19,25 @@ import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import typedConfig from "./config";
 import { PushPullScopeOptions } from "./config";
 import { Repository, RepositoryState } from "./repository";
+
+const localize = nls.loadMessageBundle();
+
+class RepositoryPick implements QuickPickItem {
+	@memoize get label(): string {
+		return path.basename(this.repository.root);
+	}
+
+	get description(): string {
+		return "";
+	}
+	// @memoize get description(): string {
+	// 	return [this.repository.currentBranch, this.repository.syncLabel]
+	// 		.filter(l => !!l)
+	// 		.join(' ');
+	// }
+
+	constructor(public readonly repository: Repository) { }
+}
 
 const exists = (path: string) => new Promise(c => fs.exists(path, c));
 
@@ -235,6 +254,28 @@ export class Model implements Disposable {
 		this._onDidOpenRepository.fire(repository);
 	}
 
+	close(repository: Repository): void {
+		const openRepository = this.getOpenRepository(repository);
+
+		if (!openRepository) {
+			return;
+		}
+
+		openRepository.dispose();
+	}
+
+	async pickRepository(): Promise<Repository | undefined> {
+		if (this.openRepositories.length === 0) {
+			throw new Error(localize('no repositories', "There are no available repositories"));
+		}
+
+		const picks = this.openRepositories.map(e => new RepositoryPick(e.repository));
+		const placeHolder = localize('pick repo', "Choose a repository");
+		const pick = await window.showQuickPick(picks, { placeHolder });
+
+		return pick && pick.repository;
+	}
+
 	/// ###############################
 
 	// getResourceGroupById(id: ResourceGroupId): ResourceGroup {
@@ -250,6 +291,11 @@ export class Model implements Disposable {
 	// 	await this._hg.init(this.workspaceRootPath);
 	// 	await this.status();
 	// }
+
+	getOpenRepositories(): Repository[]
+	{
+		return this.openRepositories.map(r => r.repository);
+	}
 
 	getRepository(sourceControl: SourceControl): Repository | undefined;
 	getRepository(resourceGroup: SourceControlResourceGroup): Repository | undefined;
