@@ -16,9 +16,9 @@
   "bugs": {
     "url": "https://github.com/mrcrowl/vscode-hg/issues"
   },
-  "version": "1.1.6",
+  "version": "1.1.7",
   "engines": {
-    "vscode": "^1.11.0"
+    "vscode": "^1.18.0"
   },
   "keywords": [
     "hg",
@@ -796,6 +796,6 @@
     "@types/node": "^7.0.4",
     "@types/tmp": "0.0.33",
     "tmp": "0.0.31",
-    "vscode": "^1.1.0"
+    "vscode": "^1.1.6"
   }
 }

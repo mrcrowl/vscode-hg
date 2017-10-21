@@ -1,4 +1,10 @@
 
+**v1.1.7**
+=============================================
+
+## Bug fix
+  - Fixed missing commands from command palette (due to extension authoring changes in vscode 1.16)
+
 **v1.1.5**
 =============================================
 

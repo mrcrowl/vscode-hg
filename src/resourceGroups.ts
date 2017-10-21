@@ -1,6 +1,6 @@
 import { Resource, MergeStatus, Status } from "./model";
 import { HgError, IFileStatus, IRepoStatus } from "./hg";
-import { Uri } from "vscode";
+import { Uri, SourceControlResourceGroup, SourceControl } from "vscode";
 import * as path from "path";
 import * as nls from "vscode-nls";
 import * as fs from "fs";
@@ -25,29 +25,40 @@ export interface IStatusGroups {
 
 export type ResourceGroupId = keyof IStatusGroups;
 
-export function createEmptyStatusGroups(): IStatusGroups {
-	return {
-		conflict: new ConflictGroup(),
-		staging: new StagingGroup(),
-		merge: new MergeGroup(),
-		working: new WorkingDirectoryGroup(),
-		untracked: new UntrackedGroup()
-	}
+export function createEmptyStatusGroups(scm: SourceControl): [IStatusGroups, SourceControlResourceGroup[]] {
+	const conflictGroup = scm.createResourceGroup(ConflictGroup.ID, localize('merge conflicts', "Unresolved Conflicts"));
+	const stagingGroup = scm.createResourceGroup(StagingGroup.ID, localize('staged changes', "Staged Changes"));
+	const mergeGroup = scm.createResourceGroup(MergeGroup.ID, localize('merged changes', "Merged Changes"));
+	const workingGroup = scm.createResourceGroup(WorkingDirectoryGroup.ID, localize('changes', "Changes"))
+	const untrackedGroup = scm.createResourceGroup(UntrackedGroup.ID, localize('untracked files', "Untracked Files"))
+
+	return [{
+		conflict: new ConflictGroup(conflictGroup, []),
+		staging: new StagingGroup(stagingGroup, []),
+		merge: new MergeGroup(mergeGroup, []),
+		working: new WorkingDirectoryGroup(workingGroup, []),
+		untracked: new UntrackedGroup(untrackedGroup, [])
+	}, [conflictGroup, stagingGroup, mergeGroup, workingGroup, untrackedGroup]];
 }
 
-export abstract class ResourceGroup {
-	get id(): ResourceGroupId { return this._id; }
-	get contextKey(): string { return this._id; }
-	get label(): string { return this._label; }
+export class ResourceGroup {
+
+	get id(): ResourceGroupId { return this._resourceGroup.id as ResourceGroupId; }
+	get contextKey(): string { return this._resourceGroup.id; }
+	get label(): string { return this._resourceGroup.label; }
 	get resources(): Resource[] { return this._resources; }
+
+	public clear() {
+		this._resources = [];
+	}
 
 	private _resourceUriIndex: Map<string, boolean>;
 
 	constructor(
-		private _id: ResourceGroupId,
-		private _label: string,
+		private readonly _resourceGroup: SourceControlResourceGroup,
 		private _resources: Resource[]) {
-		this._resourceUriIndex = ResourceGroup.indexResources(_resources);
+
+		_resourceGroup.hideWhenEmpty = true;
 	}
 
 	private static indexResources(resources: Resource[]): Map<string, boolean> {
@@ -83,48 +94,28 @@ export abstract class ResourceGroup {
 
 	private newResourceGroup(resources: Resource[]): this {
 		const SubClassConstructor = Object.getPrototypeOf(this).constructor;
-		return new SubClassConstructor(resources);
+		return new SubClassConstructor(this._resourceGroup, resources);
 	}
 }
 
 export class MergeGroup extends ResourceGroup {
 	static readonly ID = 'merge';
-
-	constructor(resources: Resource[] = []) {
-		super(MergeGroup.ID, localize('merged changes', "Merged Changes"), resources);
-	}
 }
 
 export class ConflictGroup extends ResourceGroup {
 	static readonly ID = 'conflict';
-
-	constructor(resources: Resource[] = []) {
-		super(ConflictGroup.ID, localize('merge conflicts', "Unresolved Conflicts"), resources);
-	}
 }
 
 export class StagingGroup extends ResourceGroup {
 	static readonly ID = 'staging';
-
-	constructor(resources: Resource[] = []) {
-		super(StagingGroup.ID, localize('staged changes', "Staged Changes"), resources);
-	}
 }
 
 export class UntrackedGroup extends ResourceGroup {
 	static readonly ID = 'untracked';
-
-	constructor(resources: Resource[] = []) {
-		super(UntrackedGroup.ID, localize('untracked files', "Untracked Files"), resources);
-	}
 }
 
 export class WorkingDirectoryGroup extends ResourceGroup {
 	static readonly ID = 'working';
-
-	constructor(resources: Resource[] = []) {
-		super(WorkingDirectoryGroup.ID, localize('changes', "Changes"), resources);
-	}
 }
 
 export function groupStatuses({

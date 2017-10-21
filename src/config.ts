@@ -22,6 +22,10 @@ class Config {
         return this.config.update(name, value);
     }
 
+    get enabled(): boolean {
+        return this.get("enabled", true);
+    }
+
     get autoUpdate(): boolean {
         return this.get("autoUpdate", true);
     }

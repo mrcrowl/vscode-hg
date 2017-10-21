@@ -5,13 +5,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, Command, EventEmitter, Event, workspace } from "vscode";
-import { RefType, Ref, Repository, Bookmark, IRepoStatus } from "./hg";
-import { Model, Operation } from './model';
+import { RefType, Ref, Bookmark, IRepoStatus } from "./hg";
+import { Model } from './model';
 import { anyEvent, dispose } from './util';
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import * as nls from 'vscode-nls';
 import typedConfig from "./config";
 import { activate } from "./main";
+import { Repository, Operation } from "./repository";
 
 const localize = nls.loadMessageBundle();
 const enum SyncStatus { None = 0, Pushing = 1, Pulling = 2 }
@@ -27,8 +28,8 @@ class ScopeStatusBar {
 	get onDidChange(): Event<void> { return this._onDidChange.event; }
 	private disposables: Disposable[] = [];
 
-	constructor(private model: Model) {
-		model.onDidChange(this._onDidChange.fire, this._onDidChange, this.disposables);
+	constructor(private repository: Repository) {
+		repository.onDidChange(this._onDidChange.fire, this._onDidChange, this.disposables);
 	}
 
 	chooseCurrentRef(useBookmarks: boolean, currentBranch: Ref | undefined, activeBookmark: Bookmark | undefined, repoStatus: IRepoStatus | undefined): CurrentRef {
@@ -52,7 +53,7 @@ class ScopeStatusBar {
 
 	get command(): Command | undefined {
 		const useBookmarks = typedConfig.useBookmarks
-		const { currentBranch, activeBookmark, repoStatus } = this.model
+		const { currentBranch, activeBookmark, repoStatus } = this.repository
 		const currentRef: CurrentRef = this.chooseCurrentRef(useBookmarks, currentBranch, activeBookmark, repoStatus);
 
 		if (!currentRef.ref) {
@@ -63,8 +64,8 @@ class ScopeStatusBar {
 		const title =
 			currentRef.icon + ' ' +
 			label +
-			(this.model.workingDirectoryGroup.resources.length > 0 ? '+' : '') +
-			(this.model.mergeGroup.resources.length > 0 ? '!' : '');
+			(this.repository.workingDirectoryGroup.resources.length > 0 ? '+' : '') +
+			(this.repository.mergeGroup.resources.length > 0 ? '!' : '');
 
 		return {
 			command: 'hg.update',
@@ -114,18 +115,18 @@ class SyncStatusBar {
 		this._onDidChange.fire();
 	}
 
-	constructor(private model: Model) {
-		model.onDidChange(this.onModelChange, this, this.disposables);
-		model.onDidChangeOperations(this.onOperationsChange, this, this.disposables);
+	constructor(private repository: Repository) {
+		repository.onDidChange(this.onModelChange, this, this.disposables);
+		repository.onDidChangeOperations(this.onOperationsChange, this, this.disposables);
 		this._onDidChange.fire();
 	}
 
 	private getSyncStatus(): SyncStatus {
-		if (this.model.operations.isRunning(Operation.Push)) {
+		if (this.repository.operations.isRunning(Operation.Push)) {
 			return SyncStatus.Pushing;
 		}
 
-		if (this.model.operations.isRunning(Operation.Pull)) {
+		if (this.repository.operations.isRunning(Operation.Pull)) {
 			return SyncStatus.Pulling;
 		}
 
@@ -136,18 +137,18 @@ class SyncStatusBar {
 		this.state = {
 			...this.state,
 			syncStatus: this.getSyncStatus(),
-			autoInOut: this.model.autoInOutState
+			autoInOut: this.repository.autoInOutState
 		};
 	}
 
 	private onModelChange(): void {
 		this.state = {
 			...this.state,
-			hasPaths: this.model.paths.length > 0,
-			branch: this.model.currentBranch,
-			bookmark: this.model.activeBookmark,
-			syncCounts: this.model.syncCounts,
-			autoInOut: this.model.autoInOutState
+			hasPaths: this.repository.paths.length > 0,
+			branch: this.repository.currentBranch,
+			bookmark: this.repository.activeBookmark,
+			syncCounts: this.repository.syncCounts,
+			autoInOut: this.repository.autoInOutState
 		};
 	}
 
@@ -184,7 +185,7 @@ class SyncStatusBar {
 			return undefined;
 		}
 
-		const { pushPullBranchName, pushPullBookmarkName } = this.model;
+		const { pushPullBranchName, pushPullBookmarkName } = this.repository;
 		const { bookmark, branch } = this.state;
 		const useBookmarks = typedConfig.useBookmarks;
 		const scopeName = useBookmarks ? pushPullBookmarkName : pushPullBranchName;
@@ -253,9 +254,9 @@ export class StatusBarCommands {
 	private scopeStatusBar: ScopeStatusBar;
 	private disposables: Disposable[] = [];
 
-	constructor(model: Model) {
-		this.syncStatusBar = new SyncStatusBar(model);
-		this.scopeStatusBar = new ScopeStatusBar(model);
+	constructor(repository: Repository) {
+		this.syncStatusBar = new SyncStatusBar(repository);
+		this.scopeStatusBar = new ScopeStatusBar(repository);
 	}
 
 	get onDidChange(): Event<void> {

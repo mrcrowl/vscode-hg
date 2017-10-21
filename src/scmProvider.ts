@@ -60,18 +60,6 @@ export class MercurialSCMProvider {
 		}
 	}
 
-	private _sourceControl: SourceControl;
-
-	get sourceControl(): SourceControl {
-		return this._sourceControl;
-	}
-
-	private mergeGroup: SourceControlResourceGroup;
-	private conflictGroup: SourceControlResourceGroup;
-	private stagingGroup: SourceControlResourceGroup;
-	private workingTreeGroup: SourceControlResourceGroup;
-	private untrackedGroup: SourceControlResourceGroup;
-
 	constructor(
 		private model: Model,
 		private commandCenter: CommandCenter,
@@ -97,7 +85,7 @@ export class MercurialSCMProvider {
 		this.stagingGroup.hideWhenEmpty = true;
 		this.workingTreeGroup.hideWhenEmpty = true;
 		this.untrackedGroup.hideWhenEmpty = true;
-
+		
 		this.disposables.push(this.conflictGroup);
 		this.disposables.push(this.mergeGroup);
 		this.disposables.push(this.workingTreeGroup);
@@ -107,15 +95,7 @@ export class MercurialSCMProvider {
 		model.onDidChange(this.onDidModelChange, this, this.disposables);
 	}
 
-	provideOriginalResource(uri: Uri): Uri | undefined {
-		if (uri.scheme !== 'file') {
-			return;
-		}
-
-		// As a mitigation for extensions like ESLint showing warnings and errors
-		// for hg URIs, let's change the file extension of these uris to .hg.
-		return new Uri().with({ scheme: 'hg-original', query: uri.path, path: uri.path + '.hg' });
-	}
+	
 
 	private onDidModelChange(): void {
 		this.mergeGroup.resourceStates = this.model.mergeGroup.resources;
