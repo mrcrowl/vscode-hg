@@ -76,15 +76,14 @@ export class Model implements Disposable {
 	private openRepositories: OpenRepository[] = [];
 	get repositories(): Repository[] { return this.openRepositories.map(r => r.repository); }
 
-	private possibleGitRepositoryPaths = new Set<string>();
+	private possibleHgRepositoryPaths = new Set<string>();
 
 	private enabled = false;
 	private configurationChangeDisposable: Disposable;
 	private disposables: Disposable[] = [];
 
 	constructor(
-		private _hg: Hg,
-		private workspaceRootPath: string
+		private _hg: Hg
 	) {
 		this.enabled = typedConfig.enabled;
 		this.configurationChangeDisposable = workspace.onDidChangeConfiguration(this.onDidChangeConfiguration, this);
@@ -123,7 +122,7 @@ export class Model implements Disposable {
 		const onWorkspaceChange = anyEvent(fsWatcher.onDidChange, fsWatcher.onDidCreate, fsWatcher.onDidDelete);
 		const onHgRepositoryChange = filterEvent(onWorkspaceChange, uri => /\/\.hg\//.test(uri.path));
 		const onPossibleHgRepositoryChange = filterEvent(onHgRepositoryChange, uri => !this.getRepository(uri));
-		onPossibleHgRepositoryChange(this.onPossibleGitRepositoryChange, this, this.disposables);
+		onPossibleHgRepositoryChange(this.onPossibleHgRepositoryChange, this, this.disposables);
 
 		this.scanWorkspaceFolders();
 		// this.status();
@@ -134,7 +133,7 @@ export class Model implements Disposable {
 		openRepositories.forEach(r => r.dispose());
 		this.openRepositories = [];
 
-		this.possibleGitRepositoryPaths.clear();
+		this.possibleHgRepositoryPaths.clear();
 		this.disposables = dispose(this.disposables);
 	}
 
@@ -153,19 +152,19 @@ export class Model implements Disposable {
 		}
 	}
 
-	private onPossibleGitRepositoryChange(uri: Uri): void {
-		const possibleGitRepositoryPath = uri.fsPath.replace(/\.git.*$/, '');
-		this.possibleGitRepositoryPaths.add(possibleGitRepositoryPath);
-		this.eventuallyScanPossibleGitRepositories();
+	private onPossibleHgRepositoryChange(uri: Uri): void {
+		const possibleGitRepositoryPath = uri.fsPath.replace(/\.hg.*$/, '');
+		this.possibleHgRepositoryPaths.add(possibleGitRepositoryPath);
+		this.eventuallyScanPossibleHgRepositories();
 	}
 
 	@debounce(500)
-	private eventuallyScanPossibleGitRepositories(): void {
-		for (const path of this.possibleGitRepositoryPaths) {
+	private eventuallyScanPossibleHgRepositories(): void {
+		for (const path of this.possibleHgRepositoryPaths) {
 			this.tryOpenRepository(path);
 		}
 
-		this.possibleGitRepositoryPaths.clear();
+		this.possibleHgRepositoryPaths.clear();
 	}
 
 	private async onDidChangeWorkspaceFolders({ added, removed }: WorkspaceFoldersChangeEvent): Promise<void> {

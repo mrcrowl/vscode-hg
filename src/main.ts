@@ -13,8 +13,8 @@ import { Model } from './model';
 import { CommandCenter } from './commands';
 import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
-import { AutoIncomingOutgoing } from './autoinout';
-import { MergeDecorator } from './merge';
+// import { AutoIncomingOutgoing } from './autoinout';
+// import { MergeDecorator } from './merge';
 import * as nls from 'vscode-nls';
 
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
@@ -40,7 +40,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 		return;
 	}
 
-	const model = new Model(hg, workspaceRootPath);
+	const model = new Model(hg);
 
 	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
@@ -49,15 +49,15 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	// const statusBarCommands = new StatusBarCommands(model);
 	// const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
 	const contentProvider = new HgContentProvider(model);
-	const autoInOut = new AutoIncomingOutgoing(model);
-	const mergeDecorator = new MergeDecorator(model);
+	// const autoInOut = new AutoIncomingOutgoing(model);
+	// const mergeDecorator = new MergeDecorator(model);
 
 	disposables.push(
 		commandCenter,
 		// provider,
 		contentProvider,
-		autoInOut,
-		mergeDecorator,
+		// autoInOut,
+		// mergeDecorator,
 		model
 	);
 

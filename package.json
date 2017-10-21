@@ -790,7 +790,8 @@
   },
   "dependencies": {
     "tmp": "0.0.31",
-    "vscode-nls": "^2.0.1"
+    "vscode-nls": "^2.0.1",
+    "os-tmpdir": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^7.0.4",

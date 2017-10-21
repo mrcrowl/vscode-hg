@@ -6,9 +6,10 @@
 
 import { workspace, Disposable } from 'vscode';
 import { HgErrorCodes, HgError } from "./hg";
-import { Model, Operation, Operations } from "./model";
+import { Model} from "./model";
 import { throttle } from './decorators';
 import typedConfig from "./config";
+import { Repository, Operation, Operations  } from './repository';
 
 export const enum AutoInOutStatuses {
 	Disabled,
@@ -31,20 +32,20 @@ export class AutoIncomingOutgoing {
 	private disposables: Disposable[] = [];
 	private timer: NodeJS.Timer | undefined;
 
-	constructor(private model: Model) {
+	constructor(private repository: Repository) {
 		workspace.onDidChangeConfiguration(this.onConfiguration, this, this.disposables);
-		this.model.onDidChangeHgrc(this.onConfiguration, this, this.disposables);
-		this.model.onDidRunOperation(this.onDidRunOperation, this, this.disposables);
+		this.repository.onDidChangeHgrc(this.onConfiguration, this, this.disposables);
+		this.repository.onDidRunOperation(this.onDidRunOperation, this, this.disposables);
 		this.onConfiguration();
 	}
 
 	private onConfiguration(): void {
 		if (typedConfig.autoInOut) {
-			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Enabled })
+			this.repository.changeAutoInoutState({ status: AutoInOutStatuses.Enabled })
 			this.enable();
 		}
 		else {
-			this.model.changeAutoInoutState({ status: AutoInOutStatuses.Disabled })
+			this.repository.changeAutoInoutState({ status: AutoInOutStatuses.Disabled })
 			this.disable();
 		}
 	}
@@ -74,39 +75,39 @@ export class AutoIncomingOutgoing {
 			return;
 		}
 
-		const pushPullBranchName = this.model.pushPullBranchName;
+		const pushPullBranchName = this.repository.pushPullBranchName;
 		switch (op) {
 			case Operation.Push:
-				const path = this.model.lastPushPath;
+				const path = this.repository.lastPushPath;
 				if (!path || path === "default" || path === "default-push") {
-					const delta = -this.model.syncCounts.outgoing;
-					this.model.countOutgoingAfterDelay(delta);
+					const delta = -this.repository.syncCounts.outgoing;
+					this.repository.countOutgoingAfterDelay(delta);
 				}
 				break;
 
 			case Operation.Pull:
-				const delta = -this.model.syncCounts.incoming;
-				this.model.countIncomingAfterDelay(delta);
+				const delta = -this.repository.syncCounts.incoming;
+				this.repository.countIncomingAfterDelay(delta);
 				break;
 
 			case Operation.Commit:
 			case Operation.Rollback:
-				const currentBranch = this.model.currentBranch;
+				const currentBranch = this.repository.currentBranch;
 				const affectsInOut =
 					pushPullBranchName === undefined // all branches
 					|| currentBranch && pushPullBranchName === currentBranch.name;
 
 				if (affectsInOut) {
 					const delta = (op === Operation.Commit) ? +1 : -1;
-					this.model.countOutgoingAfterDelay(delta);
+					this.repository.countOutgoingAfterDelay(delta);
 				}
 				break;
 
 			case Operation.Update:
 				if (pushPullBranchName && pushPullBranchName !== "default") { // i.e. "current" setting
-					const incoming = -this.model.syncCounts.incoming;
-					const outgoing = -this.model.syncCounts.outgoing;
-					this.model.countIncomingOutgoingAfterDelay({ incoming, outgoing })
+					const incoming = -this.repository.syncCounts.incoming;
+					const outgoing = -this.repository.syncCounts.outgoing;
+					this.repository.countIncomingOutgoingAfterDelay({ incoming, outgoing })
 				}
 
 			default:
@@ -117,10 +118,10 @@ export class AutoIncomingOutgoing {
 	@throttle
 	private async refresh(): Promise<void> {
 		const nextCheckTime = new Date(Date.now() + typedConfig.autoInOutIntervalMillis);
-		this.model.changeAutoInoutState({ nextCheckTime });
+		this.repository.changeAutoInoutState({ nextCheckTime });
 
 		try {
-			await this.model.countIncomingOutgoingAfterDelay();
+			await this.repository.countIncomingOutgoingAfterDelay();
 		}
 		catch (err) {
 			if (err instanceof HgError && (
