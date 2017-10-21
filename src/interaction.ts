@@ -575,14 +575,14 @@ class UpdateRefItem implements QuickPickItem {
 
     constructor(protected ref: Ref) { }
 
-    async run(model: Model): Promise<void> {
+    async run(repository: Repository): Promise<void> {
         const ref = this.treeish;
 
         if (!ref) {
             return;
         }
 
-        await model.update(ref);
+        await repository.update(ref);
     }
 }
 

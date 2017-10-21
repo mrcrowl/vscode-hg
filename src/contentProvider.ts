@@ -8,9 +8,11 @@
 
 import { workspace, Uri, Disposable, Event, EventEmitter, window } from 'vscode';
 import { debounce, throttle } from './decorators';
-import { Model } from './model';
+import { Model, ModelChangeEvent, OriginalResourceChangeEvent } from './model';
 import { readFile } from 'fs';
 import * as vscode from "vscode";
+import { filterEvent, eventToPromise } from './util';
+import { fromHgUri, toHgUri } from './uri';
 
 interface CacheRow {
 	uri: Uri;
@@ -26,21 +28,36 @@ const FIVE_MINUTES = 1000 * 60 * 5;
 
 export class HgContentProvider {
 
-	private onDidChangeEmitter = new EventEmitter<Uri>();
-	get onDidChange(): Event<Uri> { return this.onDidChangeEmitter.event; }
+	private _onDidChange = new EventEmitter<Uri>();
+	get onDidChange(): Event<Uri> { return this._onDidChange.event; }
 
+	private changedRepositoryRoots = new Set<string>();
 	private cache: Cache = Object.create(null);
 	private disposables: Disposable[] = [];
 
 	constructor(private model: Model) {
 		this.disposables.push(
 			model.onDidChangeRepository(this.eventuallyFireChangeEvents, this),
+			model.onDidChangeOriginalResource(this.onDidChangeOriginalResource, this),
 			workspace.registerTextDocumentContentProvider('hg', this),
 			workspace.registerTextDocumentContentProvider('hg-original', this)
 		);
 
 		setInterval(() => this.cleanup(), FIVE_MINUTES);
 	}
+	
+	private onDidChangeRepository({ repository }: ModelChangeEvent): void {
+		this.changedRepositoryRoots.add(repository.root);
+		this.eventuallyFireChangeEvents();
+	}
+	
+		private onDidChangeOriginalResource({ uri }: OriginalResourceChangeEvent): void {
+			if (uri.scheme !== 'file') {
+				return;
+			}
+	
+			this._onDidChange.fire(toHgUri(uri, '', true));
+		}
 
 	@debounce(1100)
 	private eventuallyFireChangeEvents(): void {
@@ -49,12 +66,37 @@ export class HgContentProvider {
 
 	@throttle
 	private async fireChangeEvents(): Promise<void> {
-		await this.model.whenIdle();
+		if (!window.state.focused) {
+			const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
+			await eventToPromise(onDidFocusWindow);
+		}
 
-		Object.keys(this.cache).forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
+		Object.keys(this.cache).forEach(key => {
+			const uri = this.cache[key].uri;
+			const fsPath = uri.fsPath;
+
+			for (const root of this.changedRepositoryRoots) {
+				if (fsPath.startsWith(root)) {
+					this._onDidChange.fire(uri);
+					return;
+				}
+			}
+		});
+
+		this.changedRepositoryRoots.clear();
+
+		// await this.model.whenIdle();
+
+		// Object.keys(this.cache).forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
 	}
 
 	async provideTextDocumentContent(uri: Uri): Promise<string> {
+		const repository = this.model.getRepository(uri);
+
+		if (!repository) {
+			return '';
+		}
+
 		const cacheKey = uri.toString();
 		const timestamp = new Date().getTime();
 		const cacheValue = { uri, timestamp };
@@ -62,16 +104,13 @@ export class HgContentProvider {
 		this.cache[cacheKey] = cacheValue;
 
 		if (uri.scheme === 'hg-original') {
-			uri = new Uri().with({ scheme: 'hg', path: uri.query });
+			uri = uri.with({ scheme: 'hg', path: uri.query });
 		}
 
-		let ref = uri.query;
+		let { path, ref } = fromHgUri(uri);
 
 		try {
-			if (this.model.repositoryContains(uri)) {
-				const result = await this.model.show(ref, uri);
-				return result;
-			}
+			return await repository.show(ref, path);
 		}
 		catch (err) {
 			// no-op

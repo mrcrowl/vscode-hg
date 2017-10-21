@@ -18,6 +18,7 @@ import * as fs from "fs";
 import { partition } from "./util";
 import * as nls from 'vscode-nls';
 import typedConfig from "./config";
+import { toHgUri } from "./uri";
 
 const localize = nls.loadMessageBundle();
 
@@ -62,11 +63,11 @@ export class CommandCenter {
 		this.disposables = Commands.map(({ commandId, key, method, options }) => {
 			const command = this.createCommand(commandId, key, method, options);
 
-			if (options.diff) {
-				return commands.registerDiffInformationCommand(commandId, command);
-			} else {
-				return commands.registerCommand(commandId, command);
-			}
+			// if (options.diff) {
+			// 	return commands.registerDiffInformationCommand(commandId, command);
+			// } else {
+			return commands.registerCommand(commandId, command);
+			// }
 		});
 	}
 
@@ -101,11 +102,11 @@ export class CommandCenter {
 	private getLeftResource(resource: Resource): Uri | undefined {
 		switch (resource.status) {
 			case Status.MODIFIED:
-				return resource.original.with({ scheme: 'hg', query: '.' });
+				return toHgUri(resource.original, ".");
 
 			case Status.RENAMED:
 				if (resource.renameResourceUri) {
-					return resource.original.with({ scheme: 'hg', query: '.' })
+					return toHgUri(resource.original, ".");
 				}
 				return undefined;
 
@@ -243,15 +244,15 @@ export class CommandCenter {
 
 	@command('hg.openFiles')
 	openFiles(...resources: (Resource | ResourceGroupProxy)[]): Promise<void> {
-		if (resources.length === 1) {
-			// a resource group proxy object?
-			const [resourceGroupProxy] = resources;
-			if (isResourceGroupProxy(resourceGroupProxy)) {
-				const groupId = resourceGroupProxy._id;
-				const resourceGroup = this.model.getResourceGroupById(groupId);
-				return this.openFile(...resourceGroup.resources);
-			}
-		}
+		// if (resources.length === 1) {
+		// 	// a resource group proxy object?
+		// 	const [resourceGroupProxy] = resources;
+		// 	if (isResourceGroupProxy(resourceGroupProxy)) {
+		// 		const groupId = resourceGroupProxy._id;
+		// 		const resourceGroup = this.model.getResourceGroupById(groupId);
+		// 		return this.openFile(...resourceGroup.resources);
+		// 	}
+		// }
 
 		return this.openFile(...<Resource[]>resources);
 	}
@@ -280,15 +281,15 @@ export class CommandCenter {
 			return;
 		}
 
-		if (resources.length === 1) {
-			// a resource group proxy object?
-			const [resourceGroupProxy] = resources;
-			if (isResourceGroupProxy(resourceGroupProxy)) {
-				const groupId = resourceGroupProxy._id;
-				const resourceGroup = this.model.getResourceGroupById(groupId);
-				return this.openChange(...resourceGroup.resources);
-			}
-		}
+		// if (resources.length === 1) {
+		// 	// a resource group proxy object?
+		// 	const [resourceGroupProxy] = resources;
+		// 	if (isResourceGroupProxy(resourceGroupProxy)) {
+		// 		const groupId = resourceGroupProxy._id;
+		// 		const resourceGroup = this.model.getResourceGroupById(groupId);
+		// 		return this.openChange(...resourceGroup.resources);
+		// 	}
+		// }
 
 		if (resources.length === 1) {
 			const [singleResource] = resources;
@@ -500,8 +501,12 @@ export class CommandCenter {
 
 		const [discardResources, addedResources] = partition(scmResources, s => s.status !== Status.ADDED);
 		if (discardResources.length > 0) {
-			const confirmFilenames = discardResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
-			const addedFilenames = addedResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+			// const confirmFilenames = discardResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+			// const addedFilenames = addedResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
+			
+			const confirmFilenames = discardResources.map(r => path.basename(r.resourceUri.fsPath));
+			const addedFilenames = addedResources.map(r => path.basename(r.resourceUri.fsPath));
+
 			const confirmed = await interaction.confirmDiscardChanges(confirmFilenames, addedFilenames);
 			if (!confirmed) {
 				return;
@@ -682,7 +687,7 @@ export class CommandCenter {
 		const choice = await interaction.pickUpdateRevision(refs, unclean);
 
 		if (choice) {
-			await choice.run(this.model);
+			await choice.run(repository);
 		}
 	}
 
@@ -725,7 +730,7 @@ export class CommandCenter {
 		const pullOptions = await repository.createPullOptions();
 		await repository.pull(pullOptions);
 	}
-	
+
 	@command('hg.mergeWithLocal', { repository: true })
 	async mergeWithLocal(repository: Repository) {
 		if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Merge) ||
@@ -939,8 +944,7 @@ export class CommandCenter {
 		}
 
 		const repository = this.model.getRepository(uri);
-		if (!repository)
-		{
+		if (!repository) {
 			return;
 		}
 

@@ -9,7 +9,7 @@
 import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputChannel } from 'vscode';
 import { HgFinder, Hg, IHg, HgFindAttemptLogger } from './hg';
 import { Model } from './model';
-import { MercurialSCMProvider } from './scmProvider';
+// import { MercurialSCMProvider } from './scmProvider';
 import { CommandCenter } from './commands';
 import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
@@ -46,15 +46,15 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
 
 	const commandCenter = new CommandCenter(hg, model, outputChannel);
-	const statusBarCommands = new StatusBarCommands(model);
-	const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
+	// const statusBarCommands = new StatusBarCommands(model);
+	// const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
 	const contentProvider = new HgContentProvider(model);
 	const autoInOut = new AutoIncomingOutgoing(model);
 	const mergeDecorator = new MergeDecorator(model);
 
 	disposables.push(
 		commandCenter,
-		provider,
+		// provider,
 		contentProvider,
 		autoInOut,
 		mergeDecorator,

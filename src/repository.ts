@@ -14,6 +14,7 @@ import { Path } from './hg';
 import { AutoInOutState, AutoInOutStatuses } from './autoinout';
 import { DefaultRepoNotConfiguredAction, interaction, PushCreatesNewHeadAction } from './interaction';
 import { exists } from 'fs';
+import { toHgUri } from './uri';
 
 const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
 
@@ -412,7 +413,7 @@ export class Repository implements IDisposable {
 
         // As a mitigation for extensions like ESLint showing warnings and errors
         // for hg URIs, let's change the file extension of these uris to .hg.
-        return uri.with({ scheme: 'hg-original', query: uri.path, path: uri.path + '.hg' });
+        toHgUri(uri, '', true);
     }
 
     @throttle
@@ -924,12 +925,12 @@ export class Repository implements IDisposable {
         return true;
     }
 
-    async show(ref: string, uri: Uri): Promise<string> {
+    async show(ref: string, filePath: string): Promise<string> {
         // TODO@Joao: should we make this a general concept?
         await this.whenIdleAndFocused();
 
         return await this.run(Operation.Show, async () => {
-            const relativePath = path.relative(this.repository.root, uri.fsPath).replace(/\\/g, '/');
+            const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
             try {
                 return await this.repository.cat(relativePath, ref)
             }
