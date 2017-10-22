@@ -4,17 +4,14 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
+// based on https://github.com/Microsoft/vscode/commit/41f0ff15d7327da30fdae73aa04ca570ce34fa0a
 
 import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputChannel } from 'vscode';
 import { HgFinder, Hg, IHg, HgFindAttemptLogger } from './hg';
 import { Model } from './model';
-// import { MercurialSCMProvider } from './scmProvider';
 import { CommandCenter } from './commands';
 import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
-// import { AutoIncomingOutgoing } from './autoinout';
-// import { MergeDecorator } from './merge';
 import * as nls from 'vscode-nls';
 import typedConfig from './config';
 
@@ -28,23 +25,13 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 
 	const enabled = typedConfig.enabled;
 	const enableInstrumentation = typedConfig.instrumentation;
-	const workspaceRootPath = workspace.rootPath;
 	const pathHint = typedConfig.path;
 	const info: IHg = await findHg(pathHint, outputChannel);
 	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
-
-	if (!workspaceRootPath || !enabled) {
-		const commandCenter = new CommandCenter(hg, undefined, outputChannel);
-		disposables.push(commandCenter);
-		return;
-	}
-
 	const model = new Model(hg);
 	disposables.push(model);
-	const onRepository = () => {
-		const openRepoCount = model.repositories.length;
-		commands.executeCommand('setContext', 'hgOpenRepositoryCount', openRepoCount);
-	};
+
+	const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', model.repositories.length);
 	model.onDidOpenRepository(onRepository, null, disposables);
 	model.onDidCloseRepository(onRepository, null, disposables);
 	onRepository();
@@ -59,24 +46,12 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
 
-	const commandCenter = new CommandCenter(hg, model, outputChannel);
-	const contentProvider = new HgContentProvider(model);
-	// const mergeDecorator = new MergeDecorator(model);
-
 	disposables.push(
-		commandCenter,
-		contentProvider,
-		// mergeDecorator,
+		new CommandCenter(hg, model, outputChannel),
+		new HgContentProvider(model),
 	);
 
-	if (/^[01]/.test(info.version)) {
-		const update = localize('updateHg', "Update Hg");
-		const choice = await window.showWarningMessage(localize('hg20', "You seem to have hg {0} installed. Code works best with hg >= 2", info.version), update);
-
-		if (choice === update) {
-			commands.executeCommand('vscode.open', Uri.parse('https://mercurial-scm.org/'));
-		}
-	}
+	await checkHgVersion(info);
 }
 
 export async function findHg(pathHint: string | undefined, outputChannel: OutputChannel): Promise<IHg> {
@@ -102,4 +77,15 @@ export function activate(context: ExtensionContext) {
 
 	init(context, disposables)
 		.catch(err => console.error(err));
+}
+
+async function checkHgVersion(info: IHg): Promise<void> {
+	if (/^[01]/.test(info.version)) {
+		const update = localize('updateHg', "Update Hg");
+		const choice = await window.showWarningMessage(localize('hg20', "You seem to have hg {0} installed. Code works best with hg >= 2", info.version), update);
+
+		if (choice === update) {
+			commands.executeCommand('vscode.open', Uri.parse('https://mercurial-scm.org/'));
+		}
+	}
 }
