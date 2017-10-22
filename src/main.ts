@@ -10,7 +10,6 @@ import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputC
 import { HgFinder, Hg, IHg, HgFindAttemptLogger } from './hg';
 import { Model } from './model';
 import { CommandCenter } from './commands';
-import { StatusBarCommands } from './statusbar';
 import { HgContentProvider } from './contentProvider';
 import * as nls from 'vscode-nls';
 import typedConfig from './config';

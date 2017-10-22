@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as nls from 'vscode-nls';
 import { ResourceGroup, createEmptyStatusGroups, UntrackedGroup, WorkingDirectoryGroup, StagingGroup, ConflictGroup, MergeGroup, IStatusGroups, groupStatuses, IGroupStatusesParams } from './resourceGroups';
 import { Path } from './hg';
-import { AutoInOutState, AutoInOutStatuses } from './autoinout';
+import { AutoInOutState, AutoInOutStatuses, AutoIncomingOutgoing } from './autoinout';
 import { DefaultRepoNotConfiguredAction, interaction, PushCreatesNewHeadAction } from './interaction';
 import { exists } from 'fs';
 import { toHgUri } from './uri';
@@ -173,7 +173,7 @@ export class Resource implements SourceControlResourceState {
     ) { }
 }
 
-export enum Operation {
+export const enum Operation {
     Status = 1 << 0,
     Add = 1 << 1,
     RevertFiles = 1 << 2,
@@ -375,6 +375,8 @@ export class Repository implements IDisposable {
     constructor(
         private readonly repository: BaseRepository
     ) {
+        this.updateRepositoryPaths();
+        
         const fsWatcher = workspace.createFileSystemWatcher('**');
         this.disposables.push(fsWatcher);
 
@@ -385,7 +387,6 @@ export class Repository implements IDisposable {
 
         const onRelevantHgChange = filterEvent(onRelevantRepositoryChange, uri => /\/\.hg\//.test(uri.path));
         const onHgrcChange = filterEvent(onRelevantHgChange, uri => /\/\.hg\/hgrc$/.test(uri.path));
-        // onRelevantHgChange(this.onFSChange, this, disposables);
         onRelevantHgChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, this.disposables);
         onHgrcChange(this.onHgrcChange, this, this.disposables);
 
@@ -397,12 +398,16 @@ export class Repository implements IDisposable {
 
         const [groups, disposables] = createEmptyStatusGroups(this._sourceControl);
 
+        this.disposables.push(new AutoIncomingOutgoing(this));
+
         this._groups = groups;
         this.disposables.push(...disposables);
 
         const statusBar = new StatusBarCommands(this);
         this.disposables.push(statusBar);
-        statusBar.onDidChange(() => this._sourceControl.statusBarCommands = statusBar.commands, null, this.disposables);
+        statusBar.onDidChange(() => {
+            this._sourceControl.statusBarCommands = statusBar.commands;
+        }, null, this.disposables);
         this._sourceControl.statusBarCommands = statusBar.commands;
 
         this.status();

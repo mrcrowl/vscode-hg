@@ -70,7 +70,8 @@ class ScopeStatusBar {
 		return {
 			command: 'hg.update',
 			tooltip: localize('update', 'Update...'),
-			title
+			title,
+			arguments: [this.repository]
 		};
 	}
 
@@ -239,7 +240,8 @@ class SyncStatusBar {
 		return {
 			command,
 			title: `${icon} ${text}`.trim(),
-			tooltip
+			tooltip,
+			arguments: [this.repository]
 		};
 	}
 
