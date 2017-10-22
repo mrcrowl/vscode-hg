@@ -4,7 +4,7 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl, SourceControlResourceGroup } from "vscode";
+import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl, SourceControlResourceGroup, TextDocumentShowOptions, ViewColumn } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
@@ -263,15 +263,25 @@ export class CommandCenter {
 			return;
 		}
 
-		if (resources.length === 1) {
-			const [singleResource] = resources;
-			return await commands.executeCommand<void>('vscode.open', singleResource.resourceUri);
-		}
-		else {
-			for (let resource of resources) {
-				await commands.executeCommand<void>('vscode.open', resource.resourceUri);
-				await commands.executeCommand<void>('workbench.action.keepEditor');
+		const uris = resources.map(res => res.resourceUri);
+		const preview = uris.length === 1;
+		const activeTextEditor =window.activeTextEditor;
+
+		for (const uri of uris) {
+			const opts: TextDocumentShowOptions = {
+				preserveFocus: true,
+				preview,
+				viewColumn: ViewColumn.Active
+			};
+
+			// Check if active text editor has same path as other editor. we cannot compare via
+			// URI.toString() here because the schemas can be different. Instead we just go by path.
+			if (activeTextEditor && activeTextEditor.document.uri.path === uri.path) {
+				opts.selection = activeTextEditor.selection;
 			}
+
+			const document = await workspace.openTextDocument(uri);
+			await window.showTextDocument(document, opts);
 		}
 	}
 
