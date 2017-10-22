@@ -246,8 +246,13 @@ export class CommandCenter {
 		await this.model.tryOpenRepository(path);
 
 		// await this.model.init();
-
 	}
+
+	@command('hg.close', { repository: true})
+	async close(repository: Repository): Promise<void> {
+		this.model.close(repository);
+	}
+
 	@command('hg.openhgrc', { repository: true })
 	async openhgrc(repository: Repository): Promise<void> {
 		let hgrcPath = await repository.hgrcPathIfExists();

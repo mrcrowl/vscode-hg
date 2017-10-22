@@ -134,6 +134,11 @@
         }
       },
       {
+        "command": "hg.close",
+        "title": "%command.close%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.log",
         "title": "%command.log%",
         "category": "Hg"
@@ -516,6 +521,13 @@
         {
           "command": "hg.showOutput",
           "group": "6_output",
+          "when": "config.hg.enabled && scmProvider == hg"
+        }
+      ],
+      "scm/sourceControl": [
+        {
+          "command": "hg.close",
+          "group": "navigation",
           "when": "config.hg.enabled && scmProvider == hg"
         }
       ],
