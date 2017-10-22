@@ -78,10 +78,10 @@ export class CommandCenter {
 
 	@command('hg.openResource')
 	async openResource(resource: Resource): Promise<void> {
-		await this._openResource(resource);
+		await this._openResource(resource, undefined, true, false);
 	}
 
-	private async _openResource(resource: Resource): Promise<void> {
+	private async _openResource(resource: Resource, preview?: boolean, preserveFocus?: boolean, preserveSelection?: boolean): Promise<void> {
 		const left = this.getLeftResource(resource);
 		const right = this.getRightResource(resource);
 		const title = this.getTitle(resource);
@@ -92,11 +92,28 @@ export class CommandCenter {
 			return;
 		}
 
-		if (!left) {
-			return await commands.executeCommand<void>('vscode.open', right);
+
+		const opts: TextDocumentShowOptions = {
+			preserveFocus,
+			preview,
+			viewColumn: ViewColumn.Active
+		};
+
+		const activeTextEditor = window.activeTextEditor;
+
+		// Check if active text editor has same path as other editor. we cannot compare via
+		// URI.toString() here because the schemas can be different. Instead we just go by path.
+		if (preserveSelection && activeTextEditor && activeTextEditor.document.uri.path === right.path) {
+			opts.selection = activeTextEditor.selection;
 		}
 
-		return await commands.executeCommand<void>('vscode.diff', left, right, title);
+		if (!left) {
+			const document = await workspace.openTextDocument(right);
+			await window.showTextDocument(document, opts);
+			return;
+		}
+
+		return await commands.executeCommand<void>('vscode.diff', left, right, title, opts);
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
@@ -265,7 +282,7 @@ export class CommandCenter {
 
 		const uris = resources.map(res => res.resourceUri);
 		const preview = uris.length === 1;
-		const activeTextEditor =window.activeTextEditor;
+		const activeTextEditor = window.activeTextEditor;
 
 		for (const uri of uris) {
 			const opts: TextDocumentShowOptions = {
@@ -301,15 +318,9 @@ export class CommandCenter {
 			}
 		}
 
-		if (resources.length === 1) {
-			const [singleResource] = resources;
-			return await this._openResource(singleResource);
-		}
-		else {
-			for (let resource of resources) {
-				await this._openResource(resource);
-				await commands.executeCommand<void>('workbench.action.keepEditor');
-			}
+		const preview = resources.length === 1 ? undefined : false;
+		for (let resource of resources) {
+			await this._openResource(resource, preview, true, false);
 		}
 	}
 
@@ -321,7 +332,7 @@ export class CommandCenter {
 			return;
 		}
 
-		return await commands.executeCommand<void>('vscode.open', resource.resourceUri);
+		return await this.openFile(resource);
 	}
 
 	@command('hg.openChangeFromUri')
