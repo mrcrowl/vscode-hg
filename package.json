@@ -316,7 +316,7 @@
         },
         {
           "command": "hg.init",
-          "when": "config.hg.enabled && hgState == norepo"
+          "when": "config.hg.enabled"
         },
         {
           "command": "hg.openhgrc",
@@ -456,67 +456,67 @@
         {
           "command": "hg.commit",
           "group": "navigation",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.refresh",
           "group": "navigation",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.pull",
           "group": "1_sync",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.push",
           "group": "1_sync",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.pushTo",
           "group": "1_sync",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.commitStaged",
           "group": "3_commit",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.commitAll",
           "group": "3_commit",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.undoRollback",
           "group": "3_commit",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.unstageAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.cleanAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.mergeHeads",
           "group": "5_merge",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.mergeWithLocal",
           "group": "5_merge",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         },
         {
           "command": "hg.showOutput",
           "group": "6_output",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && scmProvider == hg"
         }
       ],
       "scm/resourceGroup/context": [
@@ -567,7 +567,7 @@
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == git && scmResourceGroup != untracked",
+          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup != untracked",
           "group": "navigation"
         }
       ],
