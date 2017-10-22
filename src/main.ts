@@ -16,6 +16,7 @@ import { HgContentProvider } from './contentProvider';
 // import { AutoIncomingOutgoing } from './autoinout';
 // import { MergeDecorator } from './merge';
 import * as nls from 'vscode-nls';
+import typedConfig from './config';
 
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
 
@@ -25,15 +26,13 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const outputChannel = window.createOutputChannel('Hg');
 	disposables.push(outputChannel);
 
-	const config = workspace.getConfiguration('hg');
-	const enabled = config.get<boolean>('enabled') === true;
-	const enableInstrumentation = config.get<boolean>('instrumentation') === true;
+	const enabled = typedConfig.enabled;
+	const enableInstrumentation = typedConfig.instrumentation;
 	const workspaceRootPath = workspace.rootPath;
-
-	const pathHint = workspace.getConfiguration('hg').get<string>('path');
+	const pathHint = typedConfig.path;
 	const info: IHg = await findHg(pathHint, outputChannel);
 	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
-	
+
 	if (!workspaceRootPath || !enabled) {
 		const commandCenter = new CommandCenter(hg, undefined, outputChannel);
 		disposables.push(commandCenter);
@@ -42,27 +41,32 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 
 	const model = new Model(hg);
 	disposables.push(model);
-	const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', `${model.repositories.length}`);
+	const onRepository = () => {
+		const openRepoCount = model.repositories.length;
+		commands.executeCommand('setContext', 'hgOpenRepositoryCount', openRepoCount);
+	};
 	model.onDidOpenRepository(onRepository, null, disposables);
 	model.onDidCloseRepository(onRepository, null, disposables);
+	onRepository();
+
+	if (!enabled)
+	{
+		const commandCenter = new CommandCenter(hg, model, outputChannel);
+		disposables.push(commandCenter);
+		return;
+	}
 
 	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
 	hg.onOutput(str => outputChannel.append(str), null, disposables);
 
 	const commandCenter = new CommandCenter(hg, model, outputChannel);
-	// const statusBarCommands = new StatusBarCommands(model);
-	// const provider = new MercurialSCMProvider(model, commandCenter, statusBarCommands);
 	const contentProvider = new HgContentProvider(model);
-	// const autoInOut = new AutoIncomingOutgoing(model);
 	// const mergeDecorator = new MergeDecorator(model);
 
 	disposables.push(
 		commandCenter,
-		// provider,
 		contentProvider,
-		// autoInOut,
 		// mergeDecorator,
-		// model
 	);
 
 	if (/^[01]/.test(info.version)) {

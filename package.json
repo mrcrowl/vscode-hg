@@ -16,9 +16,9 @@
   "bugs": {
     "url": "https://github.com/mrcrowl/vscode-hg/issues"
   },
-  "version": "1.1.7",
+  "version": "1.2.0",
   "engines": {
-    "vscode": "^1.18.0"
+    "vscode": "^1.17.0"
   },
   "keywords": [
     "hg",
@@ -451,7 +451,7 @@
         {
           "command": "hg.init",
           "group": "navigation",
-          "when": "config.hg.enabled"
+          "when": "config.hg.enabled && !scmProvider && hgOpenRepositoryCount == 0"
         },
         {
           "command": "hg.commit",

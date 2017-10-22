@@ -26,6 +26,14 @@ class Config {
         return this.get("enabled", true);
     }
 
+    get instrumentation(): boolean {
+        return this.get("instrumentation", false);
+    }
+
+    get path(): string | undefined {
+        return this.get("path", undefined);
+    }
+
     get autoUpdate(): boolean {
         return this.get("autoUpdate", true);
     }

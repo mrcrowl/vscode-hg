@@ -147,14 +147,14 @@ export class Model implements Disposable {
 			const children = await new Promise<string[]>((c, e) => fs.readdir(root, (err, r) => err ? e(err) : c(r)));
 
 			children
-				.filter(child => child !== '.git')
+				.filter(child => child !== '.hg')
 				.forEach(child => this.tryOpenRepository(path.join(root, child)));
 		}
 	}
 
 	private onPossibleHgRepositoryChange(uri: Uri): void {
-		const possibleGitRepositoryPath = uri.fsPath.replace(/\.hg.*$/, '');
-		this.possibleHgRepositoryPaths.add(possibleGitRepositoryPath);
+		const possibleHgRepositoryPath = uri.fsPath.replace(/\.hg.*$/, '');
+		this.possibleHgRepositoryPaths.add(possibleHgRepositoryPath);
 		this.eventuallyScanPossibleHgRepositories();
 	}
 
@@ -224,7 +224,7 @@ export class Model implements Disposable {
 
 			this.open(repository);
 		} catch (err) {
-			if (err.gitErrorCode === HgErrorCodes.NotAnHgRepository) {
+			if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
 				return;
 			}
 
@@ -274,22 +274,6 @@ export class Model implements Disposable {
 
 		return pick && pick.repository;
 	}
-
-	/// ###############################
-
-	// getResourceGroupById(id: ResourceGroupId): ResourceGroup {
-	// 	return this._groups[id];
-	// }
-
-	// @throttle
-	// async init(): Promise<void> {
-	// 	if (this.state !== State.NotAnHgRepository) {
-	// 		return;
-	// 	}
-
-	// 	await this._hg.init(this.workspaceRootPath);
-	// 	await this.status();
-	// }
 
 	getOpenRepositories(): Repository[] {
 		return this.openRepositories.map(r => r.repository);

@@ -210,4 +210,4 @@ function toMergeStatus(status: string): MergeStatus {
 	}
 }
 
-export const isSCMResourceGroup = (obj: any): obj is SourceControlResourceGroup => (<SourceControlResourceGroup>obj).resourceStates !== undefined;
+export const isResourceGroup = (obj: any): obj is SourceControlResourceGroup => (<SourceControlResourceGroup>obj).resourceStates !== undefined;

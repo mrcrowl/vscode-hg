@@ -1,6 +1,6 @@
 {
 	"command.clone": "Clone",
-	"command.init": "Initialize Repository",
+	"command.init": "Initialize Repository (Hg)",
 	"command.openhgrc": "Open hgrc file",
 	"command.refresh": "Refresh",
 	"command.openChange": "Open Changes",

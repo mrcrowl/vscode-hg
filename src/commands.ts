@@ -4,13 +4,13 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl } from "vscode";
+import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl, SourceControlResourceGroup } from "vscode";
 import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
 import * as os from 'os';
-import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, isSCMResourceGroup } from "./resourceGroups";
+import { WorkingDirectoryGroup, StagingGroup, MergeGroup, UntrackedGroup, ConflictGroup, ResourceGroup, ResourceGroupId, isResourceGroup } from "./resourceGroups";
 import { interaction, BranchExistsAction, WarnScenario, CommitSources, DescribedBackAction, DefaultRepoNotConfiguredAction, LogMenuAPI } from "./interaction";
 import { humanise } from "./humanise"
 import * as vscode from "vscode";
@@ -243,13 +243,13 @@ export class CommandCenter {
 	}
 
 	@command('hg.openFiles')
-	openFiles(...resources: (Resource | ResourceGroupProxy)[]): Promise<void> {
+	openFiles(...resources: (Resource | SourceControlResourceGroup)[]): Promise<void> {
 		if (resources.length === 1) {
 			// a resource group proxy object?
-			const [resourceGroupProxy] = resources;
-			if (isSCMResourceGroup(resourceGroupProxy)) {
-				const groupId = resourceGroupProxy.id
-				const resources = resourceGroupProxy.resourceStates as Resource[];
+			const [resourceGroup] = resources;
+			if (isResourceGroup(resourceGroup)) {
+				const groupId = resourceGroup.id
+				const resources = resourceGroup.resourceStates as Resource[];
 				return this.openFile(...resources);
 			}
 		}
@@ -281,15 +281,15 @@ export class CommandCenter {
 			return;
 		}
 
-		// if (resources.length === 1) {
-		// 	// a resource group proxy object?
-		// 	const [resourceGroupProxy] = resources;
-		// 	if (isResourceGroupProxy(resourceGroupProxy)) {
-		// 		const groupId = resourceGroupProxy._id;
-		// 		const resourceGroup = this.model.getResourceGroupById(groupId);
-		// 		return this.openChange(...resourceGroup.resources);
-		// 	}
-		// }
+		if (resources.length === 1) {
+			// a resource group proxy object?
+			const [resourceGroup] = resources;
+			if (isResourceGroup(resourceGroup)) {
+				const groupId = resourceGroup.id;
+				const resources = resourceGroup.resourceStates as Resource[];
+				return this.openChange(...resources);
+			}
+		}
 
 		if (resources.length === 1) {
 			const [singleResource] = resources;
@@ -364,7 +364,7 @@ export class CommandCenter {
 
 			resourceStates = [resource];
 		}
-		
+
 		const scmResources = resourceStates
 			.filter(s => s instanceof Resource && s.resourceGroup instanceof WorkingDirectoryGroup) as Resource[];
 
@@ -511,9 +511,6 @@ export class CommandCenter {
 
 		const [discardResources, addedResources] = partition(scmResources, s => s.status !== Status.ADDED);
 		if (discardResources.length > 0) {
-			// const confirmFilenames = discardResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
-			// const addedFilenames = addedResources.map(r => this.model.mapResourceToWorkspaceRelativePath(r));
-			
 			const confirmFilenames = discardResources.map(r => path.basename(r.resourceUri.fsPath));
 			const addedFilenames = addedResources.map(r => path.basename(r.resourceUri.fsPath));
 
