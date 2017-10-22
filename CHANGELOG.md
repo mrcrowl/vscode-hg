@@ -1,4 +1,14 @@
 
+**v1.2.0**
+=============================================
+
+## What's New
+  - Support for multiple source control providers.  Hg should now play nicely alongside Git and other source control providers [#29]((https://github.com/mrcrowl/vscode-hg/issues/29), [#26](https://github.com/mrcrowl/vscode-hg/issues/26), [#24](https://github.com/mrcrowl/vscode-hg/issues/24)
+  - Support for multiple folder workspaces (insiders) [#29](https://github.com/mrcrowl/vscode-hg/issues/29)
+
+## Bug fix
+  - Fixed missing commands from window title area (open file/open changes)
+
 **v1.1.7**
 =============================================
 

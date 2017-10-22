@@ -1,6 +1,6 @@
 # Overview
 
-### Integrated Mercurial source control, using the new SCM API in VS Code 1.11+
+### Integrated Mercurial source control
 
 # Prerequisites
 
@@ -26,26 +26,18 @@
 
  * Quickly switch branches, push and pull via status bar.
 
+ * Supports named-branches or bookmark workflows.
+
  * Automatic incoming/outgoing counters. 
 
  * Undo/rollback.
+ 
 
 # Feedback & Contributing
 
- * This is a relatively **new** extension, _so_ there will likely still be a few "rough edges"\.
  * Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/mrcrowl/vscode-hg/issues) (_yes_, I see the irony).
  * Feel free to submit [pull requests](https://github.com/mrcrowl/vscode-hg/pulls).
 
-
-## Switch to Hg
-
-![Switch to Hg](images/switch-to-hg.gif)
-
- 1. Open the source control side-bar.
-
- 1. Click **⋯** > _Switch SCM Provider..._
-
- 1. Choose _Hg_
 
 ## Initialize a new repo
 
@@ -53,12 +45,13 @@
 
   * Just click the Mercurial icon from the source control title area:
 
-## Update to a branch/tag
+## Update to a branch/tag/bookmark
 
 ![Change branches](images/change-branch.gif)
 
   * The current branch name is shown in the bottom-left corner.
   * Click it to see a list of branches and tags that you can update to.
+  * When `hg.useBookmarks` is enabled, this changes to bookmarks.
 
 # Settings
 
