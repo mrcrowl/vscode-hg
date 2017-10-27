@@ -420,7 +420,7 @@ export class Repository implements IDisposable {
 
         // As a mitigation for extensions like ESLint showing warnings and errors
         // for hg URIs, let's change the file extension of these uris to .hg.
-        toHgUri(uri, '', true);
+        return toHgUri(uri, '', true);
     }
 
     @throttle
