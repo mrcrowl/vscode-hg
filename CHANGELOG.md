@@ -1,4 +1,10 @@
 
+**v1.2.1**
+=============================================
+
+## Bug fix
+  - Restored missing gutter indicators that were lost in v1.2.0 [#31](https://github.com/mrcrowl/vscode-hg/issues/31)
+
 **v1.2.0**
 =============================================
 
