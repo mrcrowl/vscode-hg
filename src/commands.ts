@@ -1156,7 +1156,7 @@ export class CommandCenter {
 				return result;
 			}
 
-			const tuple = result.filter(p => p[0] === repository)[0];
+			const tuple = result.filter(r => r.repository === repository)[0];
 
 			if (tuple) {
 				tuple.resources.push(resource);
