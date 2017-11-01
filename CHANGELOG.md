@@ -1,4 +1,11 @@
 
+
+**v1.2.2**
+=============================================
+
+## What's New
+  - Added "multi-root ready" keyword, as requested by VS Code Team [#29]((https://github.com/mrcrowl/vscode-hg/issues/29)
+
 **v1.2.1**
 =============================================
 
