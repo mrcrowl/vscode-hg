@@ -1,7 +1,7 @@
 
 import { Uri, Command, EventEmitter, Event, scm, SourceControl, SourceControlInputBox, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations, Disposable, ProgressLocation, window, workspace, WorkspaceEdit, ThemeColor, commands } from 'vscode';
-import { Repository as BaseRepository, Ref, Commit, RefType, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails } from './hg';
-import { anyEvent, filterEvent, eventToPromise, dispose, IDisposable, delay, groupBy, partition } from './util';
+import { Repository as BaseRepository, Ref, Commit, RefType, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails, LineAnnotation } from './hg';
+import { anyEvent, filterEvent, eventToPromise, dispose, IDisposable, delay, groupBy, partition, uniqBy } from './util';
 import { memoize, throttle, debounce } from './decorators';
 import { StatusBarCommands } from './statusbar';
 import typedConfig, { PushPullScopeOptions } from "./config";
@@ -54,6 +54,11 @@ export enum MergeStatus {
     NONE,
     UNRESOLVED,
     RESOLVED
+}
+
+export type AnnotationResponse = {
+    annotations: LineAnnotation[],
+    revisions: Commit[]
 }
 
 export class Resource implements SourceControlResourceState {
@@ -1100,9 +1105,10 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public getAnnotations(fileName: Uri): Promise<any[]> {
+    public async getAnnotations(fileName: Uri): Promise<LineAnnotation[]> {
         const filePath = this.mapFileUriToRepoRelativePath(fileName);
-        return this.repository.getFileAnnotation(filePath);
+        const annotations = await this.repository.getFileAnnotation(filePath);
+        return annotations;
     }
 
     @throttle

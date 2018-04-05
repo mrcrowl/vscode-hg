@@ -1260,25 +1260,21 @@ export class Repository {
 		return activeBookmark
 	}
 
-	async getFileAnnotation(file): Promise<(LineAnnotation | undefined)[]> {
+	async getFileAnnotation(file): Promise<LineAnnotation[]> {
 		console.time('fileAnnotation');
 		const args = ['annotate', '-udc', file];
 		const result = await this.run(args);
 		const lines = result.stdout.trim()
 			.split('\n')
 			.map(x => x.match(/^\s*(.+) ([0-9a-f]{12}) (.*:\d\d:.*?):\s.*\r?$/))
-			.map((x): LineAnnotation | undefined => {
-				if (!x) {
-					return;
-				}
+			.filter(x => x !== null)
+			.map((x: string[]): LineAnnotation => {
 				return {
 					user: x[1],
 					revision: x[2],
 					timestamp: x[3]
 				}
 			});
-		console.log(lines);
-		console.timeEnd('fileAnnotation');
 		return lines;
 	}
 
