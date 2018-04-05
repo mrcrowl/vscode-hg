@@ -77,6 +77,14 @@ class Config {
     get pushPullBranch(): PushPullScopeOptions {
         return this.get<PushPullScopeOptions>("pushPullBranch", this.pushPullScope);
     }
+
+    get annotationEnabled(): boolean {
+        return this.get("annotationEnabled", true);
+    }
+
+    get annotationColor(): string {
+        return this.get("annotationColor", '#555');
+    }
 }
 
 const typedConfig = new Config()

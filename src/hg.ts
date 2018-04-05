@@ -35,6 +35,12 @@ export interface LogEntryOptions {
 	bookmark?: string;
 }
 
+export interface LineAnnotation {
+	user: string;
+	revision: string;
+	timestamp: string;
+}
+
 export interface PushOptions extends PullOptions {
 	allowPushNewBranches?: boolean;
 }
@@ -1252,6 +1258,24 @@ export class Repository {
 		const bookmarks = await this.getBookmarks()
 		const activeBookmark = bookmarks.filter(b => b.active)[0]
 		return activeBookmark
+	}
+
+	async getFileAnnotation(file): Promise<LineAnnotation[]> {
+		console.time('fileAnnotation');
+		const args = ['annotate', '-udc', file];
+		const result = await this.run(args);
+		const lines = result.stdout.trim()
+			.split('\n')
+			.map(x => x.match(/^\s*(.+) ([0-9a-f]{12}) (.*:\d\d:.*?):\s.*\r?$/))
+			.filter(x => x !== null)
+			.map((x: string[]): LineAnnotation => {
+				return {
+					user: x[1],
+					revision: x[2],
+					timestamp: x[3]
+				}
+			});
+		return lines;
 	}
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {

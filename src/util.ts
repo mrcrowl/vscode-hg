@@ -105,6 +105,14 @@ export function groupBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T[
 	}, Object.create(null));
 }
 
+export function keyBy<T>(arr: T[], fn: (el: T) => string): { [key: string]: T } {
+	return arr.reduce((result, el) => {
+		const key = fn(el);
+		result[key] = el;
+		return result;
+	}, Object.create(null));
+}
+
 export function partition<T>(array: T[], fn: (el: T, i: number, ary: T[]) => boolean): [T[], T[]] {
 	return array.reduce((result: [T[], T[]], element: T, i: number) => {
 		if (fn(element, i, array)) {

@@ -792,6 +792,16 @@
             "%config.pushPullScope.default%"
           ],
           "default": "all"
+        },
+        "hg.annotationEnabled": {
+          "type": "boolean",
+          "description": "%config.annotationEnabled%",
+          "default": false
+        },
+        "hg.annotationColor": {
+          "type": "string",
+          "description": "%config.annotationColor%",
+          "default": "#555"
         }
       }
     }
