@@ -376,7 +376,7 @@ export class Repository implements IDisposable {
         private readonly repository: BaseRepository
     ) {
         this.updateRepositoryPaths();
-        
+
         const fsWatcher = workspace.createFileSystemWatcher('**');
         this.disposables.push(fsWatcher);
 
@@ -1097,6 +1097,12 @@ export class Repository implements IDisposable {
             parent2,
             files: fileStatuses
         }
+    }
+
+    @throttle
+    public getAnnotations(fileName: Uri): Promise<any[]> {
+        const filePath = this.mapFileUriToRepoRelativePath(fileName);
+        return this.repository.getFileAnnotation(filePath);
     }
 
     @throttle

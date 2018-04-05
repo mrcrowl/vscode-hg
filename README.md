@@ -120,6 +120,14 @@
   `"cli"` &mdash; spawn a new `hg` process per command (default).
   `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_  
 
+`hg.annotationEnabled`
+  * Enables annotation decorations at end of lines
+  * Window needs to be reloaded for changes to take effect
+
+`hg.annotationColor`
+  * Specifies the color of line annotations
+  * Should be a hex color code
+
 # Acknowledgements
 
 [ajansveld](https://github.com/ajansveld), [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy)

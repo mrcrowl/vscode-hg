@@ -14,6 +14,8 @@ import { HgContentProvider } from './contentProvider';
 import * as nls from 'vscode-nls';
 import typedConfig from './config';
 
+import { LineTracker } from './lineTracker';
+
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
 
 async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
@@ -49,6 +51,8 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 		new CommandCenter(hg, model, outputChannel),
 		new HgContentProvider(model),
 	);
+
+	disposables.push(new LineTracker(hg, model));
 
 	await checkHgVersion(info);
 }
