@@ -1,10 +1,17 @@
-
-
-**v1.2.2**
+**v1.3.0**
 =============================================
 
+## Bug fix
+  - Fixed bug caused by API change in vscode v1.31 [#65](https://github.com/mrcrowl/vscode-hg/issues/65)
+
+**v1.2.2-3**
+=============================================
+
+## Bug fix
+  - Fixed slow multi-file Hg operations (such as stage/add file)
+
 ## What's New
-  - Added "multi-root ready" keyword, as requested by VS Code Team [#29]((https://github.com/mrcrowl/vscode-hg/issues/29)
+  - Added "multi-root ready" keyword, as requested by VS Code Team [#29](https://github.com/mrcrowl/vscode-hg/issues/29)
 
 **v1.2.1**
 =============================================

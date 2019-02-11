@@ -995,11 +995,23 @@ export class Repository implements IDisposable {
             }
         });
     }
-
+    
     private async unlocked<T>(): Promise<void> {
         let attempt = 1;
 
-        while (attempt <= 10 && await exists(path.join(this.repository.root, '.hg', 'index.lock'))) {
+        const existsLocal = (path: string) => new Promise((resolve, reject) => {
+            fs.stat(path, (err) => {
+                if (err) {
+                    if (err.code === 'ENOENT') {
+                        return resolve(false);
+                    }
+                    reject(err);
+                }
+                return resolve(true);
+            });
+        });
+
+        while (attempt <= 10 && await existsLocal(path.join(this.repository.root, '.hg', 'index.lock'))) {
             await timeout(Math.pow(attempt, 2) * 50);
             attempt++;
         }
