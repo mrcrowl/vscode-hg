@@ -934,7 +934,7 @@ export class Repository implements IDisposable {
 
     async show(ref: string, filePath: string): Promise<string> {
         // TODO@Joao: should we make this a general concept?
-        await this.whenIdleAndFocused();
+        //await this.whenIdleAndFocused();
 
         return await this.run(Operation.Show, async () => {
             const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');

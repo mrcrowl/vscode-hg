@@ -78,12 +78,39 @@ export class CommandCenter {
 
 	@command('hg.openResource')
 	async openResource(resource: Resource): Promise<void> {
-		await this._openResource(resource, undefined, true, false);
+		const repository = this.model.getRepository(resource.resourceUri);
+
+		if (!repository) {
+			return;
+		}
+
+		const config = workspace.getConfiguration('hg', Uri.file(repository.root));
+		const openDiffOnClick = true; //config.get<boolean>('openDiffOnClick');
+
+		if (openDiffOnClick) {
+
+			if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
+				resource.status !== Status.MISSING &&
+				resource.status !== Status.DELETED) {
+				return await this.openFile(resource);
+			}
+
+			await this._openResource(resource, undefined, true, false);
+		} else {
+			await this.openFile(resource);
+		}
 	}
 
 	private async _openResource(resource: Resource, preview?: boolean, preserveFocus?: boolean, preserveSelection?: boolean): Promise<void> {
-		const left = this.getLeftResource(resource);
-		const right = this.getRightResource(resource);
+
+		let left: Uri | undefined;
+		let right: Uri | undefined;
+
+		if (resource.status !== Status.DELETED) {
+			left = this.getLeftResource(resource);
+		}
+
+	  right = this.getRightResource(resource);
 		const title = this.getTitle(resource);
 
 		if (!right) {
@@ -108,12 +135,10 @@ export class CommandCenter {
 		}
 
 		if (!left) {
-			const document = await workspace.openTextDocument(right);
-			await window.showTextDocument(document, opts);
-			return;
+			await commands.executeCommand<void>('vscode.open', right, opts, title);
+		} else {
+			await commands.executeCommand<void>('vscode.diff', left, right, title, opts);
 		}
-
-		return await commands.executeCommand<void>('vscode.diff', left, right, title, opts);
 	}
 
 	private getLeftResource(resource: Resource): Uri | undefined {
