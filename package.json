@@ -1,20 +1,20 @@
 {
   "name": "hg",
-  "publisher": "mrcrowl",
+  "publisher": "vivekvijayan",
   "displayName": "Hg",
   "description": "Integrated Mercurial source control",
   "galleryBanner": {
     "color": "#999999",
     "theme": "dark"
   },
-  "homepage": "https://github.com/mrcrowl/vscode-hg/blob/master/README.md",
+  "homepage": "https://github.com/vivekvjn/vscode-hg/blob/master/README.md",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mrcrowl/vscode-hg.git"
+    "url": "https://github.com/vivekvjn/vscode-hg.git"
   },
   "bugs": {
-    "url": "https://github.com/mrcrowl/vscode-hg/issues"
+    "url": "https://github.com/vivekvjn/vscode-hg/issues"
   },
   "version": "1.3.0",
   "engines": {
