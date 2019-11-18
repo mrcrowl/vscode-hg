@@ -40,7 +40,7 @@ export class HgCommandServer {
     private config;
     private serverProcess: ChildProcess | undefined;
     private starting: boolean;
-    private encoding: string;
+    private encoding: BufferEncoding;
     private capabilities;
     private commandQueue: PipelineCommand[];
     private stopWhenQueueEmpty: boolean;
@@ -144,7 +144,7 @@ export class HgCommandServer {
                 const body = await stream.readString(length, "ascii");
                 const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(body);
                 this.capabilities = capabilities;
-                this.encoding = encoding;
+                this.encoding = encoding as BufferEncoding;
 
                 this.starting = false;
 
@@ -384,7 +384,7 @@ class StreamReader {
 const UINT32_SIZE = 4;
 const UINT8_SIZE = 1;
 
-async function serverSendCommand(server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
+async function serverSendCommand(server: ChildProcess, encoding: BufferEncoding, cmd: string, args: string[] = []) {
     if (!server) {
         throw new Error("Must start the command server before issuing commands");
     }

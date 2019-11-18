@@ -14,7 +14,7 @@ import { HgContentProvider } from './contentProvider';
 import * as nls from 'vscode-nls';
 import typedConfig from './config';
 
-const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
+const localize = nls.config(process.env.VSCODE_NLS_CONFIG as nls.Options | undefined)();
 
 async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
 	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string, version: string, aiKey: string };
