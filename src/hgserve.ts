@@ -392,13 +392,13 @@ async function serverSendCommand(server: ChildProcess, encoding: BufferEncoding,
     const argsJoined = args.join("\0");
     const argsJoinedLength = argsJoined.length;
     const totalBufferSize = cmdLength + UINT32_SIZE + argsJoinedLength;
-    const buffer = new Buffer(totalBufferSize);
+    const buffer = Buffer.alloc(totalBufferSize);
     buffer.write(cmd + "\n", 0, cmdLength, encoding);
     buffer.writeUInt32BE(argsJoinedLength, cmdLength);
     buffer.write(argsJoined, cmdLength + UINT32_SIZE, argsJoinedLength, encoding);
     // logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
     await writeBufferToStdIn(server, buffer);
-};
+}
 
 async function serverSendLineInput(server: ChildProcess, encoding: string, text: string) {
     if (!server) {
@@ -406,12 +406,12 @@ async function serverSendLineInput(server: ChildProcess, encoding: string, text:
     }
     const textLength = text.length + 1;
     const totalBufferSize = textLength + UINT32_SIZE;
-    const buffer = new Buffer(totalBufferSize);
+    const buffer = Buffer.alloc(totalBufferSize);
     buffer.writeUInt32BE(textLength, 0);
     buffer.write(`${text}\n`, UINT32_SIZE, textLength, "ascii");
     // logger.info(`hgserve:stdin:${text}\n`);
     await writeBufferToStdIn(server, buffer);
-};
+}
 
 function writeBufferToStdIn(server: ChildProcess, buffer: Buffer): Promise<any> {
     return new Promise((c, e) => server.stdin.write(buffer, c));
