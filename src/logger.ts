@@ -1,4 +1,3 @@
-
 // import * as DailyRotateFile from 'winston-daily-rotate-file';
 // import { NullTransport } from 'winston-null';
 // import * as winston from 'winston';
@@ -29,7 +28,6 @@
 //         new NullTransport()
 //     ]
 // }
-
 
 // export const logger = new winston.Logger({ transports });
 /* */

@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/vivekvjn/vscode-hg/issues"
   },
-  "version": "2.0.0",
+  "version": "2.0.1",
   "engines": {
     "vscode": "^1.40.0"
   },
@@ -808,16 +808,24 @@
     "vscode-nls": "^4.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^8.2.0",
+    "@commitlint/config-conventional": "^8.2.0",
     "@types/glob": "^7.1.1",
     "@types/mocha": "^5.2.7",
     "@types/node": "^12.11.7",
-    "@types/vscode": "^1.40.0",
     "@types/tmp": "^0.1.0",
+    "@types/vscode": "^1.40.0",
     "glob": "^7.1.5",
+    "husky": "^3.1.0",
     "mocha": "^6.2.2",
     "prettier": "^1.19.1",
-    "typescript": "^3.6.4",
     "tslint": "^5.20.0",
+    "typescript": "^3.6.4",
     "vscode-test": "^1.2.2"
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
   }
 }
