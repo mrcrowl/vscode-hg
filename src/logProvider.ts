@@ -1,7 +1,7 @@
-import { Model } from "./model";
-import { workspace, Disposable, Uri, Event, EventEmitter } from "vscode";
+import { Model } from './model';
+import { workspace, Disposable, Uri, Event, EventEmitter } from 'vscode';
 
-const LOG_URI = "hg-log://hg/log";
+const LOG_URI = 'hg-log://hg/log';
 
 // export class HgLogProvider {
 //     private disposables: Disposable[] = [];
@@ -21,7 +21,6 @@ const LOG_URI = "hg-log://hg/log";
 //     // async provideTextDocumentContent(uri: Uri): Promise<string> {
 //     //     this.model.getLogEntries();
 //     // }
-
 
 //     dispose(): void {
 //         this.disposables.forEach(d => d.dispose());
