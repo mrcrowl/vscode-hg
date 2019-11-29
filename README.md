@@ -8,7 +8,6 @@
 > so you need to [install Mercurial](https://www.mercurial-scm.org) first.
 
 > **Note 2**: This is a fork of mrcrowl/vscode-hg who seems to be slightly inactive atm.
-> Currently I have fixed only the file diff issue. (https://github.com/mrcrowl/vscode-hg/issues/35)
 
 ---
 
