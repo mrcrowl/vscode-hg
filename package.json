@@ -801,7 +801,8 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "release": "standard-version"
   },
   "dependencies": {
     "tmp": "^0.1.0",
@@ -819,6 +820,7 @@
     "husky": "^3.1.0",
     "mocha": "^6.2.2",
     "prettier": "^1.19.1",
+    "standard-version": "^7.0.1",
     "tslint": "^5.20.0",
     "typescript": "^3.6.4",
     "vscode-test": "^1.2.2"
