@@ -1149,7 +1149,7 @@ export class Repository implements IDisposable {
 
         const groupInput: IGroupStatusesParams = {
             respositoryRoot: this.repository.root,
-            fileStatuses: fileStatuses,
+            fileStatuses: fileStatuses || [],
             repoStatus: this._repoStatus,
             resolveStatuses: resolveStatuses,
             statusGroups: this._groups

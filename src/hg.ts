@@ -164,7 +164,7 @@ export class HgFinder {
 		});
 	}
 
-	private findMercurialWin32(base: string): Promise<IHg> {
+	private findMercurialWin32(base: string | undefined): Promise<IHg> {
 		if (!base) {
 			return Promise.reject<IHg>('Not found');
 		}
@@ -172,7 +172,7 @@ export class HgFinder {
 		return this.findSpecificHg(path.join(base, 'Mercurial', 'hg.exe'));
 	}
 
-	private findTortoiseHgWin32(base: string): Promise<IHg> {
+	private findTortoiseHgWin32(base: string | undefined): Promise<IHg> {
 		if (!base) {
 			return Promise.reject<IHg>('Not found');
 		}
