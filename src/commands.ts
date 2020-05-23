@@ -625,7 +625,36 @@ export class CommandCenter {
 
 	private async commitWithAnyInput(repository: Repository, opts?: CommitOptions): Promise<void> {
 		const message = scm.inputBox.value;
-		const didCommit = await this.smartCommit(repository, () => interaction.inputCommitMessage(message), opts);
+		const getCommitMessage = async () => {
+			let _message: string | undefined = message;
+
+			if (!_message) {
+				let value: string | undefined = undefined;
+	
+				if (opts && opts.amend && repository.head && repository.head.commit) {
+					value = (await repository.getCommitDetails(repository.head.commit)).message
+				}
+
+				const branchName = repository.headShortName;
+				let placeHolder: string;
+			
+				if (branchName) {
+					placeHolder = localize('commitMessageWithHeadLabel2', "Message (commit on '{0}')", branchName);
+				} else {
+					placeHolder = localize('commit message', "Commit message");
+				}
+	
+				_message = await window.showInputBox({
+					value: value,
+					placeHolder: placeHolder,
+					prompt: localize('provide commit message', "Please provide a commit message"),
+					ignoreFocusOut: true
+				});
+			}
+	
+			return _message;
+		}
+		const didCommit = await this.smartCommit(repository, getCommitMessage, opts);
 
 		if (message && didCommit) {
 			scm.inputBox.value = "";
@@ -635,6 +664,11 @@ export class CommandCenter {
 	@command('hg.commit', { repository: true })
 	async commit(repository: Repository): Promise<void> {
 		await this.commitWithAnyInput(repository);
+	}
+
+	@command('hg.commitAmend', { repository: true })
+	async commitAmend(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository, { amend: true });
 	}
 
 	@command('hg.commitWithInput', { repository: true })
@@ -651,9 +685,19 @@ export class CommandCenter {
 		await this.commitWithAnyInput(repository, { scope: CommitScope.STAGED_CHANGES });
 	}
 
+	@command('hg.commitStagedAmend', { repository: true })
+	async commitStagedAmend(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository, { scope: CommitScope.STAGED_CHANGES, amend: true });
+	}
+
 	@command('hg.commitAll', { repository: true })
 	async commitAll(repository: Repository): Promise<void> {
 		await this.commitWithAnyInput(repository, { scope: CommitScope.ALL_WITH_ADD_REMOVE });
+	}
+
+	@command('hg.commitAllAmend', { repository: true })
+	async commitAllAmend(repository: Repository): Promise<void> {
+		await this.commitWithAnyInput(repository, { scope: CommitScope.ALL_WITH_ADD_REMOVE, amend: true });
 	}
 
 	private focusScm() {

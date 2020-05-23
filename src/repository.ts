@@ -248,7 +248,8 @@ export const enum CommitScope {
 }
 
 export interface CommitOptions {
-    scope: CommitScope;
+    scope?: CommitScope;
+    amend?: boolean;
 }
 
 export class Repository implements IDisposable {
@@ -304,6 +305,32 @@ export class Repository implements IDisposable {
     get stagingGroup(): StagingGroup { return this._groups.staging; }
     get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.working; }
     get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
+
+    get head(): Ref | undefined {
+        const useBookmarks = typedConfig.useBookmarks
+        return useBookmarks ? this.activeBookmark : this.currentBranch;
+    }
+
+    get headShortName(): string | undefined {
+
+        if (!this.head) {
+            return;
+        }
+
+        const head = this.head;
+
+        if (head.name) {
+            return head.name;
+        }
+        const tag = this.refs.filter(iref => iref.type === RefType.Tag && iref.commit === head.commit)[0];
+        const tagName = tag && tag.name;
+
+        if (tagName) {
+            return tagName;
+        }
+
+        return (head.commit || '').substr(0, 8);
+    }
 
     private _currentBranch: Ref | undefined;
     get currentBranch(): Ref | undefined { return this._currentBranch; }
