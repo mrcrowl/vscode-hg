@@ -504,9 +504,9 @@ export class Hg {
 
 		options.env = {
 			HGENCODING: "utf-8", // allow user's env to overwrite this
-			HGPLAIN: '',
 			...process.env,
 			...options.env,
+			HGPLAIN: '',
 			VSCODE_HG_COMMAND: args[0],
 			LC_ALL: 'en_US.UTF-8',
 			LANG: 'en_US.UTF-8'
