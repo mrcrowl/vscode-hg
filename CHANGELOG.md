@@ -1,3 +1,11 @@
+
+**v1.4.0**
+=============================================
+
+## Bug fixes (HT [@incidentist](https://github.com/incidentist) for fixing these)
+  - Prevent colors interferring with hg output [#39](https://github.com/mrcrowl/vscode-hg/issues/39)
+  - Fix locale-related crash in hg 5.4 [#80](https://github.com/mrcrowl/vscode-hg/issues/80)
+
 **v1.3.0**
 =============================================
 
