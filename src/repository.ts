@@ -312,12 +312,11 @@ export class Repository implements IDisposable {
     }
 
     get headShortName(): string | undefined {
+        const head = this.head;
 
-        if (!this.head) {
+        if (!head) {
             return;
         }
-
-        const head = this.head;
 
         if (head.name) {
             return head.name;
