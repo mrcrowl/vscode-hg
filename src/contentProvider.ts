@@ -40,7 +40,6 @@ export class HgContentProvider {
 			model.onDidChangeRepository(this.eventuallyFireChangeEvents, this),
 			model.onDidChangeOriginalResource(this.onDidChangeOriginalResource, this),
 			workspace.registerTextDocumentContentProvider('hg', this),
-			workspace.registerTextDocumentContentProvider('hg-original', this)
 		);
 
 		setInterval(() => this.cleanup(), FIVE_MINUTES);
@@ -102,10 +101,6 @@ export class HgContentProvider {
 		const cacheValue = { uri, timestamp };
 
 		this.cache[cacheKey] = cacheValue;
-
-		if (uri.scheme === 'hg-original') {
-			uri = uri.with({ scheme: 'hg', path: uri.query });
-		}
 
 		let { path, ref } = fromHgUri(uri);
 

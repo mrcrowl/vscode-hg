@@ -141,12 +141,12 @@ export class CommandCenter {
 		if (resource.mergeStatus === MergeStatus.UNRESOLVED &&
 			resource.status !== Status.MISSING &&
 			resource.status !== Status.DELETED) {
-			return resource.resourceUri.with({ scheme: 'hg', query: 'p2()' });
+			return toHgUri(resource.resourceUri, 'p2()');
 		}
 
 		switch (resource.status) {
 			case Status.DELETED:
-				return resource.resourceUri.with({ scheme: 'hg', query: '.' });
+				return toHgUri(resource.resourceUri, '.');
 
 			case Status.ADDED:
 			case Status.IGNORED:
@@ -1090,8 +1090,8 @@ export class CommandCenter {
 
 	private async diffFile(repository: Repository, rev1: Revision, rev2: Revision, file: IFileStatus) {
 		const uri = repository.toUri(file.path);
-		const left = uri.with({ scheme: 'hg', query: rev1.hash });
-		const right = uri.with({ scheme: 'hg', query: rev2.hash });
+		const left = toHgUri(uri, rev1.hash);
+		const right = toHgUri(uri, rev2.hash);
 		const baseName = path.basename(uri.fsPath);
 		const title = `${baseName} (#${rev1.revision} vs. ${rev2.revision})`;
 
@@ -1101,7 +1101,8 @@ export class CommandCenter {
 	}
 
 	private async diff(commit: Commit, uri: Uri) {
-		const left = uri.with({ scheme: 'hg', query: commit.hash });
+		const query = { path: uri.fsPath, ref: commit.hash };
+		const left = toHgUri(uri, commit.hash);
 		const right = uri;
 		const baseName = path.basename(uri.fsPath);
 		const title = `${baseName} (#${commit.revision} vs. local)`;
