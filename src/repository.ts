@@ -1137,6 +1137,10 @@ export class Repository implements IDisposable {
         }
     }
 
+    public async getLastCommitMessage(): Promise<string> {
+        return this.repository.getLastCommitMessage();
+    }
+
     @throttle
     public getLogEntries(options: LogEntriesOptions = {}): Promise<Commit[]> {
         let filePaths: string[] | undefined = undefined;

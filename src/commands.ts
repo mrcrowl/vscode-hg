@@ -630,9 +630,9 @@ export class CommandCenter {
 
 			if (!_message) {
 				let value: string | undefined = undefined;
-	
-				if (opts && opts.amend && repository.head && repository.head.commit) {
-					value = (await repository.getCommitDetails(repository.head.commit)).message
+				
+				if (opts && opts.amend) {
+					value = await repository.getLastCommitMessage()
 				}
 
 				const branchName = repository.headShortName;
