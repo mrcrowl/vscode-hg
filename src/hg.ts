@@ -49,6 +49,14 @@ export interface SyncOptions {
 	revs?: string[];
 }
 
+export interface ShelveOptions {
+	name?: string
+}
+
+export interface UnshelveOptions {
+	name: string;
+}
+
 export interface IMergeResult {
 	unresolvedCount: number;
 }
@@ -86,6 +94,10 @@ export interface Ref {
 export interface Bookmark extends Ref {
 	name: string;
 	active: boolean;
+}
+
+export interface Shelve {
+	name: string;
 }
 
 export interface Path {
@@ -829,6 +841,28 @@ export class Repository {
 			}
 			throw error;
 		}
+	}
+
+	async shelve(opts: ShelveOptions) {
+		const args = ['shelve']
+		if (opts.name) {
+			args.push('--name', opts.name);
+		}
+
+		const result = this.run(args);
+	}
+
+	async getShelves(): Promise<Shelve[]> {
+		const result = await this.run(['shelve', '--list', '--quiet']);
+		const shelves = result.stdout.trim().split('\n')
+			.filter(l => !!l)
+			.map(line => ({ name: line }));
+		return shelves;
+	}
+
+	async unshelve(opts: UnshelveOptions) {
+		const args = ['unshelve', '--name', opts.name]
+		const result = await this.run(args);
 	}
 
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {

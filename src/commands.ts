@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl, SourceControlResourceGroup, TextDocumentShowOptions, ViewColumn } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
+import { Ref, RefType, ShelveOptions, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
@@ -870,6 +870,28 @@ export class CommandCenter {
 				}
 			}
 		}
+	}
+
+	@command('hg.shelve', { repository: true })
+	public async shelve(repository: Repository) {
+		var options: ShelveOptions = {}
+		var shelveName = await interaction.inputShelveName();
+		if (shelveName) {
+			options.name = shelveName;
+		}
+		return repository.shelve(options);
+	}
+
+	@command('hg.unshelve', { repository: true })
+	public async unshelve(repository: Repository) {
+		const shelves = await repository.getShelves();
+		const shelve = await interaction.pickShelve(shelves);
+
+		if (!shelve) {
+			return;
+		}
+
+		await repository.unshelve(shelve);
 	}
 
 	private async doMerge(repository: Repository, otherRevision: string, otherBranchName?: string) {

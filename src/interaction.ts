@@ -9,7 +9,7 @@ import * as path from "path";
 import { commands, window, QuickPickItem, workspace, Uri, WorkspaceFolder } from "vscode";
 import { ChildProcess } from "child_process";
 import { Model } from "./model";
-import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
+import { HgRollbackDetails, Path, Ref, RefType, Commit, Shelve, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
 import { humanise } from "./humanise";
 import * as fs from 'fs';
 import * as os from "os";
@@ -255,6 +255,25 @@ export namespace interaction {
         });
 
         return bookmark;
+    }
+
+    export async function inputShelveName(): Promise<string | undefined> {
+        return await window.showInputBox({
+            prompt: localize('shelve name', "Optionally provide a shelve name."),
+            ignoreFocusOut: true,
+        })
+    }
+
+    export async function pickShelve(shelves: Shelve[]): Promise<Shelve | undefined> {
+        if (shelves.length === 0) {
+            window.showInformationMessage(localize('no shelves', "There are no shelves in the repository."));
+            return;
+        }
+
+        const placeHolder = localize('pick shelve to apply', "Pick a shelve to apply");
+        const picks = shelves.map(shelve => ({ label: `${shelve.name}`, description: '', details: '', shelve }));
+        const result = await window.showQuickPick(picks, { placeHolder });
+        return result && result.shelve;
     }
 
     export async function warnNotUsingBookmarks(): Promise<boolean> {

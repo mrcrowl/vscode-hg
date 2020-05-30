@@ -327,6 +327,16 @@
         "command": "hg.update",
         "title": "%command.update%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.shelve",
+        "title": "%command.shelve%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelve",
+        "title": "%command.unshelve%",
+        "category": "Hg"
       }
     ],
     "menus": {

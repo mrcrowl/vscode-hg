@@ -1,6 +1,6 @@
 
 import { Uri, Command, EventEmitter, Event, scm, SourceControl, SourceControlInputBox, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations, Disposable, ProgressLocation, window, workspace, WorkspaceEdit, ThemeColor, commands } from 'vscode';
-import { Repository as BaseRepository, Ref, Commit, RefType, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails } from './hg';
+import { Repository as BaseRepository, Ref, Commit, Shelve, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails, ShelveOptions, UnshelveOptions, RefType } from './hg';
 import { anyEvent, filterEvent, eventToPromise, dispose, IDisposable, delay, groupBy, partition } from './util';
 import { memoize, throttle, debounce } from './decorators';
 import { StatusBarCommands } from './statusbar';
@@ -200,6 +200,9 @@ export const enum Operation {
     AddRemove = 1 << 22,
     SetBookmark = 1 << 23,
     RemoveBookmark = 1 << 24,
+    Shelve = 1 << 25,
+    UnshelveAbort = 1 << 25,
+    UnshelveContinue = 1 << 26,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -956,6 +959,18 @@ export class Repository implements IDisposable {
             return uri.fsPath.startsWith(this.repository.root);
         }
         return true;
+    }
+
+    async shelve(options: ShelveOptions) {
+        return await this.run(Operation.Shelve, () => this.repository.shelve(options));
+    }
+
+    async unshelve(options: UnshelveOptions) {
+        return await this.run(Operation.Shelve, () => this.repository.unshelve(options));
+    }
+
+    async getShelves() {
+        return await this.repository.getShelves();
     }
 
     async show(ref: string, filePath: string): Promise<string> {
