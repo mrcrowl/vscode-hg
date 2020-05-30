@@ -559,7 +559,7 @@ export class CommandCenter {
 		}
 	}
 
-	private async smartCommit(repository: Repository, getCommitMessage: () => Promise<string | undefined>, opts?: CommitOptions): Promise<boolean> {
+	private async smartCommit(repository: Repository, getCommitMessage: () => Promise<string | undefined>, opts: CommitOptions = {}): Promise<boolean> {
 		// validate no conflicts
 		const numConflictResources = repository.conflictGroup.resources.length;
 		if (numConflictResources > 0) {
@@ -570,22 +570,18 @@ export class CommandCenter {
 		const isMergeCommit = repository.repoStatus && repository.repoStatus.isMerge;
 		if (isMergeCommit) {
 			// merge-commit
-			opts = { scope: CommitScope.ALL };
+			opts.scope = CommitScope.ALL;
 		}
 		else {
 			// validate non-merge commit
 			const numWorkingResources = repository.workingDirectoryGroup.resources.length;
 			const numStagingResources = repository.stagingGroup.resources.length;
-			if (!opts || opts.scope === undefined) {
+			if (opts.scope === undefined) {
 				if (numStagingResources > 0) {
-					opts = {
-						scope: CommitScope.STAGED_CHANGES
-					};
+					opts.scope = CommitScope.STAGED_CHANGES;
 				}
 				else {
-					opts = {
-						scope: CommitScope.CHANGES
-					};
+					opts.scope = CommitScope.CHANGES;
 				}
 			}
 
@@ -602,8 +598,8 @@ export class CommandCenter {
 			}
 
 			if ((numWorkingResources === 0 && numStagingResources === 0) // no changes
-				|| (opts && opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
-				|| (opts && opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
+				|| (opts.scope === CommitScope.STAGED_CHANGES && numStagingResources === 0) // no staged changes
+				|| (opts.scope === CommitScope.CHANGES && numWorkingResources === 0) // no working directory changes
 			) {
 				interaction.informNoChangesToCommit();
 				return false;
