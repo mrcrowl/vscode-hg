@@ -698,12 +698,16 @@ export class Repository {
 		}
 	}
 
-	async commit(message: string, opts: { addRemove?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
+	async commit(message: string, opts: { addRemove?: boolean, amend?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
 		const disposables: IDisposable[] = [];
 		const args = ['commit'];
 
 		if (opts.addRemove) {
 			args.push('--addremove');
+		}
+
+		if (opts.amend) {
+			args.push('--amend');
 		}
 
 		if (opts.fileList && opts.fileList.length) {

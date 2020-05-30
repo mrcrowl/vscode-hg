@@ -101,13 +101,28 @@
         }
       },
       {
+        "command": "hg.commitAmend",
+        "title": "%command.commitAmend%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.commitAll",
         "title": "%command.commitAll%",
         "category": "Hg"
       },
       {
+        "command": "hg.commitAllAmend",
+        "title": "%command.commitAllAmend%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.commitStaged",
         "title": "%command.commitStaged%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.commitStagedAmend",
+        "title": "%command.commitStagedAmend%",
         "category": "Hg"
       },
       {
@@ -381,11 +396,23 @@
           "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
+          "command": "hg.commitAmend",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+        },
+        {
           "command": "hg.commitStaged",
           "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
+          "command": "hg.commitStagedAmend",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+        },
+        {
           "command": "hg.commitAll",
+          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.commitAllAmend",
           "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
         },
         {
@@ -485,12 +512,27 @@
           "when": "config.hg.enabled && scmProvider == hg"
         },
         {
+          "command": "hg.commitAmend",
+          "group": "3_commit",
+          "when": "config.hg.enabled && scmProvider == hg"
+        },
+        {
           "command": "hg.commitStaged",
           "group": "3_commit",
           "when": "config.hg.enabled && scmProvider == hg"
         },
         {
+          "command": "hg.commitStagedAmend",
+          "group": "3_commit",
+          "when": "config.hg.enabled && scmProvider == hg"
+        },
+        {
           "command": "hg.commitAll",
+          "group": "3_commit",
+          "when": "config.hg.enabled && scmProvider == hg"
+        },
+        {
+          "command": "hg.commitAllAmend",
           "group": "3_commit",
           "when": "config.hg.enabled && scmProvider == hg"
         },
