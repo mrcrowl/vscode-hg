@@ -1,4 +1,10 @@
 
+**v1.5.0**
+=============================================
+
+## What's New (Thanks [@incidentist](https://github.com/incidentist) for this contribution)
+  - Amend commits are now supported [#30](https://github.com/mrcrowl/vscode-hg/issues/30)
+
 **v1.4.0**
 =============================================
 
