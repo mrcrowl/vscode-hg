@@ -631,7 +631,7 @@ export class Repository implements IDisposable {
                 fileList = selectedResources.map(r => this.mapResourceToRepoRelativePath(r));
             }
 
-            await this.repository.commit(message, { addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
+            await this.repository.commit(message, { amend: opts.amend, addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
         });
     }
 
