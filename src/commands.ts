@@ -1101,7 +1101,6 @@ export class CommandCenter {
 	}
 
 	private async diff(commit: Commit, uri: Uri) {
-		const query = { path: uri.fsPath, ref: commit.hash };
 		const left = toHgUri(uri, commit.hash);
 		const right = uri;
 		const baseName = path.basename(uri.fsPath);
