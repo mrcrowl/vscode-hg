@@ -37,7 +37,7 @@ export class HgContentProvider {
 
 	constructor(private model: Model) {
 		this.disposables.push(
-			model.onDidChangeRepository(this.eventuallyFireChangeEvents, this),
+			model.onDidChangeRepository(this.onDidChangeRepository, this),
 			model.onDidChangeOriginalResource(this.onDidChangeOriginalResource, this),
 			workspace.registerTextDocumentContentProvider('hg', this),
 			workspace.registerTextDocumentContentProvider('hg-original', this)
@@ -51,13 +51,13 @@ export class HgContentProvider {
 		this.eventuallyFireChangeEvents();
 	}
 	
-		private onDidChangeOriginalResource({ uri }: OriginalResourceChangeEvent): void {
-			if (uri.scheme !== 'file') {
-				return;
-			}
-	
-			this._onDidChange.fire(toHgUri(uri, '', true));
+	private onDidChangeOriginalResource({ uri }: OriginalResourceChangeEvent): void {
+		if (uri.scheme !== 'file') {
+			return;
 		}
+
+		this._onDidChange.fire(toHgUri(uri, '', true));
+	}
 
 	@debounce(1100)
 	private eventuallyFireChangeEvents(): void {
