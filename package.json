@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/mrcrowl/vscode-hg/issues"
   },
-  "version": "1.5.0",
+  "version": "1.5.1",
   "engines": {
     "vscode": "^1.17.0"
   },

@@ -1,4 +1,14 @@
 
+
+**v1.5.1**
+=============================================
+
+## Bug fixes (Thanks [@incidentist](https://github.com/incidentist) for thse contributions)
+  - Fix for issue showing file history [#50](https://github.com/mrcrowl/vscode-hg/issues/50)
+  - Fix trouble resolving merges [#32](https://github.com/mrcrowl/vscode-hg/issues/32)
+  - Gutter indicators are now cleared after a commit (or another repository change) [#54](https://github.com/mrcrowl/vscode-hg/issues/32)
+
+
 **v1.5.0**
 =============================================
 
