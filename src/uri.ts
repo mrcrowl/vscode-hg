@@ -8,7 +8,12 @@
 
 import { Uri } from 'vscode';
 
-export function fromHgUri(uri: Uri): { path: string; ref: string; } {
+export interface HgUriParams {
+	path: string;
+	ref: string;
+}
+
+export function fromHgUri(uri: Uri): HgUriParams {
 	return JSON.parse(uri.query);
 }
 
@@ -16,12 +21,20 @@ export function fromHgUri(uri: Uri): { path: string; ref: string; } {
 // for hg URIs, let's change the file extension of these uris to .hg,
 // when `replaceFileExtension` is true.
 export function toHgUri(uri: Uri, ref: string, replaceFileExtension = false): Uri {
+	const params: HgUriParams = {
+		path: uri.fsPath,
+		ref
+	};
+
+	let path = uri.path;
+
+	if (replaceFileExtension) {
+		path = `${path}.hg`
+	}
+
 	return uri.with({
-		scheme: 'hg-original',
-		path: replaceFileExtension ? `${uri.path}.hg` : uri.path,
-		query: JSON.stringify({
-			path: uri.fsPath,
-			ref
-		})
+		scheme: 'hg',
+		path,
+		query: JSON.stringify(params)
 	});
 }
