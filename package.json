@@ -851,6 +851,7 @@
     "@types/node": "^10.17.24",
     "@types/tmp": "0.0.33",
     "@types/vscode": "^1.30.0",
+    "typescript": "^3.8.3",
     "vscode-test": "^1.4.0"
   }
 }
