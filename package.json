@@ -881,9 +881,9 @@
     "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
-    "@types/node": "^10.17.24",
+    "@types/node": "^13.11.0",
     "@types/tmp": "0.0.33",
-    "@types/vscode": "^1.30.0",
+    "@types/vscode": "^1.46.0",
     "typescript": "^3.8.3",
     "vscode-test": "^1.4.0"
   }
