@@ -360,6 +360,34 @@
           "when": "false"
         },
         {
+          "command": "hg.add",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.addAll",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.forget",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.markResolved",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.unresolve",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.resolveAgain",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.close",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
           "command": "hg.openChangeFromUri",
           "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
