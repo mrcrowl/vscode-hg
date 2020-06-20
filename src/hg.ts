@@ -236,13 +236,13 @@ export async function exec(child: cp.ChildProcess): Promise<IExecutionResult> {
 		}),
 		new Promise<string>(c => {
 			const buffers: string[] = [];
-			on(child.stdout, 'data', b => buffers.push(b));
-			once(child.stdout, 'close', () => c(buffers.join('')));
+			on(child.stdout!, 'data', b => buffers.push(b));
+			once(child.stdout!, 'close', () => c(buffers.join('')));
 		}),
 		new Promise<string>(c => {
 			const buffers: string[] = [];
-			on(child.stderr, 'data', b => buffers.push(b));
-			once(child.stderr, 'close', () => c(buffers.join('')));
+			on(child.stderr!, 'data', b => buffers.push(b));
+			once(child.stderr!, 'close', () => c(buffers.join('')));
 		})
 	]);
 
@@ -449,7 +449,7 @@ export class Hg {
 		else {
 			const child = this.spawn(args, options);
 			if (options.input) {
-				child.stdin.end(options.input, 'utf8');
+				child.stdin!.end(options.input, 'utf8');
 			}
 
 			result = await exec(child);

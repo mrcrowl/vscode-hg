@@ -40,7 +40,7 @@ export class HgCommandServer {
     private config;
     private serverProcess: ChildProcess | undefined;
     private starting: boolean;
-    private encoding: string;
+    private encoding: BufferEncoding;
     private capabilities;
     private commandQueue: PipelineCommand[];
     private stopWhenQueueEmpty: boolean;
@@ -91,9 +91,9 @@ export class HgCommandServer {
 
         try {
             this.serverProcess.removeAllListeners("exit");
-            this.serverProcess.stdout.removeAllListeners("data");
-            this.serverProcess.stderr.removeAllListeners("data");
-            this.serverProcess.stdin.end();
+            this.serverProcess.stdout!.removeAllListeners("data");
+            this.serverProcess.stderr!.removeAllListeners("data");
+            this.serverProcess.stdin!.end();
         }
         catch (e) {
             this.logger(`Failed to remove cmdserve listeners: ${e}`);
@@ -144,7 +144,7 @@ export class HgCommandServer {
                 const body = await stream.readString(length, "ascii");
                 const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(body);
                 this.capabilities = capabilities;
-                this.encoding = encoding;
+                this.encoding = encoding as BufferEncoding;
 
                 this.starting = false;
 
@@ -219,7 +219,7 @@ export class HgCommandServer {
             this.start(this.hgPath);
         });
 
-        serverProcess.stdout.on("data", (data: Buffer) => {
+        serverProcess.stdout!.on("data", (data: Buffer) => {
             this.channelProcessor.consume(data);
         });
 
@@ -384,7 +384,7 @@ class StreamReader {
 const UINT32_SIZE = 4;
 const UINT8_SIZE = 1;
 
-async function serverSendCommand(server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
+async function serverSendCommand(server: ChildProcess, encoding: BufferEncoding, cmd: string, args: string[] = []) {
     if (!server) {
         throw new Error("Must start the command server before issuing commands");
     }
@@ -414,7 +414,7 @@ async function serverSendLineInput(server: ChildProcess, encoding: string, text:
 };
 
 function writeBufferToStdIn(server: ChildProcess, buffer: Buffer): Promise<any> {
-    return new Promise((c, e) => server.stdin.write(buffer, c));
+    return new Promise((c, e) => server.stdin!.write(buffer, c));
 }
 
 const LINE_CHANNEL = 'L';
