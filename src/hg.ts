@@ -122,7 +122,8 @@ export class HgFinder {
 				case 'win32': return this.findHgWin32();
 				default: return this.findSpecificHg('hg');
 			}
-		});
+		})
+		.then(null, () => Promise.reject(new Error('Hg installation not found.')));
 	}
 
 	private findHgDarwin(): Promise<IHg> {

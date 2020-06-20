@@ -796,6 +796,11 @@
           ],
           "default": "all"
         },
+        "hg.ignoreMissingHgWarning": {
+          "type": "boolean",
+          "description": "%config.ignoreMissingHgWarning%",
+          "default": false
+        },
         "hg.path": {
           "type": [
             "string",

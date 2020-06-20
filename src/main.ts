@@ -6,15 +6,65 @@
 
 // based on https://github.com/Microsoft/vscode/commit/41f0ff15d7327da30fdae73aa04ca570ce34fa0a
 
-import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputChannel } from 'vscode';
+import { ExtensionContext, workspace, window, Disposable, commands, Uri, OutputChannel, WorkspaceFolder } from 'vscode';
 import { HgFinder, Hg, IHg, HgFindAttemptLogger } from './hg';
 import { Model } from './model';
 import { CommandCenter } from './commands';
 import { HgContentProvider } from './contentProvider';
 import * as nls from 'vscode-nls';
+import * as path from 'path';
+import * as fs from 'fs';
 import typedConfig from './config';
 
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
+
+async function isHgRepository(folder: WorkspaceFolder): Promise<boolean> {
+	if (folder.uri.scheme !== 'file') {
+		return false;
+	}
+
+	const dotHg = path.join(folder.uri.fsPath, '.hg');
+
+	try {
+		const dotHgStat = await new Promise<fs.Stats>((c, e) => fs.stat(dotHg, (err, stat) => err ? e(err) : c(stat)));
+		return dotHgStat.isDirectory();
+	} catch (err) {
+		return false;
+	}
+}
+
+async function warnAboutMissingHg(): Promise<void> {
+	const config = workspace.getConfiguration('hg');
+	const shouldIgnore = config.get<boolean>('ignoreMissingHgWarning') === true;
+
+	if (shouldIgnore) {
+		return;
+	}
+
+	if (!workspace.workspaceFolders) {
+		return;
+	}
+
+	const areHgRepositories = await Promise.all(workspace.workspaceFolders.map(isHgRepository));
+
+	if (areHgRepositories.every(isHgRepository => !isHgRepository)) {
+		return;
+	}
+
+	const download = localize('downloadhg', "Download Hg");
+	const neverShowAgain = localize('neverShowAgain', "Don't Show Again");
+	const choice = await window.showWarningMessage(
+		localize('notfound', "Hg not found. Install it or configure it using the 'hg.path' setting."),
+		download,
+		neverShowAgain
+	);
+
+	if (choice === download) {
+		commands.executeCommand('vscode.open', Uri.parse('https://www.mercurial-scm.org/'));
+	} else if (choice === neverShowAgain) {
+		await config.update('ignoreMissingHgWarning', true, true);
+	}
+}
 
 async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
 	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string, version: string, aiKey: string };
@@ -26,32 +76,45 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const enabled = typedConfig.enabled;
 	const enableInstrumentation = typedConfig.instrumentation;
 	const pathHint = typedConfig.path;
-	const info: IHg = await findHg(pathHint, outputChannel);
-	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
-	const model = new Model(hg);
-	disposables.push(model);
 
-	const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', model.repositories.length);
-	model.onDidOpenRepository(onRepository, null, disposables);
-	model.onDidCloseRepository(onRepository, null, disposables);
-	onRepository();
+	try {
+		const info: IHg = await findHg(pathHint, outputChannel);
+		const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
+		const model = new Model(hg);
+		disposables.push(model);
+	
+		const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', model.repositories.length);
+		model.onDidOpenRepository(onRepository, null, disposables);
+		model.onDidCloseRepository(onRepository, null, disposables);
+		onRepository();
+	
+		if (!enabled)
+		{
+			const commandCenter = new CommandCenter(hg, model, outputChannel);
+			disposables.push(commandCenter);
+			return;
+		}
+	
+		outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
+		hg.onOutput(str => outputChannel.append(str), null, disposables);
+	
+		disposables.push(
+			new CommandCenter(hg, model, outputChannel),
+			new HgContentProvider(model),
+		);
+	
+		await checkHgVersion(info);
+	} catch (err) {
+		if (!/Hg installation not found/.test(err.message || '')) {
+			throw err;
+		}
 
-	if (!enabled)
-	{
-		const commandCenter = new CommandCenter(hg, model, outputChannel);
-		disposables.push(commandCenter);
-		return;
+		console.warn(err.message);
+		outputChannel.appendLine(err.message);
+
+		commands.executeCommand('setContext', 'hg.missing', true);
+		warnAboutMissingHg();
 	}
-
-	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
-	hg.onOutput(str => outputChannel.append(str), null, disposables);
-
-	disposables.push(
-		new CommandCenter(hg, model, outputChannel),
-		new HgContentProvider(model),
-	);
-
-	await checkHgVersion(info);
 }
 
 export async function findHg(pathHint: string | undefined, outputChannel: OutputChannel): Promise<IHg> {
