@@ -968,11 +968,6 @@ export class CommandCenter {
 		}
 	}
 
-	@command('hg.showOutput', { repository: true })
-	showOutput(): void {
-		this.outputChannel.show();
-	}
-
 	createLogMenuAPI(repository: Repository): LogMenuAPI {
 		return {
 			getRepoName: () => repository.repoName,
