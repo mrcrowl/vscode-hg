@@ -333,19 +333,19 @@
       "commandPalette": [
         {
           "command": "hg.clone",
-          "when": "config.hg.enabled"
+          "when": "config.hg.enabled && !hg.missing"
         },
         {
           "command": "hg.init",
-          "when": "config.hg.enabled"
+          "when": "config.hg.enabled && !hg.missing"
         },
         {
           "command": "hg.openhgrc",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.refresh",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.openChange",
@@ -360,356 +360,384 @@
           "when": "false"
         },
         {
+          "command": "hg.add",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.addAll",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.forget",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.markResolved",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.unresolve",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.resolveAgain",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.close",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
           "command": "hg.openChangeFromUri",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.openFileFromUri",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commit",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitAmend",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitStaged",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitStagedAmend",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitAll",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.commitAllAmend",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.undoRollback",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.update",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.branch",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.setBookmark",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.removeBookmark",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pull",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.push",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.pushTo",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeHeads",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.mergeWithLocal",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.showOutput",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled"
         },
         {
           "command": "hg.fileLog",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.log",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logBranch",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logDefault",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
           "command": "hg.logRepo",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         }
       ],
       "scm/title": [
         {
           "command": "hg.init",
           "group": "navigation",
-          "when": "config.hg.enabled && !scmProvider && hgOpenRepositoryCount == 0"
+          "when": "config.hg.enabled && !hg.missing && !scmProvider && hgOpenRepositoryCount == 0"
         },
         {
           "command": "hg.commit",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.refresh",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.pull",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.push",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.pushTo",
           "group": "1_sync",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.commitAmend",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.commitStaged",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.commitStagedAmend",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.commitAll",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.commitAllAmend",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.undoRollback",
           "group": "3_commit",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.unstageAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.cleanAll",
           "group": "4_stage",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.mergeHeads",
           "group": "5_merge",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.mergeWithLocal",
           "group": "5_merge",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
           "command": "hg.showOutput",
           "group": "6_output",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         }
       ],
       "scm/sourceControl": [
         {
           "command": "hg.close",
           "group": "navigation",
-          "when": "config.hg.enabled && scmProvider == hg"
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         }
       ],
       "scm/resourceGroup/context": [
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == staging",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstageAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == staging",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == staging",
           "group": "inline"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.stageAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.cleanAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.addAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "1_modification"
         },
         {
           "command": "hg.addAll",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "inline"
         },
         {
           "command": "hg.openFiles",
-          "when": "config.hg.enabled && scmProvider == hg",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
           "group": "navigation"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup != untracked",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup != untracked",
           "group": "navigation"
         }
       ],
       "scm/resourceState/context": [
         {
           "command": "hg.resolveAgain",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == conflict",
           "group": "inline"
         },
         {
           "command": "hg.markResolved",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == conflict",
           "group": "inline"
         },
         {
           "command": "hg.resolveAgain",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == conflict",
           "group": "0_resolution"
         },
         {
           "command": "hg.markResolved",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == conflict",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == conflict",
           "group": "0_resolution"
         },
         {
           "command": "hg.unresolve",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == merge",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == merge",
           "group": "1_modification"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == staging",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == staging",
           "group": "navigation"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == staging",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == staging",
           "group": "1_modification"
         },
         {
           "command": "hg.unstage",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == staging",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == staging",
           "group": "inline"
         },
         {
           "command": "hg.openChange",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "navigation"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "1_modification"
         },
         {
           "command": "hg.clean",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.stage",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
         },
         {
           "command": "hg.add",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "inline"
         },
         {
           "command": "hg.add",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == untracked",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "1_modification"
         },
         {
           "command": "hg.openFiles",
-          "when": "config.hg.enabled && scmProvider == hg",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
           "group": "navigation"
         },
         {
           "command": "hg.forget",
-          "when": "config.hg.enabled && scmProvider == hg && scmResourceGroup == working",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "2_modification"
         }
       ],
@@ -717,16 +745,16 @@
         {
           "command": "hg.openFileFromUri",
           "group": "navigation",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && isInDiffEditor && resourceScheme != extension"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0 && isInDiffEditor && resourceScheme != extension"
         },
         {
           "command": "hg.openChangeFromUri",
           "group": "navigation",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && !isInDiffEditor && resourceScheme == file"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0 && !isInDiffEditor && resourceScheme == file"
         },
         {
           "command": "hg.fileLog",
-          "when": "config.hg.enabled && hgOpenRepositoryCount != 0 && !isInDiffEditor"
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0 && !isInDiffEditor"
         }
       ]
     },
@@ -795,6 +823,11 @@
             "%config.countBadge.off%"
           ],
           "default": "all"
+        },
+        "hg.ignoreMissingHgWarning": {
+          "type": "boolean",
+          "description": "%config.ignoreMissingHgWarning%",
+          "default": false
         },
         "hg.path": {
           "type": [
