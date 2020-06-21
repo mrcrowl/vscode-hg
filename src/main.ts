@@ -18,7 +18,7 @@ import typedConfig from './config';
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
 
 async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
-	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string, version: string, aiKey: string };
+	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string; version: string; aiKey: string };
 
 	const outputChannel = window.createOutputChannel('Hg');
 	commands.registerCommand('hg.showOutput', () => outputChannel.show());

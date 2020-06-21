@@ -87,7 +87,7 @@ interface SyncStatusBarState {
 	hasPaths: boolean;
 	branch: Ref | undefined;
 	bookmark: Bookmark | undefined;
-	syncCounts: { incoming: number, outgoing: number };
+	syncCounts: { incoming: number; outgoing: number };
 }
 
 class SyncStatusBar {
@@ -153,7 +153,7 @@ class SyncStatusBar {
 		};
 	}
 
-	private describeAutoInOutStatus(refName: string | undefined): { icon: string, message?: string, status: AutoInOutStatuses } {
+	private describeAutoInOutStatus(refName: string | undefined): { icon: string; message?: string; status: AutoInOutStatuses } {
 		const { autoInOut } = this.state;
 		switch (autoInOut.status) {
 			case AutoInOutStatuses.Enabled:
@@ -190,12 +190,12 @@ class SyncStatusBar {
 		const { bookmark, branch } = this.state;
 		const useBookmarks = typedConfig.useBookmarks;
 		const scopeName = useBookmarks ? pushPullBookmarkName : pushPullBranchName;
-		let autoInOut = this.describeAutoInOutStatus(scopeName);
+		const autoInOut = this.describeAutoInOutStatus(scopeName);
 		let icon = autoInOut.icon;
 		let text = '';
 		let command = 'hg.pull';
 		let tooltip = autoInOut.message;
-		let syncCounts = this.state.syncCounts;
+		const syncCounts = this.state.syncCounts;
 		let plural = '';
 
 		if ((branch && !useBookmarks) || (bookmark && useBookmarks)) {

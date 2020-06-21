@@ -324,7 +324,7 @@ export class CommandCenter {
 		}
 
 		const preview = resources.length === 1 ? undefined : false;
-		for (let resource of resources) {
+		for (const resource of resources) {
 			await this._openResource(resource, preview, true, false);
 		}
 	}
@@ -1245,7 +1245,7 @@ export class CommandCenter {
 			}
 
 			return result;
-		}, [] as { repository: Repository, resources: Uri[] }[]);
+		}, [] as { repository: Repository; resources: Uri[] }[]);
 
 		const promises = groups
 			.map(({ repository, resources }) => fn(repository as Repository, isSingleResource ? resources[0] : resources));

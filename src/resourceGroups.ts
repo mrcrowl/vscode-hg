@@ -8,11 +8,11 @@ import { Resource, Status, MergeStatus } from "./repository";
 const localize = nls.loadMessageBundle();
 
 export interface IGroupStatusesParams {
-	respositoryRoot: string
-	statusGroups: IStatusGroups,
-	fileStatuses: IFileStatus[],
-	repoStatus: IRepoStatus,
-	resolveStatuses: IFileStatus[] | undefined,
+	respositoryRoot: string;
+	statusGroups: IStatusGroups;
+	fileStatuses: IFileStatus[];
+	repoStatus: IRepoStatus;
+	resolveStatuses: IFileStatus[] | undefined;
 }
 
 export interface IStatusGroups {

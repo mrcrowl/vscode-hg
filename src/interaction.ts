@@ -108,7 +108,7 @@ export namespace interaction {
 
     export async function checkThenWarnUnclean(repository: Repository, scenario: WarnScenario): Promise<boolean> {
         if (!repository.isClean) {
-            let nextStep: string = "";
+            const nextStep = "";
             if (scenario === WarnScenario.Merge) {
                 const discardAllChanges = localize('command.cleanAll', "Discard All Changes");
                 const abandonMerge = localize('abandon merge', "abandon merge");
@@ -337,7 +337,7 @@ export namespace interaction {
         return choice && choice.commit;
     }
 
-    export async function pickUpdateRevision(refs: Ref[], unclean: boolean = false): Promise<UpdateRefItem | undefined> {
+    export async function pickUpdateRevision(refs: Ref[], unclean = false): Promise<UpdateRefItem | undefined> {
         const useBookmarks = typedConfig.useBookmarks
 
         const branches = !useBookmarks
@@ -374,7 +374,7 @@ export namespace interaction {
         return `#${commit.revision} ${BULLET} ${commit.author}, ${humanise.ageFromNow(commit.date)} ${BULLET} ${commit.message}`;
     }
 
-    function asLabelItem(label: string, description: string = "", action: RunnableAction = NOOP): RunnableQuickPickItem {
+    function asLabelItem(label: string, description = "", action: RunnableAction = NOOP): RunnableQuickPickItem {
         return new LiteralRunnableQuickPickItem(label, description, action);
     }
 
@@ -465,8 +465,8 @@ export namespace interaction {
     }
 
     export async function pickLogSource(repoName: string, branchName: string | undefined): Promise<LogSourcePickItem | undefined> {
-        const branchLabel: string = '$(git-branch)';//localize('branch', 'branch');
-        const repoLabel: string = `$(repo)`;// ${localize('repo', 'repo')}`;
+        const branchLabel = '$(git-branch)';//localize('branch', 'branch');
+        const repoLabel = `$(repo)`;// ${localize('repo', 'repo')}`;
         const branch: LogSourcePickItem = { description: branchLabel, label: branchName || "???", source: CommitSources.Branch, options: { branch: "." } };
         const default_: LogSourcePickItem = { description: branchLabel, label: "default", source: CommitSources.Branch, options: { branch: "default" } };
         const repo: LogSourcePickItem = { description: repoLabel, label: "entire repo", source: CommitSources.Repo, options: {} };
@@ -515,7 +515,7 @@ export namespace interaction {
             prompt: localize('provide commit message', "Please provide a commit message"),
             ignoreFocusOut: true
         });
-    };
+    }
 
     export async function confirmDiscardAllChanges(this: void): Promise<boolean> {
         const message = localize('confirm discard all', "Are you sure you want to discard ALL changes?");
@@ -533,7 +533,7 @@ export namespace interaction {
 
     export async function confirmDiscardChanges(discardFilesnames: string[], addedFilenames: string[]): Promise<boolean> {
         let message: string;
-        let addedMessage: string = "";
+        let addedMessage = "";
         if (addedFilenames.length > 0) {
             if (addedFilenames.length === 1) {
                 addedMessage = localize('and forget', "\n\n(and forget added file '{0}')", path.basename(addedFilenames[0]));
@@ -644,7 +644,7 @@ class LogEntryItem extends CommitItem {
         return humanise.ageFromNow(this.commit.date);
     }
     get description() {
-        let scope: string = "";
+        let scope = "";
         if (this.useBookmarks) {
             if (this.commit.bookmarks.length) {
                 scope = '\u2014 $(bookmark) ' + this.commit.bookmarks.join(", ");
@@ -714,8 +714,8 @@ class FileStatusQuickPickItem extends RunnableQuickPickItem {
 }
 
 interface LogSourcePickItem extends QuickPickItem {
-    options: LogEntryOptions,
-    source: CommitSources
+    options: LogEntryOptions;
+    source: CommitSources;
 }
 
 class LiteralRunnableQuickPickItem extends RunnableQuickPickItem {
@@ -733,12 +733,12 @@ class LiteralRunnableQuickPickItem extends RunnableQuickPickItem {
 
 type RunnableReturnType = Promise<any> | any;
 export type RunnableAction = () => RunnableReturnType;
-export type DescribedBackAction = { description: string, action: RunnableAction }
+export type DescribedBackAction = { description: string; action: RunnableAction }
 export interface LogMenuAPI {
     getRepoName: () => string;
     getBranchName: () => string | undefined;
     getCommitDetails: (revision: string) => Promise<CommitDetails>;
     getLogEntries(options: LogEntriesOptions): Promise<Commit[]>;
-    diffToLocal: (file: IFileStatus, commit: CommitDetails) => any,
-    diffToParent: (file: IFileStatus, commit: CommitDetails) => any,
+    diffToLocal: (file: IFileStatus, commit: CommitDetails) => any;
+    diffToParent: (file: IFileStatus, commit: CommitDetails) => any;
 }

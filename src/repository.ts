@@ -627,7 +627,7 @@ export class Repository implements IDisposable {
             let fileList: string[] = [];
             if (opts.scope === CommitScope.CHANGES ||
                 opts.scope === CommitScope.STAGED_CHANGES) {
-                let selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
+                const selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
                     this.stagingGroup.resources :
                     this.workingDirectoryGroup.resources;
 
@@ -649,12 +649,12 @@ export class Repository implements IDisposable {
 
     @throttle
     async clean(...uris: Uri[]): Promise<void> {
-        let resources = this.mapResources(uris);
+        const resources = this.mapResources(uris);
         await this.run(Operation.Clean, async () => {
             const toRevert: string[] = [];
             const toForget: string[] = [];
 
-            for (let r of resources) {
+            for (const r of resources) {
                 switch (r.status) {
                     case Status.UNTRACKED:
                     case Status.IGNORED:
@@ -820,7 +820,7 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number, outgoing: number }, delayMillis: number = 3000) {
+    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number; outgoing: number }, delayMillis = 3000) {
         try {
             await Promise.all([
                 this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, delayMillis),
@@ -842,7 +842,7 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
+    async countIncomingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
         try {
             // immediate UI update with expected
             if (expectedDelta) {
@@ -863,7 +863,7 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countOutgoingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
+    async countOutgoingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
         try {
             // immediate UI update with expected
             if (expectedDelta) {
