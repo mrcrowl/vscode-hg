@@ -123,7 +123,7 @@ export class HgFinder {
 				default: return this.findSpecificHg('hg');
 			}
 		})
-		.then(null, () => Promise.reject(new Error('Hg installation not found.')));
+		.then(null, () => Promise.reject(new Error('Mercurial installation not found.')));
 	}
 
 	private findHgDarwin(): Promise<IHg> {

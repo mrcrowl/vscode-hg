@@ -105,7 +105,7 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	
 		await checkHgVersion(info);
 	} catch (err) {
-		if (!/Hg installation not found/.test(err.message || '')) {
+		if (!/Mercurial installation not found/.test(err.message || '')) {
 			throw err;
 		}
 
