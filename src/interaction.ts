@@ -6,10 +6,10 @@
 
 import * as nls from "vscode-nls";
 import * as path from "path";
-import { commands, window, QuickPickItem, workspace, Uri, WorkspaceFolder } from "vscode";
+import { commands, window, QuickPickItem, workspace, Uri, MessageOptions, OutputChannel, WorkspaceFolder } from "vscode";
 import { ChildProcess } from "child_process";
 import { Model } from "./model";
-import { HgRollbackDetails, Path, Ref, RefType, Commit, Shelve, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
+import { HgRollbackDetails, Path, Ref, RefType, Commit, Shelve, LogEntryOptions, CommitDetails, IFileStatus, Bookmark, HgErrorCodes } from "./hg";
 import { humanise } from "./humanise";
 import * as fs from 'fs';
 import * as os from "os";
@@ -191,13 +191,29 @@ export namespace interaction {
     export function warnNoRollback(this: void) {
         return window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
     }
-
+    
     export async function errorPromptOpenLog(err: any): Promise<boolean> {
+        const options: MessageOptions = {
+            modal: true
+        };
+        
         let message: string;
+        let type: 'error' | 'warning' = 'error';
+
+        const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
 
         switch (err.hgErrorCode) {
-            case 'DirtyWorkingDirectory':
+            case HgErrorCodes.DirtyWorkingDirectory:
                 message = localize('clean repo', "Please clean your repository working directory before updating.");
+                break;
+            case HgErrorCodes.ShelveConflict:
+                message = localize('shelve merge conflicts', "There were merge conflicts while unshelving.");
+                type = 'warning';
+                options.modal = false;
+                break;
+            case HgErrorCodes.UnshelveInProgress:
+                message = localize('unshelve in progress', "There is already an unshelve operation in progress.");
+                options.modal = false;
                 break;
 
             default:
@@ -220,8 +236,10 @@ export namespace interaction {
             return false;
         }
 
-        const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
-        const choice = await window.showErrorMessage(message, openOutputChannelChoice);
+        const choice = type === 'error'
+            ? await window.showErrorMessage(message, options, openOutputChannelChoice)
+            : await window.showWarningMessage(message, options, openOutputChannelChoice);
+        
         return choice === openOutputChannelChoice;
     }
 

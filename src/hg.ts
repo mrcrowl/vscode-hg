@@ -55,6 +55,7 @@ export interface ShelveOptions {
 
 export interface UnshelveOptions {
 	name: string;
+	keep: boolean;
 }
 
 export interface IMergeResult {
@@ -354,7 +355,9 @@ export const HgErrorCodes = {
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
-	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured'
+	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured',
+	UnshelveInProgress: 'UnshelveInProgress',
+	ShelveConflict: 'ShelveConflict'
 };
 
 export class Hg {
@@ -861,8 +864,23 @@ export class Repository {
 	}
 
 	async unshelve(opts: UnshelveOptions) {
-		const args = ['unshelve', '--name', opts.name]
-		const result = await this.run(args);
+		const args = ['unshelve', '--name', opts.name];
+		if (opts.keep) {
+			args.push('--keep');
+		}
+
+		try {
+			const result = await this.run(args);
+		} catch (err) {
+			if (/unresolved conflicts/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.ShelveConflict;
+			}
+			else if (/abort: unshelve already in progress/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.UnshelveInProgress;
+			}
+
+			throw err;
+		}
 	}
 
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
