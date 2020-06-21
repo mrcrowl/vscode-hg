@@ -883,6 +883,10 @@ export class Repository {
 		}
 	}
 
+	async unshelveAbort(): Promise<void> {
+		await this.run(['unshelve', '--abort']);
+	}
+
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
 		try {
 			return {

@@ -201,8 +201,8 @@ export const enum Operation {
     SetBookmark = 1 << 23,
     RemoveBookmark = 1 << 24,
     Shelve = 1 << 25,
-    UnshelveAbort = 1 << 25,
     UnshelveContinue = 1 << 26,
+    UnshelveAbort = 1 << 27,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -967,6 +967,10 @@ export class Repository implements IDisposable {
 
     async unshelve(options: UnshelveOptions) {
         return await this.run(Operation.Shelve, () => this.repository.unshelve(options));
+    }
+
+    async unshelveAbort(): Promise<void> {
+        await this.run(Operation.UnshelveAbort, async () => await this.repository.unshelveAbort());
     }
 
     async getShelves() {

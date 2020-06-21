@@ -337,6 +337,16 @@
         "command": "hg.unshelve",
         "title": "%command.unshelve%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveKeep",
+        "title": "%command.unshelveKeep%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveAbort",
+        "title": "%command.unshelveAbort%",
+        "category": "Hg"
       }
     ],
     "menus": {

@@ -207,6 +207,7 @@ export namespace interaction {
                 message = localize('clean repo', "Please clean your repository working directory before updating.");
                 break;
             case HgErrorCodes.ShelveConflict:
+                // TODO: Show "Abort" button
                 message = localize('shelve merge conflicts', "There were merge conflicts while unshelving.");
                 type = 'warning';
                 options.modal = false;

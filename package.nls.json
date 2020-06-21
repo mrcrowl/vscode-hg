@@ -43,6 +43,8 @@
 	"command.mergeWithLocal": "Merge into working directory...",
 	"command.shelve": "Shelve",
 	"command.unshelve": "Unshelve",
+	"command.unshelveKeep": "Unshelve and Keep",
+	"command.unshelveAbort": "Abort unshelve",
 	"config.enabled": "Whether Hg is enabled",
 	"config.path": "Path to the 'hg' executable (only required if auto-detection fails)",
 	"config.autoInOut": "Whether auto-incoming/outgoing counts are enabled",
