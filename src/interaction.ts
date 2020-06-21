@@ -68,7 +68,7 @@ export async function warnAboutMissingHg(): Promise<void> {
 		return;
 	}
 
-	const download = localize('downloadhg', "Download Hg");
+	const download = localize('downloadMercurial', "Download Mercurial");
 	const neverShowAgain = localize('neverShowAgain', "Don't Show Again");
 	const choice = await window.showWarningMessage(
 		localize('notfound', "Mercurial was not found. Install it or configure it using the 'hg.path' setting."),
