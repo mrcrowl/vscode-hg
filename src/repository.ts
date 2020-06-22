@@ -973,6 +973,10 @@ export class Repository implements IDisposable {
         await this.run(Operation.UnshelveAbort, async () => await this.repository.unshelveAbort());
     }
 
+    async unshelveContinue(): Promise<void> {
+        await this.run(Operation.UnshelveContinue, async () => await this.repository.unshelveContinue());
+    }
+
     async getShelves() {
         return await this.repository.getShelves();
     }

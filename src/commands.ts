@@ -899,6 +899,11 @@ export class CommandCenter {
 		await repository.unshelveAbort();
 	}
 
+	@command('hg.unshelveContinue', { repository: true })
+	public async unshelveContinue(repository: Repository) {
+		await repository.unshelveContinue();
+	}
+
 	private async doMerge(repository: Repository, otherRevision: string, otherBranchName?: string) {
 		try {
 			const result = await repository.merge(otherRevision);

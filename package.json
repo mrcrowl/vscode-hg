@@ -347,6 +347,11 @@
         "command": "hg.unshelveAbort",
         "title": "%command.unshelveAbort%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveContinue",
+        "title": "%command.unshelveContinue%",
+        "category": "Hg"
       }
     ],
     "menus": {

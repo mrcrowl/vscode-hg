@@ -887,6 +887,10 @@ export class Repository {
 		await this.run(['unshelve', '--abort']);
 	}
 
+	async unshelveContinue(): Promise<void> {
+		await this.run(['unshelve', '--continue']);
+	}
+
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
 		try {
 			return {
