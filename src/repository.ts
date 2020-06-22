@@ -419,7 +419,7 @@ export class Repository implements IDisposable {
         this._sourceControl = scm.createSourceControl('hg', 'Hg', Uri.parse(repository.root));
         this.disposables.push(this._sourceControl);
 
-        this._sourceControl.acceptInputCommand = { command: 'hg.commitWithInput', title: localize('commit', "Commit") };
+        this._sourceControl.acceptInputCommand = { command: 'hg.commitWithInput', title: localize('commit', "Commit"), arguments: [this._sourceControl] };
         this._sourceControl.quickDiffProvider = this;
 
         const [groups, disposables] = createEmptyStatusGroups(this._sourceControl);
