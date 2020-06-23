@@ -184,7 +184,7 @@ export class CommandCenter {
 		return '';
 	}
 
-	@command('hg.clone', { repository: true })
+	@command('hg.clone')
 	async clone(): Promise<void> {
 		const url = await interaction.inputRepoUrl();
 		if (!url) {
