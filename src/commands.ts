@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Uri, commands, scm, Disposable, window, workspace, QuickPickItem, OutputChannel, Range, WorkspaceEdit, Position, SourceControlResourceState, SourceControl, SourceControlResourceGroup, TextDocumentShowOptions, ViewColumn } from "vscode";
-import { Ref, RefType, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
+import { Ref, RefType, ShelveOptions, Hg, Commit, HgError, HgErrorCodes, PushOptions, IMergeResult, LogEntryOptions, IFileStatus, CommitDetails, Revision, SyncOptions, Bookmark } from "./hg";
 import { Model } from "./model";
 import { Resource, Status, CommitOptions, CommitScope, MergeStatus, LogEntriesOptions, Repository } from "./repository"
 import * as path from 'path';
@@ -870,6 +870,51 @@ export class CommandCenter {
 				}
 			}
 		}
+	}
+
+	@command('hg.shelve', { repository: true })
+	public async shelve(repository: Repository) {
+		const options: ShelveOptions = {}
+		const shelveName = await interaction.inputShelveName();
+		if (shelveName) {
+			options.name = shelveName;
+		}
+		return repository.shelve(options);
+	}
+
+	@command('hg.unshelve', { repository: true })
+	public async unshelve(repository: Repository) {
+		const shelves = await repository.getShelves();
+		const shelve = await interaction.pickShelve(shelves);
+
+		if (!shelve) {
+			return;
+		}
+
+		const opts = { name: shelve.name };
+		await repository.unshelve(opts);
+	}
+
+	@command('hg.unshelveKeep', { repository: true })
+	public async unshelveKeep(repository: Repository) {
+		const shelves = await repository.getShelves();
+		const shelve = await interaction.pickShelve(shelves);
+		
+		if (!shelve) {
+			return;
+		}
+		const opts = { name: shelve.name, keep: true };
+		await repository.unshelve(opts);
+	}
+
+	@command('hg.unshelveAbort', { repository: true })
+	public async unshelveAbort(repository: Repository) {
+		await repository.unshelveAbort();
+	}
+
+	@command('hg.unshelveContinue', { repository: true })
+	public async unshelveContinue(repository: Repository) {
+		await repository.unshelveContinue();
 	}
 
 	private async doMerge(repository: Repository, otherRevision: string, otherBranchName?: string) {

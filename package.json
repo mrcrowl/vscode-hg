@@ -327,6 +327,31 @@
         "command": "hg.update",
         "title": "%command.update%",
         "category": "Hg"
+      },
+      {
+        "command": "hg.shelve",
+        "title": "%command.shelve%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelve",
+        "title": "%command.unshelve%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveKeep",
+        "title": "%command.unshelveKeep%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveAbort",
+        "title": "%command.unshelveAbort%",
+        "category": "Hg"
+      },
+      {
+        "command": "hg.unshelveContinue",
+        "title": "%command.unshelveContinue%",
+        "category": "Hg"
       }
     ],
     "menus": {

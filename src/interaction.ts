@@ -6,10 +6,10 @@
 
 import * as nls from "vscode-nls";
 import * as path from "path";
-import { commands, window, QuickPickItem, workspace, Uri, WorkspaceFolder } from "vscode";
+import { commands, window, QuickPickItem, workspace, Uri, MessageOptions, OutputChannel, WorkspaceFolder } from "vscode";
 import { ChildProcess } from "child_process";
 import { Model } from "./model";
-import { HgRollbackDetails, Path, Ref, RefType, Commit, HgError, LogEntryOptions, CommitDetails, IFileStatus, Bookmark } from "./hg";
+import { HgRollbackDetails, Path, Ref, RefType, Commit, Shelve, LogEntryOptions, CommitDetails, IFileStatus, Bookmark, HgErrorCodes } from "./hg";
 import { humanise } from "./humanise";
 import * as fs from 'fs';
 import * as os from "os";
@@ -193,11 +193,28 @@ export namespace interaction {
     }
 
     export async function errorPromptOpenLog(err: any): Promise<boolean> {
+        const options: MessageOptions = {
+            modal: true
+        };
+        
         let message: string;
+        let type: 'error' | 'warning' = 'error';
+
+        const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
 
         switch (err.hgErrorCode) {
-            case 'DirtyWorkingDirectory':
+            case HgErrorCodes.DirtyWorkingDirectory:
                 message = localize('clean repo', "Please clean your repository working directory before updating.");
+                break;
+            case HgErrorCodes.ShelveConflict:
+                // TODO: Show "Abort" button
+                message = localize('shelve merge conflicts', "There were merge conflicts while unshelving.");
+                type = 'warning';
+                options.modal = false;
+                break;
+            case HgErrorCodes.UnshelveInProgress:
+                message = localize('unshelve in progress', "There is already an unshelve operation in progress.");
+                options.modal = false;
                 break;
 
             default:
@@ -220,8 +237,10 @@ export namespace interaction {
             return false;
         }
 
-        const openOutputChannelChoice = localize('open hg log', "Open Hg Log");
-        const choice = await window.showErrorMessage(message, openOutputChannelChoice);
+        const choice = type === 'error'
+            ? await window.showErrorMessage(message, options, openOutputChannelChoice)
+            : await window.showWarningMessage(message, options, openOutputChannelChoice);
+        
         return choice === openOutputChannelChoice;
     }
 
@@ -255,6 +274,25 @@ export namespace interaction {
         });
 
         return bookmark;
+    }
+
+    export async function inputShelveName(): Promise<string | undefined> {
+        return await window.showInputBox({
+            prompt: localize('shelve name', "Optionally provide a shelve name."),
+            ignoreFocusOut: true,
+        })
+    }
+
+    export async function pickShelve(shelves: Shelve[]): Promise<Shelve | undefined> {
+        if (shelves.length === 0) {
+            window.showInformationMessage(localize('no shelves', "There are no shelves in the repository."));
+            return;
+        }
+
+        const placeHolder = localize('pick shelve to apply', "Pick a shelve to apply");
+        const picks = shelves.map(shelve => ({ label: `${shelve.name}`, description: '', details: '', shelve }));
+        const result = await window.showQuickPick(picks, { placeHolder });
+        return result && result.shelve;
     }
 
     export async function warnNotUsingBookmarks(): Promise<boolean> {

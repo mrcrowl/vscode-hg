@@ -49,6 +49,15 @@ export interface SyncOptions {
 	revs?: string[];
 }
 
+export interface ShelveOptions {
+	name?: string
+}
+
+export interface UnshelveOptions {
+	name: string;
+	keep?: boolean;
+}
+
 export interface IMergeResult {
 	unresolvedCount: number;
 }
@@ -86,6 +95,10 @@ export interface Ref {
 export interface Bookmark extends Ref {
 	name: string;
 	active: boolean;
+}
+
+export interface Shelve {
+	name: string;
 }
 
 export interface Path {
@@ -342,7 +355,9 @@ export const HgErrorCodes = {
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
-	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured'
+	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured',
+	UnshelveInProgress: 'UnshelveInProgress',
+	ShelveConflict: 'ShelveConflict'
 };
 
 export class Hg {
@@ -829,6 +844,51 @@ export class Repository {
 			}
 			throw error;
 		}
+	}
+
+	async shelve(opts: ShelveOptions) {
+		const args = ['shelve']
+		if (opts.name) {
+			args.push('--name', opts.name);
+		}
+
+		const result = this.run(args);
+	}
+
+	async getShelves(): Promise<Shelve[]> {
+		const result = await this.run(['shelve', '--list', '--quiet']);
+		const shelves = result.stdout.trim().split('\n')
+			.filter(l => !!l)
+			.map(line => ({ name: line }));
+		return shelves;
+	}
+
+	async unshelve(opts: UnshelveOptions) {
+		const args = ['unshelve', '--name', opts.name];
+		if (opts.keep) {
+			args.push('--keep');
+		}
+
+		try {
+			const result = await this.run(args);
+		} catch (err) {
+			if (/unresolved conflicts/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.ShelveConflict;
+			}
+			else if (/abort: unshelve already in progress/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.UnshelveInProgress;
+			}
+
+			throw err;
+		}
+	}
+
+	async unshelveAbort(): Promise<void> {
+		await this.run(['unshelve', '--abort']);
+	}
+
+	async unshelveContinue(): Promise<void> {
+		await this.run(['unshelve', '--continue']);
 	}
 
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
