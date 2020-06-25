@@ -191,7 +191,7 @@ export namespace interaction {
     export function warnNoRollback(this: void) {
         return window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
     }
-    
+
     export async function errorPromptOpenLog(err: any): Promise<boolean> {
         const options: MessageOptions = {
             modal: true

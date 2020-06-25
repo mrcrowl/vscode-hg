@@ -874,8 +874,8 @@ export class CommandCenter {
 
 	@command('hg.shelve', { repository: true })
 	public async shelve(repository: Repository) {
-		var options: ShelveOptions = {}
-		var shelveName = await interaction.inputShelveName();
+		const options: ShelveOptions = {}
+		const shelveName = await interaction.inputShelveName();
 		if (shelveName) {
 			options.name = shelveName;
 		}
@@ -891,7 +891,20 @@ export class CommandCenter {
 			return;
 		}
 
-		await repository.unshelve(shelve);
+		const opts = { name: shelve.name };
+		await repository.unshelve(opts);
+	}
+
+	@command('hg.unshelveKeep', { repository: true })
+	public async unshelveKeep(repository: Repository) {
+		const shelves = await repository.getShelves();
+		const shelve = await interaction.pickShelve(shelves);
+		
+		if (!shelve) {
+			return;
+		}
+		const opts = { name: shelve.name, keep: true };
+		await repository.unshelve(opts);
 	}
 
 	@command('hg.unshelveAbort', { repository: true })

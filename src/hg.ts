@@ -55,7 +55,7 @@ export interface ShelveOptions {
 
 export interface UnshelveOptions {
 	name: string;
-	keep: boolean;
+	keep?: boolean;
 }
 
 export interface IMergeResult {
