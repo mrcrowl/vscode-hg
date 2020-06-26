@@ -17,6 +17,7 @@ import { activate } from "./main";
 const localize = nls.loadMessageBundle();
 const readdir = denodeify<string[]>(fs.readdir);
 const readfile = denodeify<string>(fs.readFile);
+const isWindows = (os.platform() === 'win32');
 
 export interface IHg {
 	path: string;
@@ -439,7 +440,7 @@ export class Hg {
 	}
 
 	async getRepositoryRoot(path: string): Promise<string> {
-		const result = await this.exec(path, ['root']);
+		const result = await this.exec(path, ['root'], {stdoutIsBinaryEncodedInWindows: true});
 		return result.stdout.trim();
 	}
 
@@ -480,9 +481,10 @@ export class Hg {
 				this.log(`${bufferResult.stderr}\n`);
 			}
 
+			const stdoutEncoding = isWindows && options.stdoutIsBinaryEncodedInWindows ? 'binary' : 'utf8';
 			result = {
 				exitCode: bufferResult.exitCode,
-				stdout: bufferResult.stdout.toString(),
+				stdout: bufferResult.stdout.toString(stdoutEncoding),
 				stderr: bufferResult.stderr
 			};
 		}
@@ -859,7 +861,7 @@ export class Repository {
 	}
 
 	async getShelves(): Promise<Shelve[]> {
-		const result = await this.run(['shelve', '--list', '--quiet']);
+		const result = await this.run(['shelve', '--list', '--quiet'], {stdoutIsBinaryEncodedInWindows: true});
 		const shelves = result.stdout.trim().split('\n')
 			.filter(l => !!l)
 			.map(line => ({ name: line }));
@@ -1241,7 +1243,7 @@ export class Repository {
 			args.push('--change', `${revision}`);
 		}
 
-		const executionResult = await this.run(args); // quiet, include renames/copies
+		const executionResult = await this.run(args, {stdoutIsBinaryEncodedInWindows: true}); // quiet, include renames/copies
 		const status = executionResult.stdout;
 		return this.parseStatusLines(status);
 	}
