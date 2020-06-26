@@ -223,13 +223,17 @@ export class HgFinder {
 	}
 }
 
-export interface IExecutionResult {
+export interface IExecutionResult<T extends string | Buffer> {
 	exitCode: number;
-	stdout: string;
+	stdout: T;
 	stderr: string;
 }
 
-export async function exec(child: cp.ChildProcess): Promise<IExecutionResult> {
+export async function exec(child: cp.ChildProcess): Promise<IExecutionResult<Buffer>> {
+	if (!child.stdout || !child.stderr) {
+		throw new HgError({ message: 'Failed to get stdout or stderr from git process.' });
+	}
+
 	const disposables: IDisposable[] = [];
 
 	const once = (ee: NodeJS.EventEmitter, name: string, fn: (...args: any[]) => void) => {
@@ -242,26 +246,29 @@ export async function exec(child: cp.ChildProcess): Promise<IExecutionResult> {
 		disposables.push(toDisposable(() => ee.removeListener(name, fn)));
 	};
 
-	const [exitCode, stdout, stderr] = await Promise.all<any>([
+	let result = Promise.all<any>([
 		new Promise<number>((c, e) => {
 			once(child, 'error', e);
 			once(child, 'exit', c);
 		}),
-		new Promise<string>(c => {
-			const buffers: string[] = [];
-			on(child.stdout, 'data', b => buffers.push(b));
-			once(child.stdout, 'close', () => c(buffers.join('')));
+		new Promise<Buffer>(c => {
+			const buffers: Buffer[] = [];
+			on(child.stdout!, 'data', (b: Buffer) => buffers.push(b));
+			once(child.stdout!, 'close', () => c(Buffer.concat(buffers)));
 		}),
 		new Promise<string>(c => {
-			const buffers: string[] = [];
-			on(child.stderr, 'data', b => buffers.push(b));
-			once(child.stderr, 'close', () => c(buffers.join('')));
+			const buffers: Buffer[] = [];
+			on(child.stderr!, 'data', (b: Buffer) => buffers.push(b));
+			once(child.stderr!, 'close', () => c(Buffer.concat(buffers).toString('utf8')));
 		})
-	]);
+	]) as Promise<[number, Buffer, string]>;
 
-	dispose(disposables);
-
-	return { exitCode, stdout, stderr };
+	try {
+		const [exitCode, stdout, stderr] = await result;
+		return { exitCode, stdout, stderr };
+	} finally {
+		dispose(disposables);
+	}
 }
 
 export interface IHgErrorData {
@@ -436,7 +443,7 @@ export class Hg {
 		return result.stdout.trim();
 	}
 
-	async exec(cwd: string, args: string[], options: any = {}): Promise<IExecutionResult> {
+	async exec(cwd: string, args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		options = { cwd, ...options };
 		return await this._exec(args, options);
 	}
@@ -454,10 +461,10 @@ export class Hg {
 		return result;
 	}
 
-	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
+	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		const startTimeHR = process.hrtime();
 
-		let result: IExecutionResult;
+		let result: IExecutionResult<string>;
 		if (this.server) {
 			result = await this.runServerCommand(this.server, args, options);
 		}
@@ -467,7 +474,17 @@ export class Hg {
 				child.stdin.end(options.input, 'utf8');
 			}
 
-			result = await exec(child);
+			const bufferResult = await exec(child);
+
+			if (options.log !== false && bufferResult.stderr.length > 0) {
+				this.log(`${bufferResult.stderr}\n`);
+			}
+
+			result = {
+				exitCode: bufferResult.exitCode,
+				stdout: bufferResult.stdout.toString(),
+				stderr: bufferResult.stderr
+			};
 		}
 
 		if (this.instrumentEnabled) {
@@ -492,7 +509,7 @@ export class Hg {
 				this.log(`${result.stderr}\n`);
 			}
 
-			return Promise.reject<IExecutionResult>(new HgError({
+			return Promise.reject<IExecutionResult<string>>(new HgError({
 				message: 'Failed to execute hg',
 				stdout: result.stdout,
 				stderr: result.stderr,
@@ -575,7 +592,7 @@ export class Repository {
 	}
 
 	// TODO@Joao: rename to exec
-	async run(args: string[], options: any = {}): Promise<IExecutionResult> {
+	async run(args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		return await this.hg.exec(this.repositoryRoot, args, options);
 	}
 
@@ -602,20 +619,6 @@ export class Repository {
 
 		const result = await this.run(args, options);
 		return result.stdout;
-	}
-
-	private async doBuffer(object: string): Promise<string> {
-		const child = this.stream(['show', object]);
-		const { exitCode, stdout } = await exec(child);
-
-		if (exitCode) {
-			return Promise.reject<string>(new HgError({
-				message: 'Could not buffer object.',
-				exitCode
-			}));
-		}
-
-		return stdout;
 	}
 
 	async add(paths?: string[]): Promise<void> {
