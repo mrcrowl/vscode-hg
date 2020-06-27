@@ -736,6 +736,11 @@
           "group": "1_modification"
         },
         {
+          "command": "hg.forget",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
+          "group": "2_modification"
+        },
+        {
           "command": "hg.clean",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
@@ -759,11 +764,6 @@
           "command": "hg.openFiles",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
           "group": "navigation"
-        },
-        {
-          "command": "hg.forget",
-          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
-          "group": "2_modification"
         }
       ],
       "editor/title": [
