@@ -688,6 +688,18 @@ export class Repository implements IDisposable {
     }
 
     @throttle
+    async purge(...uris: Uri[]): Promise<void> {
+        const resources = this.mapResources(uris);
+        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
+        await this.run(Operation.Clean, () => this.repository.purge({paths: relativePaths}));
+    }
+
+    @throttle
+    async purgeAll(): Promise<void> {
+        await this.run(Operation.Clean, () => this.repository.purge({all: true}));
+    }
+
+    @throttle
     async branch(name: string, opts?: { allowBranchReuse: boolean }): Promise<void> {
         const hgOpts = opts && {
             force: opts && opts.allowBranchReuse

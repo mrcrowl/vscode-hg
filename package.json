@@ -215,6 +215,23 @@
         "category": "Hg"
       },
       {
+        "command": "hg.purge",
+        "title": "%command.purge%",
+        "category": "Hg",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "hg.purgeFiles",
+        "title": "%command.purgeFiles%",
+        "category": "Hg",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "hg.purgeAll",
+        "title": "%command.purgeAll%",
+        "category": "Hg"
+      },
+      {
         "command": "hg.push",
         "title": "%command.push%",
         "category": "Hg"
@@ -445,6 +462,18 @@
           "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
         {
+          "command": "hg.purge",
+          "when": "false"
+        },
+        {
+          "command": "hg.purgeFiles",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
+          "command": "hg.purgeAll",
+          "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+        },
+        {
           "command": "hg.push",
           "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
         },
@@ -557,6 +586,11 @@
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
         },
         {
+          "command": "hg.purgeAll",
+          "group": "4_stage",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
+        },
+        {
           "command": "hg.mergeHeads",
           "group": "5_merge",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg"
@@ -614,6 +648,16 @@
           "command": "hg.addAll",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "1_modification"
+        },
+        {
+          "command": "hg.purgeFiles",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
+          "group": "1_modification"
+        },
+        {
+          "command": "hg.purgeFiles",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
+          "group": "inline1"
         },
         {
           "command": "hg.addAll",
@@ -703,9 +747,19 @@
           "group": "inline"
         },
         {
+          "command": "hg.purge",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
+          "group": "inline1"
+        },
+        {
           "command": "hg.add",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
           "group": "inline"
+        },
+        {
+          "command": "hg.purge",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
+          "group": "1_modification"
         },
         {
           "command": "hg.add",

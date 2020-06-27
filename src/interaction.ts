@@ -218,6 +218,10 @@ export namespace interaction {
                 message = localize('unshelve in progress', "There is already an unshelve operation in progress.");
                 options.modal = false;
                 break;
+            case HgErrorCodes.ExtensionMissing:
+                message = localize('extension missing', "Extension missing: {0}", err.stderr);
+                options.modal = false;
+                break;
 
             default: {
                 const hint = (err.stderr || err.message || String(err))
@@ -556,6 +560,30 @@ export namespace interaction {
         const discard = localize('discard', "Discard Changes");
         const choice = await window.showWarningMessage(message, { modal: true }, discard);
         return choice === discard;
+    }
+
+    export async function confirmDeleteUntrackedAndIgnored(this: void): Promise<boolean> {
+        const message = localize('confirm delete all untracked and ignored',
+                                "Are you sure you want to delete ALL untracked and ignored files?\nThis is IRREVERSIBLE!");
+        const deleteOption = localize('delete all', "Delete All");
+        const choice = await window.showWarningMessage(message, { modal: true }, deleteOption);
+        return choice === deleteOption;
+    }
+
+    export async function confirmDeleteFiles(fileNames: string[]): Promise<boolean> {
+        let message: string;
+
+        if (fileNames.length === 1) {
+            message = localize('confirm delete', "Are you sure you want to delete '{0}'?\nThis is IRREVERSIBLE!", path.basename(fileNames[0]));
+        }
+        else {
+            const fileList = humanise.formatFilesAsBulletedList(fileNames);
+            message = localize('confirm delete multiple', "Are you sure you want to delete {0} files?\n\n{1}\n\nThis is IRREVERSIBLE!", fileNames.length, fileList);
+        }
+
+        const deleteOption = localize('delete', "Delete");
+        const choice = await window.showWarningMessage(message, { modal: true }, deleteOption);
+        return choice === deleteOption;
     }
 
     export async function confirmDeleteMissingFilesForCommit(filenames: string[]): Promise<boolean> {

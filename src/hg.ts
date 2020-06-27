@@ -59,6 +59,11 @@ export interface UnshelveOptions {
 	keep?: boolean;
 }
 
+export interface PurgeOptions {
+	paths?: string[];
+	all?: boolean;
+}
+
 export interface IMergeResult {
 	unresolvedCount: number;
 }
@@ -360,6 +365,7 @@ export const HgErrorCodes = {
 	CantAccessRemote: 'CantAccessRemote',
 	RepositoryNotFound: 'RepositoryNotFound',
 	NoSuchFile: 'NoSuchFile',
+	ExtensionMissing: 'ExtensionMissing',
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
@@ -505,6 +511,10 @@ export class Hg {
 			}
 			else if (/no such file/.test(result.stderr)) {
 				hgErrorCode = HgErrorCodes.NoSuchFile;
+			}
+			else if (/unknown command/.test(result.stderr)) {
+				hgErrorCode = HgErrorCodes.ExtensionMissing;
+				result.stderr = result.stderr.replace(/.*(unknown command '.*?').*/s, '$1');
 			}
 
 			if (options.logErrors !== false && result.stderr) {
@@ -886,6 +896,19 @@ export class Repository {
 
 			throw err;
 		}
+	}
+
+	async purge(opts: PurgeOptions): Promise<void> {
+		const args = ['purge'];
+
+		if (opts.paths && opts.paths.length) {
+			args.push(...opts.paths);
+		}
+		if (opts.all) {
+			args.push('--all');
+		}
+
+		await this.run(args);
 	}
 
 	async unshelveAbort(): Promise<void> {
