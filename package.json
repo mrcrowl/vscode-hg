@@ -761,7 +761,12 @@
           "group": "1_modification"
         },
         {
-          "command": "hg.openFiles",
+          "command": "hg.openFile",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
+          "group": "inline0"
+        },
+        {
+          "command": "hg.openFile",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
           "group": "navigation"
         }
