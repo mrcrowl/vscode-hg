@@ -905,13 +905,13 @@
     "test": "node ./out/test/runTest.js"
   },
   "dependencies": {
-    "tmp": "0.0.31",
+    "tmp": "0.2.1",
     "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",
     "@types/node": "^10.17.24",
-    "@types/tmp": "0.0.33",
+    "@types/tmp": "0.2.0",
     "@types/vscode": "^1.30.0",
     "@typescript-eslint/eslint-plugin": "^2.30.0",
     "@typescript-eslint/parser": "^2.30.0",
