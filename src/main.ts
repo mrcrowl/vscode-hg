@@ -17,10 +17,9 @@ import typedConfig from './config';
 
 const localize = nls.config(process.env.VSCODE_NLS_CONFIG)();
 
-async function init(context: ExtensionContext, disposables: Disposable[]): Promise<void> {
+async function init(context: ExtensionContext, outputChannel: OutputChannel, disposables: Disposable[]): Promise<Model> {
 	const { name, version, aiKey } = require(context.asAbsolutePath('./package.json')) as { name: string, version: string, aiKey: string };
 
-	const outputChannel = window.createOutputChannel('Hg');
 	commands.registerCommand('hg.showOutput', () => outputChannel.show());
 	disposables.push(outputChannel);
 
@@ -28,44 +27,33 @@ async function init(context: ExtensionContext, disposables: Disposable[]): Promi
 	const enableInstrumentation = typedConfig.instrumentation;
 	const pathHint = typedConfig.path;
 
-	try {
-		const info: IHg = await findHg(pathHint, outputChannel);
-		const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
-		const model = new Model(hg);
-		disposables.push(model);
-	
-		const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', model.repositories.length);
-		model.onDidOpenRepository(onRepository, null, disposables);
-		model.onDidCloseRepository(onRepository, null, disposables);
-		onRepository();
-	
-		if (!enabled)
-		{
-			const commandCenter = new CommandCenter(hg, model, outputChannel);
-			disposables.push(commandCenter);
-			return;
-		}
-	
-		outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
-		hg.onOutput(str => outputChannel.append(str), null, disposables);
-	
-		disposables.push(
-			new CommandCenter(hg, model, outputChannel),
-			new HgContentProvider(model),
-		);
-	
-		await checkHgVersion(info);
-	} catch (err) {
-		if (!/Mercurial installation not found/.test(err.message || '')) {
-			throw err;
-		}
+	const info: IHg = await findHg(pathHint, outputChannel);
+	const hg = new Hg({ hgPath: info.path, version: info.version, enableInstrumentation });
+	const model = new Model(hg);
+	disposables.push(model);
 
-		console.warn(err.message);
-		outputChannel.appendLine(err.message);
+	const onRepository = () => commands.executeCommand('setContext', 'hgOpenRepositoryCount', model.repositories.length);
+	model.onDidOpenRepository(onRepository, null, disposables);
+	model.onDidCloseRepository(onRepository, null, disposables);
+	onRepository();
 
-		commands.executeCommand('setContext', 'hg.missing', true);
-		warnAboutMissingHg();
+	if (!enabled)
+	{
+		const commandCenter = new CommandCenter(hg, model, outputChannel);
+		disposables.push(commandCenter);
+		return model;
 	}
+
+	outputChannel.appendLine(localize('using hg', "Using hg {0} from {1}", info.version, info.path));
+	hg.onOutput(str => outputChannel.append(str), null, disposables);
+
+	disposables.push(
+		new CommandCenter(hg, model, outputChannel),
+		new HgContentProvider(model),
+	);
+
+	await checkHgVersion(info);
+	return model;
 }
 
 export async function findHg(pathHint: string | undefined, outputChannel: OutputChannel): Promise<IHg> {
@@ -85,12 +73,26 @@ export async function findHg(pathHint: string | undefined, outputChannel: Output
 	}
 }
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext): Promise<Model | void> {
 	const disposables: Disposable[] = [];
 	context.subscriptions.push(new Disposable(() => Disposable.from(...disposables).dispose()));
 
-	init(context, disposables)
-		.catch(err => console.error(err));
+	const outputChannel = window.createOutputChannel('Hg');
+
+	try {
+		const model = await init(context, outputChannel, disposables)
+		return model;
+	} catch (err) {
+		if (!/Mercurial installation not found/.test(err.message || '')) {
+			throw err;
+		}
+
+		console.warn(err.message);
+		outputChannel.appendLine(err.message);
+
+		commands.executeCommand('setContext', 'hg.missing', true);
+		warnAboutMissingHg();
+	}
 }
 
 async function checkHgVersion(info: IHg): Promise<void> {
