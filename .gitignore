@@ -5,3 +5,4 @@ out*/**
 *.xcf
 images/production
 test/sandbox
+.vscode-test
