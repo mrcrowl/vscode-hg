@@ -173,11 +173,12 @@ class SyncStatusBar {
 				return { icon: '$(stop)', message: `${localize('remote error', 'Remote error')}: ${autoInOut.error}`, status: AutoInOutStatuses.Error };
 
 			case AutoInOutStatuses.Disabled:
-			default:
+			default: {
 				const message = refName ?
 					localize('pull scoped', 'Pull ({0} only)', refName) :
 					localize('pull', 'Pull');
 				return { icon: '$(cloud-download)', message, status: AutoInOutStatuses.Disabled };
+			}
 		}
 	}
 

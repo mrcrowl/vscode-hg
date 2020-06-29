@@ -107,7 +107,7 @@ export interface Path {
 }
 
 function parseVersion(raw: string): string {
-	const match = raw.match(/\(version ([^\)]+)\)/);
+	const match = raw.match(/\(version ([^)]+)\)/);
 	if (match) {
 		return match[1];
 	}
@@ -622,7 +622,7 @@ export class Repository {
 		const args = ['add'];
 
 		if (paths && paths.length) {
-			args.push.apply(args, paths);
+			args.push(...paths);
 		}
 		else {
 			// args.push('.'); 
@@ -664,7 +664,7 @@ export class Repository {
 
 	async unresolve(paths: string[]): Promise<void> {
 		const args = ['resolve', '--unmark'];
-		args.push.apply(args, paths);
+		args.push(...paths);
 
 		await this.run(args);
 	}
@@ -919,7 +919,7 @@ export class Repository {
 		}
 
 		if (paths && paths.length) {
-			args.push.apply(args, paths);
+			args.push(...paths);
 		}
 		else {
 			args.push('.');
@@ -950,7 +950,7 @@ export class Repository {
 				return 0;
 			}
 
-			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+			if (/repository default(-push)? not found!/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
 			}
 			else if (/repository is unrelated/.test(err.stderr || '')) {
@@ -1035,7 +1035,7 @@ export class Repository {
 				return 0;
 			}
 
-			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+			if (/repository default(-push)? not found!/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
 			}
 			else if (/abort/.test(err.stderr || '')) {
@@ -1262,7 +1262,7 @@ export class Repository {
 			}
 
 			const name = status.substring(start, i++);
-			return name.replace(/\\/g, '\/');
+			return name.replace(/\\/g, '/');
 		}
 
 		while (i < status.length) {

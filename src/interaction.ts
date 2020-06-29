@@ -217,19 +217,19 @@ export namespace interaction {
                 options.modal = false;
                 break;
 
-            default:
+            default: {
                 const hint = (err.stderr || err.message || String(err))
                     .replace(/^abort: /mi, '')
                     .replace(/^> husky.*$/mi, '')
                     .split(/[\r\n]/)
-                    .filter(line => !!line)
-                [0];
+                    .filter(line => !!line)[0];
 
                 message = hint
                     ? localize('hg error details', "Hg: {0}", hint)
                     : localize('hg error', "Hg error");
 
                 break;
+            }
         }
 
         if (!message) {

@@ -169,9 +169,8 @@ export class HgCommandServer {
     }
 
     private spawnHgServer(path) {
-        let processEnv, spawnOpts;
-        processEnv = { "HGENCODING": "UTF-8", ...process.env };
-        spawnOpts = {
+        const processEnv = { "HGENCODING": "UTF-8", ...process.env };
+        const spawnOpts = {
             env: processEnv,
             cwd: path || process.cwd()
         };
@@ -267,26 +266,31 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
             const length = await this.input.readInt();
 
             switch (chan) {
-                case RESULT_CHANNEL:
+                case RESULT_CHANNEL: {
                     this.exitCode = await this.input.readInt();
                     // logger.info(`hgserve:r:${this.exitCode}`);
                     break;
+                }
 
-                case LINE_CHANNEL:
+                case LINE_CHANNEL: {
                     const body = this.outputBodies.join("");
                     // logger.info(`hgserve:L:${body}`);
                     await this.lineInputHandler(body, length);
                     break;
+                }
 
-                case OUTPUT_CHANNEL:
+                case OUTPUT_CHANNEL: {
                     const outputBody = await this.input.readString(length, this.encoding);
                     this.outputBodies.push(outputBody);
                     break;
+                }
 
-                case ERROR_CHANNEL:
+                case ERROR_CHANNEL: {
                     const errorBody = await this.input.readString(length, this.encoding);
                     this.errorBodies.push(errorBody);
                     break;
+                }
+
             }
 
             if (this.exitCode !== undefined) {

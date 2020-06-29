@@ -199,15 +199,10 @@ export class CommandCenter {
 		const clonePromise = this.hg.clone(url, parentPath);
 		interaction.statusCloning(clonePromise);
 
-		try {
-			const repositoryPath = await clonePromise;
-			const openClonedRepo = await interaction.promptOpenClonedRepo();
-			if (openClonedRepo) {
-				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
-			}
-		}
-		catch (err) {
-			throw err;
+		const repositoryPath = await clonePromise;
+		const openClonedRepo = await interaction.promptOpenClonedRepo();
+		if (openClonedRepo) {
+			commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 		}
 	}
 

@@ -77,21 +77,23 @@ export class AutoIncomingOutgoing {
 
 		const pushPullBranchName = this.repository.pushPullBranchName;
 		switch (op) {
-			case Operation.Push:
+			case Operation.Push: {
 				const path = this.repository.lastPushPath;
 				if (!path || path === "default" || path === "default-push") {
 					const delta = -this.repository.syncCounts.outgoing;
 					this.repository.countOutgoingAfterDelay(delta);
 				}
 				break;
+			}
 
-			case Operation.Pull:
+			case Operation.Pull: {
 				const delta = -this.repository.syncCounts.incoming;
 				this.repository.countIncomingAfterDelay(delta);
 				break;
+			}
 
 			case Operation.Commit:
-			case Operation.Rollback:
+			case Operation.Rollback: {
 				const currentBranch = this.repository.currentBranch;
 				const affectsInOut =
 					pushPullBranchName === undefined // all branches
@@ -102,13 +104,16 @@ export class AutoIncomingOutgoing {
 					this.repository.countOutgoingAfterDelay(delta);
 				}
 				break;
+			}
 
-			case Operation.Update:
+			case Operation.Update: {
 				if (pushPullBranchName && pushPullBranchName !== "default") { // i.e. "current" setting
 					const incoming = -this.repository.syncCounts.incoming;
 					const outgoing = -this.repository.syncCounts.outgoing;
 					this.repository.countIncomingOutgoingAfterDelay({ incoming, outgoing })
 				}
+				break;
+			}
 
 			default:
 			// no-op

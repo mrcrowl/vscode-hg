@@ -31,7 +31,7 @@ export namespace humanise {
             filenames = filenames.slice(0, FILE_LIST_LIMIT);
         }
 
-        const osFilenames = filenames.map(f => f.replace(/[\/\\]/g, path.sep));
+        const osFilenames = filenames.map(f => f.replace(/[/\\]/g, path.sep));
         let formatted = ` ${BULLET} ${osFilenames.join(`\n ${BULLET} `)}`;
         if (extraCount > 1) {
             const andNOthers = localize('and n others', "and ${0} others", extraCount);
