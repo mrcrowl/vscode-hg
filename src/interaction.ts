@@ -26,7 +26,9 @@ const SHORT_HASH_LENGTH = 12;
 const BULLET = "\u2022";
 const NBSP = "\u00a0";
 
-const NOOP = function () { }
+const NOOP = function () {
+    // do nothing.
+}
 
 export const enum BranchExistsAction { None, Reopen, UpdateTo }
 export const enum PushCreatesNewHeadAction { None, Pull }
@@ -633,7 +635,9 @@ class CommitItem implements RunnableQuickPickItem {
     }
     get detail() { return `${this.commit.revision}(${this.shortHash}) `; }
     get description() { return this.commit.message; }
-    run() { }
+    run() {
+        // do nothing.
+    }
 }
 
 class LogEntryItem extends CommitItem {

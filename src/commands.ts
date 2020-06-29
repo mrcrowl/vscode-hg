@@ -1014,7 +1014,9 @@ export class CommandCenter {
 			getBranchName: () => repository.currentBranch && repository.currentBranch.name,
 			getCommitDetails: (revision: string) => repository.getCommitDetails(revision),
 			getLogEntries: (options: LogEntriesOptions) => repository.getLogEntries(options),
-			diffToLocal: (file: IFileStatus, commit: CommitDetails) => { },
+			diffToLocal: (file: IFileStatus, commit: CommitDetails) => {
+				// do nothing.
+			},
 			diffToParent: (file: IFileStatus, commit: CommitDetails) => this.diffFile(repository, commit.parent1, commit, file)
 		}
 	}
