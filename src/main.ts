@@ -85,7 +85,7 @@ export async function findHg(pathHint: string | undefined, outputChannel: Output
 	}
 }
 
-export function activate(context: ExtensionContext) {
+export function activate(context: ExtensionContext): void {
 	const disposables: Disposable[] = [];
 	context.subscriptions.push(new Disposable(() => Disposable.from(...disposables).dispose()));
 

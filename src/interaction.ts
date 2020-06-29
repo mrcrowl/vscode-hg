@@ -6,7 +6,7 @@
 
 import * as nls from "vscode-nls";
 import * as path from "path";
-import { commands, window, QuickPickItem, workspace, Uri, MessageOptions, OutputChannel, WorkspaceFolder } from "vscode";
+import { commands, window, QuickPickItem, workspace, Uri, MessageOptions, OutputChannel, WorkspaceFolder, Disposable } from "vscode";
 import { ChildProcess } from "child_process";
 import { Model } from "./model";
 import { HgRollbackDetails, Path, Ref, RefType, Commit, Shelve, LogEntryOptions, CommitDetails, IFileStatus, Bookmark, HgErrorCodes } from "./hg";
@@ -87,15 +87,15 @@ export async function warnAboutMissingHg(): Promise<void> {
 
 export namespace interaction {
 
-    export function statusCloning(clonePromise: Promise<any>) {
+    export function statusCloning(clonePromise: Promise<any>): Disposable {
         return window.setStatusBarMessage(localize('cloning', "Cloning hg repository..."), clonePromise);
     }
 
-    export function informHgNotSupported(this: void) {
+    export function informHgNotSupported(this: void): Thenable<string | undefined> {
         return window.showInformationMessage(localize('disabled', "Hg is either disabled or not supported in this workspace"));
     }
 
-    export function informNoChangesToCommit(this: void) {
+    export function informNoChangesToCommit(this: void): Thenable<string | undefined> {
         return window.showInformationMessage(localize('no changes', "There are no changes to commit."));
     }
 
@@ -122,20 +122,20 @@ export namespace interaction {
         return false;
     }
 
-    export function warnNonDistinctHeads(nonDistinctHeads: string[]) {
+    export function warnNonDistinctHeads(nonDistinctHeads: string[]): Thenable<string | undefined> {
         const nonDistinctHeadShortHashes = nonDistinctHeads.map(h => h.slice(0, SHORT_HASH_LENGTH)).join(", ");
         return window.showWarningMessage(localize('non distinct heads', "{0} heads without bookmarks [{1}]. Set bookmark or merge heads before pushing.", nonDistinctHeads.length, nonDistinctHeadShortHashes));
     }
 
-    export function warnNoActiveBookmark() {
+    export function warnNoActiveBookmark(): Thenable<string | undefined> {
         return window.showWarningMessage(localize('no active bookmark', "Nothing to push. There is no active bookmark and pushPullScope is 'current'."));
     }
 
-    export function warnBranchMultipleHeads(branchWithMultipleHeads: string) {
+    export function warnBranchMultipleHeads(branchWithMultipleHeads: string): Thenable<string | undefined> {
         return window.showWarningMessage(localize('multi head branch', "Branch '{0}' has multiple heads. Merge required before pushing.", branchWithMultipleHeads));
     }
 
-    export function warnMergeOnlyOneHead(branch?: string) {
+    export function warnMergeOnlyOneHead(branch?: string): Thenable<string | undefined> {
         if (typedConfig.useBookmarks) {
             return window.showWarningMessage(localize('only one head', "There is only 1 head. Nothing to merge.", branch));
         }
@@ -163,7 +163,7 @@ export namespace interaction {
         return false;
     }
 
-    export function warnMultipleBranchMultipleHeads(branchesWithMultipleHeads: string[]) {
+    export function warnMultipleBranchMultipleHeads(branchesWithMultipleHeads: string[]): Thenable<string | undefined> {
         return window.showWarningMessage(localize('multi head branches', "These branches have multiple heads: {0}. Merges required before pushing.", branchesWithMultipleHeads.join(",")));
     }
 
@@ -177,7 +177,7 @@ export namespace interaction {
         return DefaultRepoNotConfiguredAction.None;
     }
 
-    export function warnNoPaths(push: boolean) {
+    export function warnNoPaths(push: boolean): Promise<DefaultRepoNotConfiguredAction> {
         if (push) {
             return warnDefaultRepositoryNotConfigured(localize('no paths to push', "Your repository has no paths configured to push to."));
         }
@@ -186,11 +186,11 @@ export namespace interaction {
         }
     }
 
-    export function warnResolveConflicts(this: void) {
+    export function warnResolveConflicts(this: void): Thenable<string | undefined> {
         return window.showWarningMessage(localize('conflicts', "Resolve conflicts before committing."));
     }
 
-    export function warnNoRollback(this: void) {
+    export function warnNoRollback(this: void): Thenable<string | undefined> {
         return window.showWarningMessage(localize('no rollback', "Nothing to rollback to."));
     }
 
@@ -246,7 +246,7 @@ export namespace interaction {
         return choice === openOutputChannelChoice;
     }
 
-    export async function promptOpenClonedRepo(this: void) {
+    export async function promptOpenClonedRepo(this: void): Promise<boolean> {
         const open = localize('openrepo', "Open Repository");
         const result = await window.showInformationMessage(localize('proposeopen', "Would you like to open the cloned repository?"), open);
 
@@ -386,7 +386,7 @@ export namespace interaction {
         return new LiteralRunnableQuickPickItem(`$(arrow-left)${NBSP}${NBSP}${goBack}`, `${to} ${description}`, action);
     }
 
-    export async function presentLogSourcesMenu(commands: LogMenuAPI, useBookmarks: boolean) {
+    export async function presentLogSourcesMenu(commands: LogMenuAPI, useBookmarks: boolean): Promise<void> {
         const repoName = commands.getRepoName();
         const branchName = commands.getBranchName();
         const source = await interaction.pickLogSource(repoName, branchName);
@@ -397,7 +397,7 @@ export namespace interaction {
         }
     }
 
-    export async function presentLogMenu(source: CommitSources, logOptions: LogEntryOptions, useBookmarks: boolean, commands: LogMenuAPI, back?: RunnableQuickPickItem) {
+    export async function presentLogMenu(source: CommitSources, logOptions: LogEntryOptions, useBookmarks: boolean, commands: LogMenuAPI, back?: RunnableQuickPickItem): Promise<void> {
         const entries = await commands.getLogEntries(logOptions);
         let result = await pickCommitAsShowCommitDetailsRunnable(source, entries, useBookmarks, commands, back);
         while (result) {
@@ -493,12 +493,12 @@ export namespace interaction {
         return;
     }
 
-    export function warnUnresolvedFiles(unresolvedCount: number) {
+    export function warnUnresolvedFiles(unresolvedCount: number): Thenable<string | undefined> {
         const fileOrFiles = unresolvedCount === 1 ? localize('file', 'file') : localize('files', 'files');
-        window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
+        return window.showWarningMessage(localize('unresolved files', "Merge leaves {0} {1} unresolved.", unresolvedCount, fileOrFiles));
     }
 
-    export async function confirmRollback({ revision, kind, commitDetails: _ }: HgRollbackDetails) {
+    export async function confirmRollback({ revision, kind, commitDetails: _ }: HgRollbackDetails): Promise<boolean> {
         // prompt
         const rollback = "Rollback";
         const message = localize('rollback', "Rollback to revision {0}? (undo {1})", revision, kind);
@@ -506,7 +506,7 @@ export namespace interaction {
         return choice === rollback;
     }
 
-    export async function inputCommitMessage(message: string, defaultMessage?: string) {
+    export async function inputCommitMessage(message: string, defaultMessage?: string): Promise<string | undefined> {
         if (message) {
             return message;
         }
@@ -606,10 +606,10 @@ export namespace interaction {
         }
     }
 
-    export function errorUntrackedFilesDiffer(filenames: string[]) {
+    export function errorUntrackedFilesDiffer(filenames: string[]): Thenable<string | undefined> {
         const fileList = humanise.formatFilesAsBulletedList(filenames);
         const message = localize('untracked files differ', "Merge failed!\n\nUntracked files in your working directory would be overwritten by files of the same name from the merge revision:\n\n{0}\n\nEither track these files, move them, or delete them before merging.", fileList);
-        window.showErrorMessage(message, { modal: true });
+        return window.showErrorMessage(message, { modal: true });
     }
 }
 

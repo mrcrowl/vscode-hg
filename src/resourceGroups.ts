@@ -48,7 +48,7 @@ export class ResourceGroup {
 	get label(): string { return this._resourceGroup.label; }
 	get resources(): Resource[] { return this._resources; }
 
-	public clear() {
+	public clear(): void {
 		this._resources = [];
 	}
 

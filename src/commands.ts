@@ -831,7 +831,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.mergeWithLocal', { repository: true })
-	async mergeWithLocal(repository: Repository) {
+	async mergeWithLocal(repository: Repository): Promise<void> {
 		if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Merge) ||
 			await interaction.checkThenWarnUnclean(repository, WarnScenario.Merge)) {
 			this.focusScm();
@@ -847,7 +847,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.mergeHeads', { repository: true })
-	async mergeHeads(repository: Repository) {
+	async mergeHeads(repository: Repository): Promise<void> {
 		if (await interaction.checkThenWarnOutstandingMerge(repository, WarnScenario.Merge) ||
 			await interaction.checkThenWarnUnclean(repository, WarnScenario.Merge)) {
 			this.focusScm();
@@ -899,7 +899,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.shelve', { repository: true })
-	public async shelve(repository: Repository) {
+	public async shelve(repository: Repository): Promise<void> {
 		const options: ShelveOptions = {}
 		const shelveName = await interaction.inputShelveName();
 		if (shelveName) {
@@ -909,7 +909,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.unshelve', { repository: true })
-	public async unshelve(repository: Repository) {
+	public async unshelve(repository: Repository): Promise<void> {
 		const shelves = await repository.getShelves();
 		const shelve = await interaction.pickShelve(shelves);
 
@@ -922,7 +922,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.unshelveKeep', { repository: true })
-	public async unshelveKeep(repository: Repository) {
+	public async unshelveKeep(repository: Repository): Promise<void> {
 		const shelves = await repository.getShelves();
 		const shelve = await interaction.pickShelve(shelves);
 		
@@ -934,12 +934,12 @@ export class CommandCenter {
 	}
 
 	@command('hg.unshelveAbort', { repository: true })
-	public async unshelveAbort(repository: Repository) {
+	public async unshelveAbort(repository: Repository): Promise<void> {
 		await repository.unshelveAbort();
 	}
 
 	@command('hg.unshelveContinue', { repository: true })
-	public async unshelveContinue(repository: Repository) {
+	public async unshelveContinue(repository: Repository): Promise<void> {
 		await repository.unshelveContinue();
 	}
 
@@ -1053,27 +1053,27 @@ export class CommandCenter {
 	}
 
 	@command('hg.log', { repository: true })
-	async log(repository: Repository) {
+	async log(repository: Repository): Promise<void> {
 		interaction.presentLogSourcesMenu(this.createLogMenuAPI(repository), typedConfig.useBookmarks);
 	}
 
 	@command('hg.logBranch', { repository: true })
-	async logBranch(repository: Repository) {
+	async logBranch(repository: Repository): Promise<void> {
 		interaction.presentLogMenu(CommitSources.Branch, { branch: "." }, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
 	@command('hg.logDefault', { repository: true })
-	async logDefault(repository: Repository) {
+	async logDefault(repository: Repository): Promise<void> {
 		interaction.presentLogMenu(CommitSources.Branch, { branch: "default" }, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
 	@command('hg.logRepo', { repository: true })
-	async logRepo(repository: Repository) {
+	async logRepo(repository: Repository): Promise<void> {
 		interaction.presentLogMenu(CommitSources.Repo, {}, typedConfig.useBookmarks, this.createLogMenuAPI(repository));
 	}
 
 	@command('hg.fileLog')
-	async fileLog(uri?: Uri) {
+	async fileLog(uri?: Uri): Promise<void> {
 		if (!uri) {
 			if (window.activeTextEditor) {
 				uri = window.activeTextEditor.document.uri;
@@ -1102,7 +1102,7 @@ export class CommandCenter {
 	}
 
 	@command('hg.setBookmark', { repository: true })
-	async setBookmark(repository: Repository) {
+	async setBookmark(repository: Repository): Promise<void> {
 		if (!typedConfig.useBookmarks) {
 			const switched = await interaction.warnNotUsingBookmarks();
 			if (!switched) {
@@ -1140,7 +1140,7 @@ export class CommandCenter {
 
 
 	@command('hg.removeBookmark', { repository: true })
-	async removeBookmark(repository: Repository) {
+	async removeBookmark(repository: Repository): Promise<void> {
 		if (!typedConfig.useBookmarks) {
 			const switched = await interaction.warnNotUsingBookmarks();
 			if (!switched) {
