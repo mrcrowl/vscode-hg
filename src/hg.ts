@@ -247,7 +247,7 @@ export async function exec(child: cp.ChildProcess): Promise<IExecutionResult<Buf
 		disposables.push(toDisposable(() => ee.removeListener(name, fn)));
 	};
 
-	let result = Promise.all<any>([
+	const result = Promise.all<any>([
 		new Promise<number>((c, e) => {
 			once(child, 'error', e);
 			once(child, 'exit', c);
