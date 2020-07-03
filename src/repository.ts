@@ -300,7 +300,7 @@ export class Repository implements IDisposable {
     }
 
     private _lastPushPath: string | undefined;
-    get lastPushPath() { return this._lastPushPath }
+    get lastPushPath(): string | undefined { return this._lastPushPath }
 
     private _groups: IStatusGroups;
     get mergeGroup(): MergeGroup { return this._groups.merge; }
@@ -356,9 +356,9 @@ export class Repository implements IDisposable {
     get syncCounts(): { incoming: number; outgoing: number } { return this._syncCounts; }
 
     private _autoInOutState: AutoInOutState = { status: AutoInOutStatuses.Disabled };
-    get autoInOutState() { return this._autoInOutState; }
+    get autoInOutState(): AutoInOutState { return this._autoInOutState; }
 
-    public changeAutoInoutState(state: Partial<AutoInOutState>) {
+    public changeAutoInoutState(state: Partial<AutoInOutState>): void {
         this._autoInOutState = {
             ...this._autoInOutState,
             ...state
@@ -368,7 +368,7 @@ export class Repository implements IDisposable {
 
     get repoName(): string { return path.basename(this.repository.root); }
 
-    get isClean() {
+    get isClean(): boolean {
         const groups = [this.workingDirectoryGroup, this.mergeGroup, this.conflictGroup, this.stagingGroup];
         return groups.every(g => g.resources.length === 0);
     }
@@ -638,7 +638,7 @@ export class Repository implements IDisposable {
         });
     }
 
-    async cleanOrUpdate(...resources: Uri[]) {
+    async cleanOrUpdate(...resources: Uri[]): Promise<void> {
         const parents = await this.getParents();
         if (parents.length > 1) {
             return this.update(".", { discard: true });
@@ -820,7 +820,7 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number; outgoing: number }, delayMillis = 3000) {
+    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number; outgoing: number }, delayMillis = 3000): Promise<void> {
         try {
             await Promise.all([
                 this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, delayMillis),
@@ -930,7 +930,7 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    merge(revQuery): Promise<IMergeResult> {
+    merge(revQuery: string): Promise<IMergeResult> {
         return this.run(Operation.Merge, async () => {
             try {
                 return await this.repository.merge(revQuery)
@@ -951,11 +951,11 @@ export class Repository implements IDisposable {
         return true;
     }
 
-    async shelve(options: ShelveOptions) {
+    async shelve(options: ShelveOptions): Promise<void> {
         return await this.run(Operation.Shelve, () => this.repository.shelve(options));
     }
 
-    async unshelve(options: UnshelveOptions) {
+    async unshelve(options: UnshelveOptions): Promise<void> {
         return await this.run(Operation.Shelve, () => this.repository.unshelve(options));
     }
 
@@ -967,7 +967,7 @@ export class Repository implements IDisposable {
         await this.run(Operation.UnshelveContinue, async () => await this.repository.unshelveContinue());
     }
 
-    async getShelves() {
+    async getShelves(): Promise<Shelve[]> {
         return await this.repository.getShelves();
     }
 

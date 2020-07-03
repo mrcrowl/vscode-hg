@@ -247,7 +247,7 @@ export async function exec(child: cp.ChildProcess): Promise<IExecutionResult<Buf
 		disposables.push(toDisposable(() => ee.removeListener(name, fn)));
 	};
 
-	let result = Promise.all<any>([
+	const result = Promise.all<any>([
 		new Promise<number>((c, e) => {
 			once(child, 'error', e);
 			once(child, 'exit', c);
@@ -390,7 +390,7 @@ export class Hg {
 		this.onConfigurationChange();
 	}
 
-	async onConfigurationChange(forceServerRestart?: boolean) {
+	async onConfigurationChange(forceServerRestart?: boolean): Promise<void> {
 		const hgConfig = workspace.getConfiguration('hg');
 		const wasUsingServer = this.useServer;
 		const useServer = hgConfig.get<string>('commandMode') === "server";
@@ -606,7 +606,7 @@ export class Repository {
 		return this.hg.spawn(args, options);
 	}
 
-	async config(scope: string, key: string, value: any, options: any): Promise<string> {
+	async config(scope: string, key: string, value: string, options: any = {}): Promise<string> {
 		const args = ['config'];
 
 		if (scope) {
@@ -851,13 +851,13 @@ export class Repository {
 		}
 	}
 
-	async shelve(opts: ShelveOptions) {
+	async shelve(opts: ShelveOptions): Promise<void> {
 		const args = ['shelve']
 		if (opts.name) {
 			args.push('--name', opts.name);
 		}
 
-		const result = this.run(args);
+		await this.run(args);
 	}
 
 	async getShelves(): Promise<Shelve[]> {
@@ -868,7 +868,7 @@ export class Repository {
 		return shelves;
 	}
 
-	async unshelve(opts: UnshelveOptions) {
+	async unshelve(opts: UnshelveOptions): Promise<void> {
 		const args = ['unshelve', '--name', opts.name];
 		if (opts.keep) {
 			args.push('--keep');
@@ -1167,7 +1167,7 @@ export class Repository {
 		return files;
 	}
 
-	async merge(revQuery): Promise<IMergeResult> {
+	async merge(revQuery: string): Promise<IMergeResult> {
 		try {
 			await this.run(['merge', '-r', revQuery]);
 			return {

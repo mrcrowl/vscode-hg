@@ -121,7 +121,7 @@ export function denodeify<R>(fn: Function): (...args) => Promise<R> {
 	return (...args) => new Promise((c, e) => fn(...args, (err, r) => err ? e(err) : c(r)));
 }
 
-export function nfcall<R>(fn: Function, ...args): Promise<R> {
+export function nfcall<R>(fn: Function, ...args: any[]): Promise<R> {
 	return new Promise((c, e) => fn(...args, (err, r) => err ? e(err) : c(r)));
 }
 

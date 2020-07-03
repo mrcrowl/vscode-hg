@@ -79,7 +79,7 @@ export class HgCommandServer {
     }
 
     /**	Stop the current command server process from running */
-    public stop(force?: boolean) {
+    public stop(force?: boolean): void {
         if (!this.serverProcess) {
             return;
         }
@@ -105,7 +105,7 @@ export class HgCommandServer {
     }
 
     /** Run a command */
-    public runcommand(...args): Promise<IExecutionResult> {
+    public runcommand(...args: string[]): Promise<IExecutionResult> {
         return this.enqueueCommand("runcommand", ...args);
     }
 
@@ -179,7 +179,7 @@ export class HgCommandServer {
 
 
     /** Parse the capabilities and encoding when the cmd server starts up */
-    parseCapabilitiesAndEncoding(data: string) {
+    parseCapabilitiesAndEncoding(data: string): { capabilities: string[]; encoding: string; } {
         let matches = /capabilities: (.*?)\nencoding: (.*?)$/.exec(data);
         if (!matches) {
             matches = /capabilities: (.*?)\nencoding: (.*?)\n(.*?)$/g.exec(data);
@@ -196,7 +196,7 @@ export class HgCommandServer {
         };
     }
 
-    handleServerError(data) {
+    handleServerError(data: any): void {
         console.error(data);
         // return this.emit("error", data);
     }
@@ -206,7 +206,7 @@ export class HgCommandServer {
      */
 
     /** Parse the Channel information, emit an event on the channel with the data. */
-    async attachListeners() {
+    async attachListeners(): Promise<void> {
         const { serverProcess } = this;
         if (!serverProcess) {
             return;
