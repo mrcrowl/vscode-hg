@@ -23,7 +23,7 @@ jobs:
         node-version: "12.x"
 
     - run: npm ci
-    - run: npm run build
+    - run: npm run compile
     - run: npm run lint
 
     # TODO install mercurial and run tests on multiple platforms
