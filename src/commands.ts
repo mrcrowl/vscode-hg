@@ -199,15 +199,10 @@ export class CommandCenter {
 		const clonePromise = this.hg.clone(url, parentPath);
 		interaction.statusCloning(clonePromise);
 
-		try {
-			const repositoryPath = await clonePromise;
-			const openClonedRepo = await interaction.promptOpenClonedRepo();
-			if (openClonedRepo) {
-				commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
-			}
-		}
-		catch (err) {
-			throw err;
+		const repositoryPath = await clonePromise;
+		const openClonedRepo = await interaction.promptOpenClonedRepo();
+		if (openClonedRepo) {
+			commands.executeCommand('vscode.openFolder', Uri.file(repositoryPath));
 		}
 	}
 
@@ -355,7 +350,7 @@ export class CommandCenter {
 		}
 
 		const preview = resources.length === 1 ? undefined : false;
-		for (let resource of resources) {
+		for (const resource of resources) {
 			await this._openResource(resource, preview, true, false);
 		}
 	}
@@ -1050,7 +1045,9 @@ export class CommandCenter {
 			getBranchName: () => repository.currentBranch && repository.currentBranch.name,
 			getCommitDetails: (revision: string) => repository.getCommitDetails(revision),
 			getLogEntries: (options: LogEntriesOptions) => repository.getLogEntries(options),
-			diffToLocal: (file: IFileStatus, commit: CommitDetails) => { },
+			diffToLocal: (file: IFileStatus, commit: CommitDetails) => {
+				// do nothing.
+			},
 			diffToParent: (file: IFileStatus, commit: CommitDetails) => this.diffFile(repository, commit.parent1, commit, file)
 		}
 	}
@@ -1276,7 +1273,7 @@ export class CommandCenter {
 			}
 
 			return result;
-		}, [] as { repository: Repository, resources: Uri[] }[]);
+		}, [] as { repository: Repository; resources: Uri[] }[]);
 
 		const promises = groups
 			.map(({ repository, resources }) => fn(repository as Repository, isSingleResource ? resources[0] : resources));

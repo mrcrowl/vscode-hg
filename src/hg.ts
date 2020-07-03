@@ -108,7 +108,7 @@ export interface Path {
 }
 
 function parseVersion(raw: string): string {
-	let match = raw.match(/\(version ([^\)]+)\)/);
+	const match = raw.match(/\(version ([^)]+)\)/);
 	if (match) {
 		return match[1];
 	}
@@ -627,7 +627,7 @@ export class Repository {
 		const args = ['add'];
 
 		if (paths && paths.length) {
-			args.push.apply(args, paths);
+			args.push(...paths);
 		}
 		else {
 			// args.push('.'); 
@@ -669,7 +669,7 @@ export class Repository {
 
 	async unresolve(paths: string[]): Promise<void> {
 		const args = ['resolve', '--unmark'];
-		args.push.apply(args, paths);
+		args.push(...paths);
 
 		await this.run(args);
 	}
@@ -683,7 +683,7 @@ export class Repository {
 		return result.stdout;
 	}
 
-	async bookmark(name: string, opts?: { remove?: boolean, force?: boolean }): Promise<void> {
+	async bookmark(name: string, opts?: { remove?: boolean; force?: boolean }): Promise<void> {
 		const args = ['bookmark', name];
 		if (opts && opts.force) {
 			args.push('-f');
@@ -719,7 +719,7 @@ export class Repository {
 		}
 	}
 
-	async commit(message: string, opts: { addRemove?: boolean, amend?: boolean, fileList: string[] } = Object.create(null)): Promise<void> {
+	async commit(message: string, opts: { addRemove?: boolean; amend?: boolean; fileList: string[] } = Object.create(null)): Promise<void> {
 		const disposables: IDisposable[] = [];
 		const args = ['commit'];
 
@@ -783,7 +783,7 @@ export class Repository {
 		const groups = Object.keys(pathsByGroup).map(k => pathsByGroup[k]);
 		const tasks = groups.map(paths => () => this.run(['revert', '-C'].concat(paths))); // -C = no-backup
 
-		for (let task of tasks) {
+		for (const task of tasks) {
 			await task();
 		}
 	}
@@ -793,7 +793,7 @@ export class Repository {
 		const groups = Object.keys(pathsByGroup).map(k => pathsByGroup[k]);
 		const tasks = groups.map(paths => () => this.run(['forget'].concat(paths)));
 
-		for (let task of tasks) {
+		for (const task of tasks) {
 			await task();
 		}
 	}
@@ -924,7 +924,7 @@ export class Repository {
 		}
 
 		if (paths && paths.length) {
-			args.push.apply(args, paths);
+			args.push(...paths);
 		}
 		else {
 			args.push('.');
@@ -955,7 +955,7 @@ export class Repository {
 				return 0;
 			}
 
-			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+			if (/repository default(-push)? not found!/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
 			}
 			else if (/repository is unrelated/.test(err.stderr || '')) {
@@ -1040,7 +1040,7 @@ export class Repository {
 				return 0;
 			}
 
-			if (/repository default(\-push)? not found!/.test(err.stderr || '')) {
+			if (/repository default(-push)? not found!/.test(err.stderr || '')) {
 				err.hgErrorCode = HgErrorCodes.RepositoryDefaultNotFound;
 			}
 			else if (/abort/.test(err.stderr || '')) {
@@ -1267,7 +1267,7 @@ export class Repository {
 			}
 
 			const name = status.substring(start, i++);
-			return name.replace(/\\/g, '\/');
+			return name.replace(/\\/g, '/');
 		}
 
 		while (i < status.length) {
@@ -1373,7 +1373,7 @@ export class Repository {
 		return this.getLogEntries({ revQuery: `parents(${revision || ""})` });
 	}
 
-	async getHeads(options?: { branch?: string, excludeSelf?: boolean }): Promise<Commit[]> {
+	async getHeads(options?: { branch?: string; excludeSelf?: boolean }): Promise<Commit[]> {
 		const except = options && options.excludeSelf ? " - ." : "";
 		const revQuery = `head() and not closed()${except}`;
 		return this.getLogEntries({ revQuery, branch: options && options.branch });
@@ -1384,7 +1384,7 @@ export class Repository {
 		const tagRefs = tagsResult.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Ref | null => {
-				let match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
+				const match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
 				if (match) {
 					return { name: match[1], commit: match[3], type: RefType.Tag };
 				}
@@ -1400,7 +1400,7 @@ export class Repository {
 		const branchRefs = branchesResult.stdout.trim().split('\n')
 			.filter(line => !!line)
 			.map((line: string): Ref | null => {
-				let match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)(\s+\(inactive\))?$/);
+				const match = line.match(/^(.*?)\s+(\d+):([A-Fa-f0-9]+)(\s+\(inactive\))?$/);
 				if (match) {
 					return { name: match[1], commit: match[3], type: RefType.Branch };
 				}
@@ -1416,7 +1416,7 @@ export class Repository {
 		const bookmarkRefs = bookmarksResult.stdout.split('\n')
 			.filter(line => !!line)
 			.map((line: string): Bookmark | null => {
-				let match = line.match(/^.(.).(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
+				const match = line.match(/^.(.).(.*?)\s+(\d+):([A-Fa-f0-9]+)$/);
 				if (match) {
 					return { name: match[2], commit: match[4], type: RefType.Bookmark, active: match[1] === '*' };
 				}
@@ -1433,7 +1433,7 @@ export class Repository {
 		const paths = trimmedOutput.split('\n')
 			.filter(line => !!line)
 			.map((line: string): Path | null => {
-				let match = line.match(/^(\S+)\s*=\s*(.*)$/);
+				const match = line.match(/^(\S+)\s*=\s*(.*)$/);
 				if (match) {
 					return { name: match[1], url: match[2] };
 				}

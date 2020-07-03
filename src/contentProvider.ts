@@ -102,7 +102,7 @@ export class HgContentProvider {
 
 		this.cache[cacheKey] = cacheValue;
 
-		let { path, ref } = fromHgUri(uri);
+		const { path, ref } = fromHgUri(uri);
 
 		try {
 			return await repository.show(ref, path);

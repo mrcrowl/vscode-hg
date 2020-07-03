@@ -115,7 +115,7 @@ export function partition<T>(array: T[], fn: (el: T, i: number, ary: T[]) => boo
 		}
 		return result;
 	}, <[T[], T[]]>[[], []]);
-};
+}
 
 export function denodeify<R>(fn: Function): (...args) => Promise<R> {
 	return (...args) => new Promise((c, e) => fn(...args, (err, r) => err ? e(err) : c(r)));
@@ -166,7 +166,7 @@ export async function mkdirp(path: string, mode?: number): Promise<boolean> {
 }
 
 export function uniqueFilter<T>(keyFn: (t: T) => string): (t: T) => boolean {
-	const seen: { [key: string]: boolean; } = Object.create(null);
+	const seen: { [key: string]: boolean } = Object.create(null);
 
 	return element => {
 		const key = keyFn(element);
@@ -189,7 +189,7 @@ export async function writeStringToTempFile(contents: string, disposables?: IDis
 	return tempFile.fsPath;
 }
 
-async function createTempFile(): Promise<{ fsPath: string, dispose: () => void }> {
+async function createTempFile(): Promise<{ fsPath: string; dispose: () => void }> {
 	const [fsPath, dispose] = await new Promise<[string, () => void]>((c, e) => {
 		tmp.file({ discardDescriptor: true }, (err, path, _, cleanupCallback) => {
 			if (err) {

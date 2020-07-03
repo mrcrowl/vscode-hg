@@ -411,7 +411,7 @@ export class Repository implements IDisposable {
 
         const onWorkspaceChange = anyEvent(fsWatcher.onDidChange, fsWatcher.onDidCreate, fsWatcher.onDidDelete);
         const onRepositoryChange = filterEvent(onWorkspaceChange, uri => !/^\.\./.test(path.relative(repository.root, uri.fsPath)));
-        const onRelevantRepositoryChange = filterEvent(onRepositoryChange, uri => !/\/\.hg\/(\w?lock.*|.*\.log([-\.]\w+)?)$/.test(uri.path));
+        const onRelevantRepositoryChange = filterEvent(onRepositoryChange, uri => !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path));
         onRelevantRepositoryChange(this.onFSChange, this, this.disposables);
 
         const onRelevantHgChange = filterEvent(onRelevantRepositoryChange, uri => /\/\.hg\//.test(uri.path));
@@ -585,14 +585,14 @@ export class Repository implements IDisposable {
 
     // file uri --> workspace-relative path	
     public mapFileUriToWorkspaceRelativePath(fileUri: Uri): string {
-        const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/[\/\\]/g, path.sep);
+        const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/[/\\]/g, path.sep);
         return relativePath;
     }
 
     // repo-relative path --> workspace-relative path	
     private mapRepositoryRelativePathToWorkspaceRelativePath(repoRelativeFilepath: string): string {
         const fsPath = path.join(this.repository.root, repoRelativeFilepath);
-        const relativePath = path.relative(this.repository.root, fsPath).replace(/[\/\\]/g, path.sep);
+        const relativePath = path.relative(this.repository.root, fsPath).replace(/[/\\]/g, path.sep);
         return relativePath;
     }
 
@@ -627,7 +627,7 @@ export class Repository implements IDisposable {
             let fileList: string[] = [];
             if (opts.scope === CommitScope.CHANGES ||
                 opts.scope === CommitScope.STAGED_CHANGES) {
-                let selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
+                const selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
                     this.stagingGroup.resources :
                     this.workingDirectoryGroup.resources;
 
@@ -649,12 +649,12 @@ export class Repository implements IDisposable {
 
     @throttle
     async clean(...uris: Uri[]): Promise<void> {
-        let resources = this.mapResources(uris);
+        const resources = this.mapResources(uris);
         await this.run(Operation.Clean, async () => {
             const toRevert: string[] = [];
             const toForget: string[] = [];
 
-            for (let r of resources) {
+            for (const r of resources) {
                 switch (r.status) {
                     case Status.UNTRACKED:
                     case Status.IGNORED:
@@ -820,7 +820,7 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number, outgoing: number }, delayMillis: number = 3000) {
+    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number; outgoing: number }, delayMillis = 3000) {
         try {
             await Promise.all([
                 this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, delayMillis),
@@ -842,46 +842,36 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
-        try {
-            // immediate UI update with expected
-            if (expectedDelta) {
-                this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
-                this._onDidChangeInOutState.fire();
-            }
-
-            // then confirm after delay
-            if (delayMillis) {
-                await delay(delayMillis);
-            }
-            const options: SyncOptions = await this.createSyncOptions();
-            this._syncCounts.incoming = await this.repository.countIncoming(options);
+    async countIncomingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
+        // immediate UI update with expected
+        if (expectedDelta) {
+            this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
             this._onDidChangeInOutState.fire();
         }
-        catch (e) {
-            throw e;
+
+        // then confirm after delay
+        if (delayMillis) {
+            await delay(delayMillis);
         }
+        const options: SyncOptions = await this.createSyncOptions();
+        this._syncCounts.incoming = await this.repository.countIncoming(options);
+        this._onDidChangeInOutState.fire();
     }
 
-    async countOutgoingAfterDelay(expectedDelta: number = 0, delayMillis: number = 3000): Promise<void> {
-        try {
-            // immediate UI update with expected
-            if (expectedDelta) {
-                this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
-                this._onDidChangeInOutState.fire();
-            }
-
-            // then confirm after delay
-            if (delayMillis) {
-                await delay(delayMillis);
-            }
-            const options: SyncOptions = await this.createSyncOptions();
-            this._syncCounts.outgoing = await this.repository.countOutgoing(options);
+    async countOutgoingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
+        // immediate UI update with expected
+        if (expectedDelta) {
+            this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
             this._onDidChangeInOutState.fire();
         }
-        catch (e) {
-            throw e;
+
+        // then confirm after delay
+        if (delayMillis) {
+            await delay(delayMillis);
         }
+        const options: SyncOptions = await this.createSyncOptions();
+        this._syncCounts.outgoing = await this.repository.countOutgoing(options);
+        this._onDidChangeInOutState.fire();
     }
 
     @throttle

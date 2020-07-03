@@ -5,9 +5,9 @@ import { EventEmitter, Event } from "vscode";
 // import { logger } from "./logger";
 
 export interface Deferred<T> {
-    resolve: (c: T) => any,
-    reject: (e) => any,
-    promise: Promise<T>
+    resolve: (c: T) => any;
+    reject: (e) => any;
+    promise: Promise<T>;
 }
 
 export function defer<T>(): Deferred<T> {
@@ -169,14 +169,13 @@ export class HgCommandServer {
     }
 
     private spawnHgServer(path) {
-        var processEnv, spawnOpts;
-        processEnv = { "HGENCODING": "UTF-8", ...process.env };
-        spawnOpts = {
+        const processEnv = { "HGENCODING": "UTF-8", ...process.env };
+        const spawnOpts = {
             env: processEnv,
             cwd: path || process.cwd()
         };
         return spawn('hg', this.config.hgOpts, spawnOpts);
-    };
+    }
 
 
     /** Parse the capabilities and encoding when the cmd server starts up */
@@ -195,12 +194,12 @@ export class HgCommandServer {
             capabilities: caps.split(" "),
             encoding: encoding
         };
-    };
+    }
 
     handleServerError(data) {
         console.error(data);
         // return this.emit("error", data);
-    };
+    }
 
     /*
       Send the raw command strings to the cmdserver over `stdin`
@@ -267,26 +266,31 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
             const length = await this.input.readInt();
 
             switch (chan) {
-                case RESULT_CHANNEL:
+                case RESULT_CHANNEL: {
                     this.exitCode = await this.input.readInt();
                     // logger.info(`hgserve:r:${this.exitCode}`);
                     break;
+                }
 
-                case LINE_CHANNEL:
+                case LINE_CHANNEL: {
                     const body = this.outputBodies.join("");
                     // logger.info(`hgserve:L:${body}`);
                     await this.lineInputHandler(body, length);
                     break;
+                }
 
-                case OUTPUT_CHANNEL:
+                case OUTPUT_CHANNEL: {
                     const outputBody = await this.input.readString(length, this.encoding);
                     this.outputBodies.push(outputBody);
                     break;
+                }
 
-                case ERROR_CHANNEL:
+                case ERROR_CHANNEL: {
                     const errorBody = await this.input.readString(length, this.encoding);
                     this.errorBodies.push(errorBody);
                     break;
+                }
+
             }
 
             if (this.exitCode !== undefined) {
@@ -305,8 +309,8 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
 
 class StreamReader {
     private buffers: {
-        data: Buffer,
-        size: number
+        data: Buffer;
+        size: number;
     }[];
     private offset: number;
     private currentRead?: {
@@ -398,7 +402,7 @@ async function serverSendCommand(server: ChildProcess, encoding: string, cmd: st
     buffer.write(argsJoined, cmdLength + UINT32_SIZE, argsJoinedLength, encoding);
     // logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
     await writeBufferToStdIn(server, buffer);
-};
+}
 
 async function serverSendLineInput(server: ChildProcess, encoding: string, text: string) {
     if (!server) {
@@ -411,7 +415,7 @@ async function serverSendLineInput(server: ChildProcess, encoding: string, text:
     buffer.write(`${text}\n`, UINT32_SIZE, textLength, "ascii");
     // logger.info(`hgserve:stdin:${text}\n`);
     await writeBufferToStdIn(server, buffer);
-};
+}
 
 function writeBufferToStdIn(server: ChildProcess, buffer: Buffer): Promise<any> {
     return new Promise((c, e) => server.stdin.write(buffer, c));
