@@ -688,6 +688,11 @@
           "group": "1_modification"
         },
         {
+          "command": "hg.forget",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
+          "group": "2_modification"
+        },
+        {
           "command": "hg.clean",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
           "group": "inline"
@@ -708,14 +713,14 @@
           "group": "1_modification"
         },
         {
-          "command": "hg.openFiles",
+          "command": "hg.openFile",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
-          "group": "navigation"
+          "group": "inline0"
         },
         {
-          "command": "hg.forget",
-          "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == working",
-          "group": "2_modification"
+          "command": "hg.openFile",
+          "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
+          "group": "navigation"
         }
       ],
       "editor/title": [
