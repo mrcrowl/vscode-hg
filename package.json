@@ -44,19 +44,13 @@
         "command": "hg.add",
         "title": "%command.add%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/add.svg",
-          "dark": "resources/icons/dark/add.svg"
-        }
+        "icon": "$(add)"
       },
       {
         "command": "hg.addAll",
         "title": "%command.addAll%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/add.svg",
-          "dark": "resources/icons/dark/add.svg"
-        }
+        "icon": "$(add)"
       },
       {
         "command": "hg.branch",
@@ -77,28 +71,19 @@
         "command": "hg.clean",
         "title": "%command.clean%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/discard.svg",
-          "dark": "resources/icons/dark/discard.svg"
-        }
+        "icon": "$(discard)"
       },
       {
         "command": "hg.cleanAll",
         "title": "%command.cleanAll%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/discard.svg",
-          "dark": "resources/icons/dark/discard.svg"
-        }
+        "icon": "$(discard)"
       },
       {
         "command": "hg.commit",
         "title": "%command.commit%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/check.svg",
-          "dark": "resources/icons/dark/check.svg"
-        }
+        "icon": "$(check)"
       },
       {
         "command": "hg.commitAmend",
@@ -178,10 +163,7 @@
         "command": "hg.markResolved",
         "title": "%command.markResolved%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/check.svg",
-          "dark": "resources/icons/dark/check.svg"
-        }
+        "icon": "$(check)"
       },
       {
         "command": "hg.mergeHeads",
@@ -197,28 +179,19 @@
         "command": "hg.openChange",
         "title": "%command.openChange%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-change.svg",
-          "dark": "resources/icons/dark/open-change.svg"
-        }
+        "icon": "$(compare-changes)"
       },
       {
         "command": "hg.openChangeFromUri",
         "title": "%command.openChange%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-change.svg",
-          "dark": "resources/icons/dark/open-change.svg"
-        }
+        "icon": "$(compare-changes)"
       },
       {
         "command": "hg.openFile",
         "title": "%command.openFile%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-file.svg",
-          "dark": "resources/icons/dark/open-file.svg"
-        }
+        "icon": "$(go-to-file)"
       },
       {
         "command": "hg.openFiles",
@@ -229,10 +202,7 @@
         "command": "hg.openFileFromUri",
         "title": "%command.openFile%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/open-file.svg",
-          "dark": "resources/icons/dark/open-file.svg"
-        }
+        "icon": "$(go-to-file)"
       },
       {
         "command": "hg.openhgrc",
@@ -258,19 +228,13 @@
         "command": "hg.refresh",
         "title": "%command.refresh%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/refresh.svg",
-          "dark": "resources/icons/dark/refresh.svg"
-        }
+        "icon": "$(refresh)"
       },
       {
         "command": "hg.resolveAgain",
         "title": "%command.resolveAgain%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/refresh.svg",
-          "dark": "resources/icons/dark/refresh.svg"
-        }
+        "icon": "$(refresh)"
       },
       {
         "command": "hg.showOutput",
@@ -281,19 +245,13 @@
         "command": "hg.stage",
         "title": "%command.stage%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        }
+        "icon": "$(add)"
       },
       {
         "command": "hg.stageAll",
         "title": "%command.stageAll%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/stage.svg",
-          "dark": "resources/icons/dark/stage.svg"
-        }
+        "icon": "$(add)"
       },
       {
         "command": "hg.undoRollback",
@@ -309,19 +267,13 @@
         "command": "hg.unstage",
         "title": "%command.unstage%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/unstage.svg",
-          "dark": "resources/icons/dark/unstage.svg"
-        }
+        "icon": "$(remove)"
       },
       {
         "command": "hg.unstageAll",
         "title": "%command.unstageAll%",
         "category": "Hg",
-        "icon": {
-          "light": "resources/icons/light/unstage.svg",
-          "dark": "resources/icons/dark/unstage.svg"
-        }
+        "icon": "$(remove)"
       },
       {
         "command": "hg.update",
