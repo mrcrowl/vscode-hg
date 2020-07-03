@@ -911,6 +911,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "lint": "eslint src --ext .ts",
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
     "test": "node ./out/test/runTest.js",
     "watch": "tsc -watch -p ./"
   },
@@ -929,6 +931,7 @@
     "typescript": "^3.8.3",
     "vscode-test": "^1.4.0",
     "eslint": "^7.3.1",
+    "prettier": "2.0.5",
     "@typescript-eslint/parser": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^3.4.0"
   }
