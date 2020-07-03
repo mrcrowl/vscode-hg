@@ -32,6 +32,7 @@
 
  * Undo/rollback.
  
+ * Shelve/Unshelve support (NB: requires shelve extension to be enabled).
 
 # Feedback & Contributing
 

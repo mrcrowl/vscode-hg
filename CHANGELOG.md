@@ -1,9 +1,22 @@
+# **v1.6.0**
 
+## What's New 
+  - Added support for shelve/unshelve [#18](https://github.com/mrcrowl/vscode-hg/issues/18)
+  - UI offers to install Mercurial when installation not found [#79](https://github.com/mrcrowl/vscode-hg/issues/79)
+
+## Bug fixes 
+  - Fix: paths contain accented characters are now properly supported [#60](https://github.com/mrcrowl/vscode-hg/issues/60)
+  - Fix: hg clone command is available when no repo is open [#90](https://github.com/mrcrowl/vscode-hg/issues/90)
+  - Fix: don't prompt for repository when multiple repos open in workspace [#67](https://github.com/mrcrowl/vscode-hg/issues/67)
+  - Fix: don't prompt for repository when multiple repos open in workspace [#67](https://github.com/mrcrowl/vscode-hg/issues/67)
+  - Polish: standard VS Code icons are now used instead of custom icons [#101](https://github.com/mrcrowl/vscode-hg/issues/101), [#102](https://github.com/mrcrowl/vscode-hg/issues/102)
+
+## Credits: [@incidentist](https://github.com/incidentist) and [@hdpoliveira](https://github.com/hdpoliveira)
 
 **v1.5.1**
 =============================================
 
-## Bug fixes (Thanks [@incidentist](https://github.com/incidentist) for thse contributions)
+## Bug fixes (Thanks [@incidentist](https://github.com/incidentist) for these contributions)
   - Fix for issue showing file history [#50](https://github.com/mrcrowl/vscode-hg/issues/50)
   - Fix trouble resolving merges [#32](https://github.com/mrcrowl/vscode-hg/issues/32)
   - Gutter indicators are now cleared after a commit (or another repository change) [#54](https://github.com/mrcrowl/vscode-hg/issues/32)
