@@ -17,6 +17,7 @@ import { activate } from "./main";
 const localize = nls.loadMessageBundle();
 const readdir = denodeify<string[]>(fs.readdir);
 const readfile = denodeify<string>(fs.readFile);
+const isWindows = (os.platform() === 'win32');
 
 export interface IHg {
 	path: string;
@@ -47,6 +48,15 @@ export interface SyncOptions {
 	bookmarks?: string[];
 	branch?: string;
 	revs?: string[];
+}
+
+export interface ShelveOptions {
+	name?: string
+}
+
+export interface UnshelveOptions {
+	name: string;
+	keep?: boolean;
 }
 
 export interface IMergeResult {
@@ -88,6 +98,10 @@ export interface Bookmark extends Ref {
 	active: boolean;
 }
 
+export interface Shelve {
+	name: string;
+}
+
 export interface Path {
 	name: string;
 	url: string;
@@ -122,7 +136,8 @@ export class HgFinder {
 				case 'win32': return this.findHgWin32();
 				default: return this.findSpecificHg('hg');
 			}
-		});
+		})
+		.then(null, () => Promise.reject(new Error('Mercurial installation not found.')));
 	}
 
 	private findHgDarwin(): Promise<IHg> {
@@ -209,45 +224,52 @@ export class HgFinder {
 	}
 }
 
-export interface IExecutionResult {
+export interface IExecutionResult<T extends string | Buffer> {
 	exitCode: number;
-	stdout: string;
+	stdout: T;
 	stderr: string;
 }
 
-export async function exec(child: cp.ChildProcess): Promise<IExecutionResult> {
+export async function exec(child: cp.ChildProcess): Promise<IExecutionResult<Buffer>> {
+	if (!child.stdout || !child.stderr) {
+		throw new HgError({ message: 'Failed to get stdout or stderr from git process.' });
+	}
+
 	const disposables: IDisposable[] = [];
 
-	const once = (ee: NodeJS.EventEmitter, name: string, fn: Function) => {
+	const once = (ee: NodeJS.EventEmitter, name: string, fn: (...args: any[]) => void) => {
 		ee.once(name, fn);
 		disposables.push(toDisposable(() => ee.removeListener(name, fn)));
 	};
 
-	const on = (ee: NodeJS.EventEmitter, name: string, fn: Function) => {
+	const on = (ee: NodeJS.EventEmitter, name: string, fn: (...args: any[]) => void) => {
 		ee.on(name, fn);
 		disposables.push(toDisposable(() => ee.removeListener(name, fn)));
 	};
 
-	const [exitCode, stdout, stderr] = await Promise.all<any>([
+	let result = Promise.all<any>([
 		new Promise<number>((c, e) => {
 			once(child, 'error', e);
 			once(child, 'exit', c);
 		}),
-		new Promise<string>(c => {
-			const buffers: string[] = [];
-			on(child.stdout, 'data', b => buffers.push(b));
-			once(child.stdout, 'close', () => c(buffers.join('')));
+		new Promise<Buffer>(c => {
+			const buffers: Buffer[] = [];
+			on(child.stdout!, 'data', (b: Buffer) => buffers.push(b));
+			once(child.stdout!, 'close', () => c(Buffer.concat(buffers)));
 		}),
 		new Promise<string>(c => {
-			const buffers: string[] = [];
-			on(child.stderr, 'data', b => buffers.push(b));
-			once(child.stderr, 'close', () => c(buffers.join('')));
+			const buffers: Buffer[] = [];
+			on(child.stderr!, 'data', (b: Buffer) => buffers.push(b));
+			once(child.stderr!, 'close', () => c(Buffer.concat(buffers).toString('utf8')));
 		})
-	]);
+	]) as Promise<[number, Buffer, string]>;
 
-	dispose(disposables);
-
-	return { exitCode, stdout, stderr };
+	try {
+		const [exitCode, stdout, stderr] = await result;
+		return { exitCode, stdout, stderr };
+	} finally {
+		dispose(disposables);
+	}
 }
 
 export interface IHgErrorData {
@@ -341,7 +363,9 @@ export const HgErrorCodes = {
 	BranchAlreadyExists: 'BranchAlreadyExists',
 	NoRollbackInformationAvailable: 'NoRollbackInformationAvailable',
 	UntrackedFilesDiffer: 'UntrackedFilesDiffer',
-	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured'
+	DefaultRepositoryNotConfigured: 'DefaultRepositoryNotConfigured',
+	UnshelveInProgress: 'UnshelveInProgress',
+	ShelveConflict: 'ShelveConflict'
 };
 
 export class Hg {
@@ -416,11 +440,11 @@ export class Hg {
 	}
 
 	async getRepositoryRoot(path: string): Promise<string> {
-		const result = await this.exec(path, ['root']);
+		const result = await this.exec(path, ['root'], {stdoutIsBinaryEncodedInWindows: true});
 		return result.stdout.trim();
 	}
 
-	async exec(cwd: string, args: string[], options: any = {}): Promise<IExecutionResult> {
+	async exec(cwd: string, args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		options = { cwd, ...options };
 		return await this._exec(args, options);
 	}
@@ -438,10 +462,10 @@ export class Hg {
 		return result;
 	}
 
-	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult> {
+	private async _exec(args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		const startTimeHR = process.hrtime();
 
-		let result: IExecutionResult;
+		let result: IExecutionResult<string>;
 		if (this.server) {
 			result = await this.runServerCommand(this.server, args, options);
 		}
@@ -451,7 +475,18 @@ export class Hg {
 				child.stdin.end(options.input, 'utf8');
 			}
 
-			result = await exec(child);
+			const bufferResult = await exec(child);
+
+			if (options.log !== false && bufferResult.stderr.length > 0) {
+				this.log(`${bufferResult.stderr}\n`);
+			}
+
+			const stdoutEncoding = isWindows && options.stdoutIsBinaryEncodedInWindows ? 'binary' : 'utf8';
+			result = {
+				exitCode: bufferResult.exitCode,
+				stdout: bufferResult.stdout.toString(stdoutEncoding),
+				stderr: bufferResult.stderr
+			};
 		}
 
 		if (this.instrumentEnabled) {
@@ -476,7 +511,7 @@ export class Hg {
 				this.log(`${result.stderr}\n`);
 			}
 
-			return Promise.reject<IExecutionResult>(new HgError({
+			return Promise.reject<IExecutionResult<string>>(new HgError({
 				message: 'Failed to execute hg',
 				stdout: result.stdout,
 				stderr: result.stderr,
@@ -559,7 +594,7 @@ export class Repository {
 	}
 
 	// TODO@Joao: rename to exec
-	async run(args: string[], options: any = {}): Promise<IExecutionResult> {
+	async run(args: string[], options: any = {}): Promise<IExecutionResult<string>> {
 		return await this.hg.exec(this.repositoryRoot, args, options);
 	}
 
@@ -586,20 +621,6 @@ export class Repository {
 
 		const result = await this.run(args, options);
 		return result.stdout;
-	}
-
-	private async doBuffer(object: string): Promise<string> {
-		const child = this.stream(['show', object]);
-		const { exitCode, stdout } = await exec(child);
-
-		if (exitCode) {
-			return Promise.reject<string>(new HgError({
-				message: 'Could not buffer object.',
-				exitCode
-			}));
-		}
-
-		return stdout;
 	}
 
 	async add(paths?: string[]): Promise<void> {
@@ -828,6 +849,51 @@ export class Repository {
 			}
 			throw error;
 		}
+	}
+
+	async shelve(opts: ShelveOptions) {
+		const args = ['shelve']
+		if (opts.name) {
+			args.push('--name', opts.name);
+		}
+
+		const result = this.run(args);
+	}
+
+	async getShelves(): Promise<Shelve[]> {
+		const result = await this.run(['shelve', '--list', '--quiet'], {stdoutIsBinaryEncodedInWindows: true});
+		const shelves = result.stdout.trim().split('\n')
+			.filter(l => !!l)
+			.map(line => ({ name: line }));
+		return shelves;
+	}
+
+	async unshelve(opts: UnshelveOptions) {
+		const args = ['unshelve', '--name', opts.name];
+		if (opts.keep) {
+			args.push('--keep');
+		}
+
+		try {
+			const result = await this.run(args);
+		} catch (err) {
+			if (/unresolved conflicts/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.ShelveConflict;
+			}
+			else if (/abort: unshelve already in progress/.test(err.stderr || '')) {
+				err.hgErrorCode = HgErrorCodes.UnshelveInProgress;
+			}
+
+			throw err;
+		}
+	}
+
+	async unshelveAbort(): Promise<void> {
+		await this.run(['unshelve', '--abort']);
+	}
+
+	async unshelveContinue(): Promise<void> {
+		await this.run(['unshelve', '--continue']);
 	}
 
 	async tryGetLastCommitDetails(): Promise<ICommitDetails> {
@@ -1177,7 +1243,7 @@ export class Repository {
 			args.push('--change', `${revision}`);
 		}
 
-		const executionResult = await this.run(args); // quiet, include renames/copies
+		const executionResult = await this.run(args, {stdoutIsBinaryEncodedInWindows: true}); // quiet, include renames/copies
 		const status = executionResult.stdout;
 		return this.parseStatusLines(status);
 	}

@@ -1,6 +1,6 @@
 
 import { Uri, Command, EventEmitter, Event, scm, SourceControl, SourceControlInputBox, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations, Disposable, ProgressLocation, window, workspace, WorkspaceEdit, ThemeColor, commands } from 'vscode';
-import { Repository as BaseRepository, Ref, Commit, RefType, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails } from './hg';
+import { Repository as BaseRepository, Ref, Commit, Shelve, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails, ShelveOptions, UnshelveOptions, RefType } from './hg';
 import { anyEvent, filterEvent, eventToPromise, dispose, IDisposable, delay, groupBy, partition } from './util';
 import { memoize, throttle, debounce } from './decorators';
 import { StatusBarCommands } from './statusbar';
@@ -200,6 +200,9 @@ export const enum Operation {
     AddRemove = 1 << 22,
     SetBookmark = 1 << 23,
     RemoveBookmark = 1 << 24,
+    Shelve = 1 << 25,
+    UnshelveContinue = 1 << 26,
+    UnshelveAbort = 1 << 27,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -419,7 +422,7 @@ export class Repository implements IDisposable {
         this._sourceControl = scm.createSourceControl('hg', 'Hg', Uri.parse(repository.root));
         this.disposables.push(this._sourceControl);
 
-        this._sourceControl.acceptInputCommand = { command: 'hg.commitWithInput', title: localize('commit', "Commit") };
+        this._sourceControl.acceptInputCommand = { command: 'hg.commitWithInput', title: localize('commit', "Commit"), arguments: [this._sourceControl] };
         this._sourceControl.quickDiffProvider = this;
 
         const [groups, disposables] = createEmptyStatusGroups(this._sourceControl);
@@ -956,6 +959,26 @@ export class Repository implements IDisposable {
             return uri.fsPath.startsWith(this.repository.root);
         }
         return true;
+    }
+
+    async shelve(options: ShelveOptions) {
+        return await this.run(Operation.Shelve, () => this.repository.shelve(options));
+    }
+
+    async unshelve(options: UnshelveOptions) {
+        return await this.run(Operation.Shelve, () => this.repository.unshelve(options));
+    }
+
+    async unshelveAbort(): Promise<void> {
+        await this.run(Operation.UnshelveAbort, async () => await this.repository.unshelveAbort());
+    }
+
+    async unshelveContinue(): Promise<void> {
+        await this.run(Operation.UnshelveContinue, async () => await this.repository.unshelveContinue());
+    }
+
+    async getShelves() {
+        return await this.repository.getShelves();
     }
 
     async show(ref: string, filePath: string): Promise<string> {
