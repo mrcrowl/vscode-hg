@@ -657,7 +657,7 @@
         {
           "command": "hg.purgeFiles",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
-          "group": "inline1"
+          "group": "inline"
         },
         {
           "command": "hg.addAll",
@@ -749,7 +749,7 @@
         {
           "command": "hg.purge",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg && scmResourceGroup == untracked",
-          "group": "inline1"
+          "group": "inline"
         },
         {
           "command": "hg.add",
@@ -769,7 +769,7 @@
         {
           "command": "hg.openFile",
           "when": "config.hg.enabled && !hg.missing && scmProvider == hg",
-          "group": "inline0"
+          "group": "inline"
         },
         {
           "command": "hg.openFile",
