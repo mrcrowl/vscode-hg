@@ -218,13 +218,13 @@
         "command": "hg.purge",
         "title": "%command.purge%",
         "category": "Hg",
-        "icon": "$(discard)"
+        "icon": "$(trash)"
       },
       {
         "command": "hg.purgeFiles",
         "title": "%command.purgeFiles%",
         "category": "Hg",
-        "icon": "$(discard)"
+        "icon": "$(trash)"
       },
       {
         "command": "hg.purgeAll",
