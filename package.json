@@ -37,7 +37,7 @@
   "activationEvents": [
     "*"
   ],
-  "main": "./out/src/main",
+  "main": "./out/main.js",
   "contributes": {
     "commands": [
       {
@@ -857,16 +857,21 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "lint": "eslint src --ext .ts",
+    "test": "node ./out/test/runTest.js",
     "watch": "tsc -watch -p ./"
   },
   "dependencies": {
-    "tmp": "0.0.31",
+    "tmp": "0.2.1",
     "vscode-nls": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^10.17.24",
-    "@types/tmp": "0.0.33",
+    "@types/tmp": "0.2.0",
     "@types/vscode": "^1.30.0",
+    "@types/glob": "^7.1.1",
+    "@types/mocha": "^7.0.2",
+    "glob": "^7.1.6",
+    "mocha": "^7.2.0",
     "typescript": "^3.8.3",
     "vscode-test": "^1.4.0",
     "eslint": "^7.3.1",
