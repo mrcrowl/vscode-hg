@@ -582,6 +582,19 @@ export interface Commit extends Revision {
 	bookmarks: string[];
 }
 
+interface NativeCommit {
+	rev: number;
+	node: string;
+	branch: string;
+	phase: string;
+	user: string;
+	date: [number, number];
+	desc: string;
+	bookmarks: [string];
+	tags: [string];
+	parents: [string]
+}
+
 export interface CommitDetails extends Commit {
 	files: IFileStatus[];
 	parent1: Commit;
@@ -1350,8 +1363,7 @@ export class Repository {
 
 	async getLogEntries({ revQuery, branch, filePaths, follow, limit }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
 		//                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=bkmarks (\t delim)  |6=commit message           
-		const templateFormat = `{rev}:{node}:{date|hgdate}:{author|person}:{branch}:{join(bookmarks,'\\t')}:{sub('[\\n\\r]+',' ',desc)}\\n`;
-		const args = ['log', '-T', templateFormat]
+		const args = ['log', '-T', 'json']
 
 		if (revQuery) {
 			args.push('-r', revQuery);
@@ -1374,21 +1386,18 @@ export class Repository {
 		}
 
 		const result = await this.run(args);
-		const logEntries = result.stdout.trim().split('\n')
-			.filter(line => !!line)
-			.map((line: string): Commit | null => {
-				const parts = line.split(":");
-				const [revision, hash, hgDate, author, branch, tabDelimBookmarks] = parts;
-				const message = parts.slice(6).join(":");
-				const bookmarks = tabDelimBookmarks ? tabDelimBookmarks.split("\t") : [];
-				const [unixDateSeconds, _] = hgDate.split(' ').map(part => parseFloat(part));
+		const logEntries = JSON.parse(result.stdout.trim())
+			.map((commit: NativeCommit): Commit | null => {
 				return {
-					revision: parseInt(revision),
-					date: new Date(unixDateSeconds * 1e3),
-					hash, branch, message, author, bookmarks
-				}
-			})
-			.filter(ref => !!ref) as Commit[];
+					revision: commit.rev,
+					date: new Date(commit.date[0] * 1000),
+					hash: commit.node,
+					branch: commit.branch,
+					message: commit.desc,
+					author: commit.user,
+					bookmarks: commit.bookmarks,
+				} as Commit;
+			});
 		return logEntries;
 	}
 
