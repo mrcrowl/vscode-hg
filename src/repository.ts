@@ -1,27 +1,96 @@
-
-import { Uri, Command, EventEmitter, Event, scm, SourceControl, SourceControlInputBox, SourceControlResourceGroup, SourceControlResourceState, SourceControlResourceDecorations, Disposable, ProgressLocation, window, workspace, WorkspaceEdit, ThemeColor, commands } from 'vscode';
-import { Repository as BaseRepository, Ref, Commit, Shelve, HgError, Bookmark, IRepoStatus, SyncOptions, PullOptions, PushOptions, HgErrorCodes, IMergeResult, CommitDetails, LogEntryRepositoryOptions, HgRollbackDetails, ShelveOptions, UnshelveOptions, RefType } from './hg';
-import { anyEvent, filterEvent, eventToPromise, dispose, IDisposable, delay, groupBy, partition } from './util';
-import { memoize, throttle, debounce } from './decorators';
-import { StatusBarCommands } from './statusbar';
+import {
+    Uri,
+    Command,
+    EventEmitter,
+    Event,
+    scm,
+    SourceControl,
+    SourceControlInputBox,
+    SourceControlResourceGroup,
+    SourceControlResourceState,
+    SourceControlResourceDecorations,
+    Disposable,
+    ProgressLocation,
+    window,
+    workspace,
+    WorkspaceEdit,
+    ThemeColor,
+    commands,
+} from "vscode";
+import {
+    Repository as BaseRepository,
+    Ref,
+    Commit,
+    Shelve,
+    HgError,
+    Bookmark,
+    IRepoStatus,
+    SyncOptions,
+    PullOptions,
+    PushOptions,
+    HgErrorCodes,
+    IMergeResult,
+    CommitDetails,
+    LogEntryRepositoryOptions,
+    HgRollbackDetails,
+    ShelveOptions,
+    UnshelveOptions,
+    RefType,
+} from "./hg";
+import {
+    anyEvent,
+    filterEvent,
+    eventToPromise,
+    dispose,
+    IDisposable,
+    delay,
+    groupBy,
+    partition,
+} from "./util";
+import { memoize, throttle, debounce } from "./decorators";
+import { StatusBarCommands } from "./statusbar";
 import typedConfig, { PushPullScopeOptions } from "./config";
 
-import * as path from 'path';
-import * as fs from 'fs';
-import * as nls from 'vscode-nls';
-import { ResourceGroup, createEmptyStatusGroups, UntrackedGroup, WorkingDirectoryGroup, StagingGroup, ConflictGroup, MergeGroup, IStatusGroups, groupStatuses, IGroupStatusesParams } from './resourceGroups';
-import { Path } from './hg';
-import { AutoInOutState, AutoInOutStatuses, AutoIncomingOutgoing } from './autoinout';
-import { DefaultRepoNotConfiguredAction, interaction, PushCreatesNewHeadAction } from './interaction';
-import { exists } from 'fs';
-import { toHgUri } from './uri';
+import * as path from "path";
+import * as fs from "fs";
+import * as nls from "vscode-nls";
+import {
+    ResourceGroup,
+    createEmptyStatusGroups,
+    UntrackedGroup,
+    WorkingDirectoryGroup,
+    StagingGroup,
+    ConflictGroup,
+    MergeGroup,
+    IStatusGroups,
+    groupStatuses,
+    IGroupStatusesParams,
+} from "./resourceGroups";
+import { Path } from "./hg";
+import {
+    AutoInOutState,
+    AutoInOutStatuses,
+    AutoIncomingOutgoing,
+} from "./autoinout";
+import {
+    DefaultRepoNotConfiguredAction,
+    interaction,
+    PushCreatesNewHeadAction,
+} from "./interaction";
+import { exists } from "fs";
+import { toHgUri } from "./uri";
 
-const timeout = (millis: number) => new Promise(c => setTimeout(c, millis));
+const timeout = (millis: number) => new Promise((c) => setTimeout(c, millis));
 
 const localize = nls.loadMessageBundle();
-const iconsRootPath = path.join(path.dirname(__dirname), '..', 'resources', 'icons');
+const iconsRootPath = path.join(
+    path.dirname(__dirname),
+    "..",
+    "resources",
+    "icons"
+);
 
-type BadgeOptions = 'off' | 'all' | 'tracked';
+type BadgeOptions = "off" | "all" | "tracked";
 
 function getIconUri(iconName: string, theme: string): Uri {
     return Uri.file(path.join(iconsRootPath, theme, `${iconName}.svg`));
@@ -36,7 +105,7 @@ export interface LogEntriesOptions {
 
 export enum RepositoryState {
     Idle,
-    Disposed
+    Disposed,
 }
 
 export enum Status {
@@ -47,22 +116,22 @@ export enum Status {
     IGNORED,
     MISSING,
     RENAMED,
-    CLEAN
+    CLEAN,
 }
 
 export enum MergeStatus {
     NONE,
     UNRESOLVED,
-    RESOLVED
+    RESOLVED,
 }
 
 export class Resource implements SourceControlResourceState {
     @memoize
     get command(): Command {
         return {
-            command: 'hg.openResource',
-            title: localize('open', "Open"),
-            arguments: [this]
+            command: "hg.openResource",
+            title: localize("open", "Open"),
+            arguments: [this],
         };
     }
 
@@ -82,69 +151,94 @@ export class Resource implements SourceControlResourceState {
         }
     }
 
-    get original(): Uri { return this._resourceUri; }
-    get renameResourceUri(): Uri | undefined { return this._renameResourceUri; }
+    get original(): Uri {
+        return this._resourceUri;
+    }
+    get renameResourceUri(): Uri | undefined {
+        return this._renameResourceUri;
+    }
     @memoize
     get resourceUri(): Uri {
         if (this.renameResourceUri) {
-            if (this._status === Status.MODIFIED ||
+            if (
+                this._status === Status.MODIFIED ||
                 this._status === Status.RENAMED ||
-                this._status === Status.ADDED) {
+                this._status === Status.ADDED
+            ) {
                 return this.renameResourceUri;
             }
 
-            throw new Error(`Renamed resource with unexpected status: ${this._status}`);
+            throw new Error(
+                `Renamed resource with unexpected status: ${this._status}`
+            );
         }
         return this._resourceUri;
     }
-    get resourceGroup(): ResourceGroup { return this._resourceGroup; }
-    get status(): Status { return this._status; }
-    get mergeStatus(): MergeStatus { return this._mergeStatus; }
+    get resourceGroup(): ResourceGroup {
+        return this._resourceGroup;
+    }
+    get status(): Status {
+        return this._status;
+    }
+    get mergeStatus(): MergeStatus {
+        return this._mergeStatus;
+    }
 
     private static Icons = {
         light: {
-            Modified: getIconUri('status-modified', 'light'),
-            Missing: getIconUri('status-missing', 'light'),
-            Added: getIconUri('status-added', 'light'),
-            Deleted: getIconUri('status-deleted', 'light'),
-            Renamed: getIconUri('status-renamed', 'light'),
-            Copied: getIconUri('status-copied', 'light'),
-            Untracked: getIconUri('status-untracked', 'light'),
-            Ignored: getIconUri('status-ignored', 'light'),
-            Conflict: getIconUri('status-conflict', 'light'),
-            Clean: getIconUri('status-clean', 'light'),
+            Modified: getIconUri("status-modified", "light"),
+            Missing: getIconUri("status-missing", "light"),
+            Added: getIconUri("status-added", "light"),
+            Deleted: getIconUri("status-deleted", "light"),
+            Renamed: getIconUri("status-renamed", "light"),
+            Copied: getIconUri("status-copied", "light"),
+            Untracked: getIconUri("status-untracked", "light"),
+            Ignored: getIconUri("status-ignored", "light"),
+            Conflict: getIconUri("status-conflict", "light"),
+            Clean: getIconUri("status-clean", "light"),
         },
         dark: {
-            Modified: getIconUri('status-modified', 'dark'),
-            Missing: getIconUri('status-missing', 'dark'),
-            Added: getIconUri('status-added', 'dark'),
-            Deleted: getIconUri('status-deleted', 'dark'),
-            Renamed: getIconUri('status-renamed', 'dark'),
-            Copied: getIconUri('status-copied', 'dark'),
-            Untracked: getIconUri('status-untracked', 'dark'),
-            Ignored: getIconUri('status-ignored', 'dark'),
-            Conflict: getIconUri('status-conflict', 'dark'),
-            Clean: getIconUri('status-clean', 'dark'),
-        }
+            Modified: getIconUri("status-modified", "dark"),
+            Missing: getIconUri("status-missing", "dark"),
+            Added: getIconUri("status-added", "dark"),
+            Deleted: getIconUri("status-deleted", "dark"),
+            Renamed: getIconUri("status-renamed", "dark"),
+            Copied: getIconUri("status-copied", "dark"),
+            Untracked: getIconUri("status-untracked", "dark"),
+            Ignored: getIconUri("status-ignored", "dark"),
+            Conflict: getIconUri("status-conflict", "dark"),
+            Clean: getIconUri("status-clean", "dark"),
+        },
     };
 
     private getIconPath(theme: string): Uri | undefined {
-        if (this.mergeStatus === MergeStatus.UNRESOLVED &&
+        if (
+            this.mergeStatus === MergeStatus.UNRESOLVED &&
             this.status !== Status.MISSING &&
-            this.status !== Status.DELETED) {
+            this.status !== Status.DELETED
+        ) {
             return Resource.Icons[theme].Conflict;
         }
 
         switch (this.status) {
-            case Status.MISSING: return Resource.Icons[theme].Missing;
-            case Status.MODIFIED: return Resource.Icons[theme].Modified;
-            case Status.ADDED: return Resource.Icons[theme].Added;
-            case Status.DELETED: return Resource.Icons[theme].Deleted;
-            case Status.RENAMED: return Resource.Icons[theme].Renamed;
-            case Status.UNTRACKED: return Resource.Icons[theme].Untracked;
-            case Status.IGNORED: return Resource.Icons[theme].Ignored;
-            case Status.CLEAN: return Resource.Icons[theme].Clean;
-            default: return void 0;
+            case Status.MISSING:
+                return Resource.Icons[theme].Missing;
+            case Status.MODIFIED:
+                return Resource.Icons[theme].Modified;
+            case Status.ADDED:
+                return Resource.Icons[theme].Added;
+            case Status.DELETED:
+                return Resource.Icons[theme].Deleted;
+            case Status.RENAMED:
+                return Resource.Icons[theme].Renamed;
+            case Status.UNTRACKED:
+                return Resource.Icons[theme].Untracked;
+            case Status.IGNORED:
+                return Resource.Icons[theme].Ignored;
+            case Status.CLEAN:
+                return Resource.Icons[theme].Clean;
+            default:
+                return void 0;
         }
     }
 
@@ -158,8 +252,8 @@ export class Resource implements SourceControlResourceState {
     }
 
     get decorations(): SourceControlResourceDecorations {
-        const light = { iconPath: this.getIconPath('light') };
-        const dark = { iconPath: this.getIconPath('dark') };
+        const light = { iconPath: this.getIconPath("light") };
+        const dark = { iconPath: this.getIconPath("dark") };
 
         return { strikeThrough: this.strikeThrough, light, dark };
     }
@@ -170,7 +264,7 @@ export class Resource implements SourceControlResourceState {
         private _status: Status,
         private _mergeStatus: MergeStatus,
         private _renameResourceUri?: Uri
-    ) { }
+    ) {}
 }
 
 export const enum Operation {
@@ -221,7 +315,6 @@ export interface Operations {
 }
 
 class OperationsImpl implements Operations {
-
     constructor(private readonly operations: number = 0) {
         // noop
     }
@@ -247,7 +340,7 @@ export const enum CommitScope {
     ALL,
     ALL_WITH_ADD_REMOVE,
     STAGED_CHANGES,
-    CHANGES
+    CHANGES,
 }
 
 export interface CommitOptions {
@@ -257,36 +350,46 @@ export interface CommitOptions {
 
 export class Repository implements IDisposable {
     private _onDidChangeRepository = new EventEmitter<Uri>();
-    readonly onDidChangeRepository: Event<Uri> = this._onDidChangeRepository.event;
+    readonly onDidChangeRepository: Event<Uri> = this._onDidChangeRepository
+        .event;
 
     private _onDidChangeHgrc = new EventEmitter<void>();
     readonly onDidChangeHgrc: Event<void> = this._onDidChangeHgrc.event;
 
     private _onDidChangeState = new EventEmitter<RepositoryState>();
-    readonly onDidChangeState: Event<RepositoryState> = this._onDidChangeState.event;
+    readonly onDidChangeState: Event<RepositoryState> = this._onDidChangeState
+        .event;
 
     private _onDidChangeStatus = new EventEmitter<void>();
     readonly onDidChangeStatus: Event<void> = this._onDidChangeStatus.event;
 
     private _onDidChangeInOutState = new EventEmitter<void>();
-    readonly onDidChangeInOutState: Event<void> = this._onDidChangeInOutState.event;
+    readonly onDidChangeInOutState: Event<void> = this._onDidChangeInOutState
+        .event;
 
     private _onDidChangeResources = new EventEmitter<void>();
-    readonly onDidChangeResources: Event<void> = this._onDidChangeResources.event;
+    readonly onDidChangeResources: Event<void> = this._onDidChangeResources
+        .event;
 
     @memoize
     get onDidChange(): Event<void> {
-        return anyEvent<any>(this.onDidChangeState, this.onDidChangeResources, this.onDidChangeInOutState);
+        return anyEvent<any>(
+            this.onDidChangeState,
+            this.onDidChangeResources,
+            this.onDidChangeInOutState
+        );
     }
 
     private _onDidChangeOriginalResource = new EventEmitter<Uri>();
-    readonly onDidChangeOriginalResource: Event<Uri> = this._onDidChangeOriginalResource.event;
+    readonly onDidChangeOriginalResource: Event<Uri> = this
+        ._onDidChangeOriginalResource.event;
 
     private _onRunOperation = new EventEmitter<Operation>();
     readonly onRunOperation: Event<Operation> = this._onRunOperation.event;
 
     private _onDidRunOperation = new EventEmitter<Operation>();
-    readonly onDidRunOperation: Event<Operation> = this._onDidRunOperation.event;
+    readonly onDidRunOperation: Event<Operation> = this._onDidRunOperation
+        .event;
 
     private _sourceControl: SourceControl;
 
@@ -296,21 +399,36 @@ export class Repository implements IDisposable {
 
     @memoize
     get onDidChangeOperations(): Event<void> {
-        return anyEvent(this.onRunOperation as Event<any>, this.onDidRunOperation as Event<any>);
+        return anyEvent(
+            this.onRunOperation as Event<any>,
+            this.onDidRunOperation as Event<any>
+        );
     }
 
     private _lastPushPath: string | undefined;
-    get lastPushPath(): string | undefined { return this._lastPushPath }
+    get lastPushPath(): string | undefined {
+        return this._lastPushPath;
+    }
 
     private _groups: IStatusGroups;
-    get mergeGroup(): MergeGroup { return this._groups.merge; }
-    get conflictGroup(): ConflictGroup { return this._groups.conflict; }
-    get stagingGroup(): StagingGroup { return this._groups.staging; }
-    get workingDirectoryGroup(): WorkingDirectoryGroup { return this._groups.working; }
-    get untrackedGroup(): UntrackedGroup { return this._groups.untracked; }
+    get mergeGroup(): MergeGroup {
+        return this._groups.merge;
+    }
+    get conflictGroup(): ConflictGroup {
+        return this._groups.conflict;
+    }
+    get stagingGroup(): StagingGroup {
+        return this._groups.staging;
+    }
+    get workingDirectoryGroup(): WorkingDirectoryGroup {
+        return this._groups.working;
+    }
+    get untrackedGroup(): UntrackedGroup {
+        return this._groups.untracked;
+    }
 
     get head(): Ref | undefined {
-        const useBookmarks = typedConfig.useBookmarks
+        const useBookmarks = typedConfig.useBookmarks;
         return useBookmarks ? this.activeBookmark : this.currentBranch;
     }
 
@@ -324,53 +442,80 @@ export class Repository implements IDisposable {
         if (head.name) {
             return head.name;
         }
-        const tag = this.refs.filter(iref => iref.type === RefType.Tag && iref.commit === head.commit)[0];
+        const tag = this.refs.filter(
+            (iref) => iref.type === RefType.Tag && iref.commit === head.commit
+        )[0];
         const tagName = tag && tag.name;
 
         if (tagName) {
             return tagName;
         }
 
-        return (head.commit || '').substr(0, 8);
+        return (head.commit || "").substr(0, 8);
     }
 
     private _currentBranch: Ref | undefined;
-    get currentBranch(): Ref | undefined { return this._currentBranch; }
+    get currentBranch(): Ref | undefined {
+        return this._currentBranch;
+    }
 
     private _activeBookmark: Bookmark | undefined;
-    get activeBookmark(): Bookmark | undefined { return this._activeBookmark; }
+    get activeBookmark(): Bookmark | undefined {
+        return this._activeBookmark;
+    }
 
     private _repoStatus: IRepoStatus | undefined;
-    get repoStatus(): IRepoStatus | undefined { return this._repoStatus; }
+    get repoStatus(): IRepoStatus | undefined {
+        return this._repoStatus;
+    }
 
     private _refs: Ref[] = [];
-    get refs(): Ref[] { return this._refs; }
+    get refs(): Ref[] {
+        return this._refs;
+    }
 
     private _paths: Path[] = [];
-    get paths(): Path[] { return this._paths; }
+    get paths(): Path[] {
+        return this._paths;
+    }
 
     private _operations = new OperationsImpl();
-    get operations(): Operations { return this._operations; }
+    get operations(): Operations {
+        return this._operations;
+    }
 
     private _syncCounts = { incoming: 0, outgoing: 0 };
-    get syncCounts(): { incoming: number; outgoing: number } { return this._syncCounts; }
+    get syncCounts(): { incoming: number; outgoing: number } {
+        return this._syncCounts;
+    }
 
-    private _autoInOutState: AutoInOutState = { status: AutoInOutStatuses.Disabled };
-    get autoInOutState(): AutoInOutState { return this._autoInOutState; }
+    private _autoInOutState: AutoInOutState = {
+        status: AutoInOutStatuses.Disabled,
+    };
+    get autoInOutState(): AutoInOutState {
+        return this._autoInOutState;
+    }
 
     public changeAutoInoutState(state: Partial<AutoInOutState>): void {
         this._autoInOutState = {
             ...this._autoInOutState,
-            ...state
-        }
+            ...state,
+        };
         this._onDidChangeInOutState.fire();
     }
 
-    get repoName(): string { return path.basename(this.repository.root); }
+    get repoName(): string {
+        return path.basename(this.repository.root);
+    }
 
     get isClean(): boolean {
-        const groups = [this.workingDirectoryGroup, this.mergeGroup, this.conflictGroup, this.stagingGroup];
-        return groups.every(g => g.resources.length === 0);
+        const groups = [
+            this.workingDirectoryGroup,
+            this.mergeGroup,
+            this.conflictGroup,
+            this.stagingGroup,
+        ];
+        return groups.every((g) => g.resources.length === 0);
     }
 
     toUri(rawPath: string): Uri {
@@ -378,7 +523,9 @@ export class Repository implements IDisposable {
     }
 
     private _state = RepositoryState.Idle;
-    get state(): RepositoryState { return this._state; }
+    get state(): RepositoryState {
+        return this._state;
+    }
     set state(state: RepositoryState) {
         this._state = state;
         this._onDidChangeState.fire(state);
@@ -401,31 +548,58 @@ export class Repository implements IDisposable {
 
     private disposables: Disposable[] = [];
 
-    constructor(
-        private readonly repository: BaseRepository
-    ) {
+    constructor(private readonly repository: BaseRepository) {
         this.updateRepositoryPaths();
-        
-        const fsWatcher = workspace.createFileSystemWatcher('**');
+
+        const fsWatcher = workspace.createFileSystemWatcher("**");
         this.disposables.push(fsWatcher);
 
-        const onWorkspaceChange = anyEvent(fsWatcher.onDidChange, fsWatcher.onDidCreate, fsWatcher.onDidDelete);
-        const onRepositoryChange = filterEvent(onWorkspaceChange, uri => !/^\.\./.test(path.relative(repository.root, uri.fsPath)));
-        const onRelevantRepositoryChange = filterEvent(onRepositoryChange, uri => !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path));
+        const onWorkspaceChange = anyEvent(
+            fsWatcher.onDidChange,
+            fsWatcher.onDidCreate,
+            fsWatcher.onDidDelete
+        );
+        const onRepositoryChange = filterEvent(
+            onWorkspaceChange,
+            (uri) => !/^\.\./.test(path.relative(repository.root, uri.fsPath))
+        );
+        const onRelevantRepositoryChange = filterEvent(
+            onRepositoryChange,
+            (uri) => !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path)
+        );
         onRelevantRepositoryChange(this.onFSChange, this, this.disposables);
 
-        const onRelevantHgChange = filterEvent(onRelevantRepositoryChange, uri => /\/\.hg\//.test(uri.path));
-        const onHgrcChange = filterEvent(onRelevantHgChange, uri => /\/\.hg\/hgrc$/.test(uri.path));
-        onRelevantHgChange(this._onDidChangeRepository.fire, this._onDidChangeRepository, this.disposables);
+        const onRelevantHgChange = filterEvent(
+            onRelevantRepositoryChange,
+            (uri) => /\/\.hg\//.test(uri.path)
+        );
+        const onHgrcChange = filterEvent(onRelevantHgChange, (uri) =>
+            /\/\.hg\/hgrc$/.test(uri.path)
+        );
+        onRelevantHgChange(
+            this._onDidChangeRepository.fire,
+            this._onDidChangeRepository,
+            this.disposables
+        );
         onHgrcChange(this.onHgrcChange, this, this.disposables);
 
-        this._sourceControl = scm.createSourceControl('hg', 'Hg', Uri.parse(repository.root));
+        this._sourceControl = scm.createSourceControl(
+            "hg",
+            "Hg",
+            Uri.parse(repository.root)
+        );
         this.disposables.push(this._sourceControl);
 
-        this._sourceControl.acceptInputCommand = { command: 'hg.commitWithInput', title: localize('commit', "Commit"), arguments: [this._sourceControl] };
+        this._sourceControl.acceptInputCommand = {
+            command: "hg.commitWithInput",
+            title: localize("commit", "Commit"),
+            arguments: [this._sourceControl],
+        };
         this._sourceControl.quickDiffProvider = this;
 
-        const [groups, disposables] = createEmptyStatusGroups(this._sourceControl);
+        const [groups, disposables] = createEmptyStatusGroups(
+            this._sourceControl
+        );
 
         this.disposables.push(new AutoIncomingOutgoing(this));
 
@@ -434,22 +608,26 @@ export class Repository implements IDisposable {
 
         const statusBar = new StatusBarCommands(this);
         this.disposables.push(statusBar);
-        statusBar.onDidChange(() => {
-            this._sourceControl.statusBarCommands = statusBar.commands;
-        }, null, this.disposables);
+        statusBar.onDidChange(
+            () => {
+                this._sourceControl.statusBarCommands = statusBar.commands;
+            },
+            null,
+            this.disposables
+        );
         this._sourceControl.statusBarCommands = statusBar.commands;
 
         this.status();
     }
 
     provideOriginalResource(uri: Uri): Uri | undefined {
-        if (uri.scheme !== 'file') {
+        if (uri.scheme !== "file") {
             return;
         }
 
         // As a mitigation for extensions like ESLint showing warnings and errors
         // for hg URIs, let's change the file extension of these uris to .hg.
-        return toHgUri(uri, '.', true);
+        return toHgUri(uri, ".", true);
     }
 
     @throttle
@@ -489,7 +667,10 @@ export class Repository implements IDisposable {
             }
 
             if (!window.state.focused) {
-                const onDidFocusWindow = filterEvent(window.onDidChangeWindowState, e => e.focused);
+                const onDidFocusWindow = filterEvent(
+                    window.onDidChangeWindowState,
+                    (e) => e.focused
+                );
                 await eventToPromise(onDidFocusWindow);
                 continue;
             }
@@ -506,7 +687,6 @@ export class Repository implements IDisposable {
         }
     }
 
-
     @throttle
     async add(...uris: Uri[]): Promise<void> {
         let resources: Resource[];
@@ -515,15 +695,21 @@ export class Repository implements IDisposable {
         } else {
             resources = this.mapResources(uris);
         }
-        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
+        const relativePaths: string[] = resources.map((r) =>
+            this.mapResourceToRepoRelativePath(r)
+        );
         await this.run(Operation.Add, () => this.repository.add(relativePaths));
     }
 
     @throttle
     async forget(...uris: Uri[]): Promise<void> {
         const resources = this.mapResources(uris);
-        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
-        await this.run(Operation.Forget, () => this.repository.forget(relativePaths));
+        const relativePaths: string[] = resources.map((r) =>
+            this.mapResourceToRepoRelativePath(r)
+        );
+        await this.run(Operation.Forget, () =>
+            this.repository.forget(relativePaths)
+        );
     }
 
     mapResources(resourceUris: Uri[]): Resource[] {
@@ -551,12 +737,18 @@ export class Repository implements IDisposable {
                 resources = this._groups.working.resources;
             }
 
-            const [missingAndAddedResources, otherResources] = partition(resources, r =>
-                r.status === Status.MISSING || r.status === Status.ADDED);
+            const [missingAndAddedResources, otherResources] = partition(
+                resources,
+                (r) => r.status === Status.MISSING || r.status === Status.ADDED
+            );
 
             if (missingAndAddedResources.length) {
-                const relativePaths: string[] = missingAndAddedResources.map(r => this.mapResourceToRepoRelativePath(r));
-                await this.run(Operation.AddRemove, () => this.repository.addRemove(relativePaths));
+                const relativePaths: string[] = missingAndAddedResources.map(
+                    (r) => this.mapResourceToRepoRelativePath(r)
+                );
+                await this.run(Operation.AddRemove, () =>
+                    this.repository.addRemove(relativePaths)
+                );
             }
 
             this._groups.staging = this._groups.staging.intersect(resources);
@@ -565,49 +757,69 @@ export class Repository implements IDisposable {
         });
     }
 
-    // resource --> repo-relative path	
+    // resource --> repo-relative path
     public mapResourceToRepoRelativePath(resource: Resource): string {
-        const relativePath = this.mapFileUriToRepoRelativePath(resource.resourceUri);
+        const relativePath = this.mapFileUriToRepoRelativePath(
+            resource.resourceUri
+        );
         return relativePath;
     }
 
-    // file uri --> repo-relative path	
+    // file uri --> repo-relative path
     private mapFileUriToRepoRelativePath(fileUri: Uri): string {
-        const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/\\/g, '/');
+        const relativePath = path
+            .relative(this.repository.root, fileUri.fsPath)
+            .replace(/\\/g, "/");
         return relativePath;
     }
 
     // resource --> workspace-relative path
     public mapResourceToWorkspaceRelativePath(resource: Resource): string {
-        const relativePath = this.mapFileUriToWorkspaceRelativePath(resource.resourceUri);
+        const relativePath = this.mapFileUriToWorkspaceRelativePath(
+            resource.resourceUri
+        );
         return relativePath;
     }
 
-    // file uri --> workspace-relative path	
+    // file uri --> workspace-relative path
     public mapFileUriToWorkspaceRelativePath(fileUri: Uri): string {
-        const relativePath = path.relative(this.repository.root, fileUri.fsPath).replace(/[/\\]/g, path.sep);
+        const relativePath = path
+            .relative(this.repository.root, fileUri.fsPath)
+            .replace(/[/\\]/g, path.sep);
         return relativePath;
     }
 
-    // repo-relative path --> workspace-relative path	
-    private mapRepositoryRelativePathToWorkspaceRelativePath(repoRelativeFilepath: string): string {
+    // repo-relative path --> workspace-relative path
+    private mapRepositoryRelativePathToWorkspaceRelativePath(
+        repoRelativeFilepath: string
+    ): string {
         const fsPath = path.join(this.repository.root, repoRelativeFilepath);
-        const relativePath = path.relative(this.repository.root, fsPath).replace(/[/\\]/g, path.sep);
+        const relativePath = path
+            .relative(this.repository.root, fsPath)
+            .replace(/[/\\]/g, path.sep);
         return relativePath;
     }
 
     @throttle
     async resolve(uris: Uri[], opts: { mark?: boolean } = {}): Promise<void> {
         const resources = this.mapResources(uris);
-        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
-        await this.run(Operation.Resolve, () => this.repository.resolve(relativePaths, opts));
+        const relativePaths: string[] = resources.map((r) =>
+            this.mapResourceToRepoRelativePath(r)
+        );
+        await this.run(Operation.Resolve, () =>
+            this.repository.resolve(relativePaths, opts)
+        );
     }
 
     @throttle
     async unresolve(uris: Uri[]): Promise<void> {
         const resources = this.mapResources(uris);
-        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
-        await this.run(Operation.Unresolve, () => this.repository.unresolve(relativePaths));
+        const relativePaths: string[] = resources.map((r) =>
+            this.mapResourceToRepoRelativePath(r)
+        );
+        await this.run(Operation.Unresolve, () =>
+            this.repository.unresolve(relativePaths)
+        );
     }
 
     @throttle
@@ -622,19 +834,31 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    async commit(message: string, opts: CommitOptions = Object.create(null)): Promise<void> {
+    async commit(
+        message: string,
+        opts: CommitOptions = Object.create(null)
+    ): Promise<void> {
         await this.run(Operation.Commit, async () => {
             let fileList: string[] = [];
-            if (opts.scope === CommitScope.CHANGES ||
-                opts.scope === CommitScope.STAGED_CHANGES) {
-                const selectedResources = opts.scope === CommitScope.STAGED_CHANGES ?
-                    this.stagingGroup.resources :
-                    this.workingDirectoryGroup.resources;
+            if (
+                opts.scope === CommitScope.CHANGES ||
+                opts.scope === CommitScope.STAGED_CHANGES
+            ) {
+                const selectedResources =
+                    opts.scope === CommitScope.STAGED_CHANGES
+                        ? this.stagingGroup.resources
+                        : this.workingDirectoryGroup.resources;
 
-                fileList = selectedResources.map(r => this.mapResourceToRepoRelativePath(r));
+                fileList = selectedResources.map((r) =>
+                    this.mapResourceToRepoRelativePath(r)
+                );
             }
 
-            await this.repository.commit(message, { amend: opts.amend, addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE, fileList });
+            await this.repository.commit(message, {
+                amend: opts.amend,
+                addRemove: opts.scope === CommitScope.ALL_WITH_ADD_REMOVE,
+                fileList,
+            });
         });
     }
 
@@ -690,46 +914,77 @@ export class Repository implements IDisposable {
     @throttle
     async purge(...uris: Uri[]): Promise<void> {
         const resources = this.mapResources(uris);
-        const relativePaths: string[] = resources.map(r => this.mapResourceToRepoRelativePath(r));
-        await this.run(Operation.Clean, () => this.repository.purge({paths: relativePaths}));
+        const relativePaths: string[] = resources.map((r) =>
+            this.mapResourceToRepoRelativePath(r)
+        );
+        await this.run(Operation.Clean, () =>
+            this.repository.purge({ paths: relativePaths })
+        );
     }
 
     @throttle
     async purgeAll(): Promise<void> {
-        await this.run(Operation.Clean, () => this.repository.purge({all: true}));
+        await this.run(Operation.Clean, () =>
+            this.repository.purge({ all: true })
+        );
     }
 
     @throttle
-    async branch(name: string, opts?: { allowBranchReuse: boolean }): Promise<void> {
+    async branch(
+        name: string,
+        opts?: { allowBranchReuse: boolean }
+    ): Promise<void> {
         const hgOpts = opts && {
-            force: opts && opts.allowBranchReuse
+            force: opts && opts.allowBranchReuse,
         };
-        await this.run(Operation.Branch, () => this.repository.branch(name, hgOpts));
+        await this.run(Operation.Branch, () =>
+            this.repository.branch(name, hgOpts)
+        );
     }
 
     @throttle
     async update(treeish: string, opts?: { discard: boolean }): Promise<void> {
-        await this.run(Operation.Update, () => this.repository.update(treeish, opts));
+        await this.run(Operation.Update, () =>
+            this.repository.update(treeish, opts)
+        );
     }
 
     @throttle
-    async rollback(dryRun: boolean, dryRunDetails?: HgRollbackDetails): Promise<HgRollbackDetails> {
+    async rollback(
+        dryRun: boolean,
+        dryRunDetails?: HgRollbackDetails
+    ): Promise<HgRollbackDetails> {
         const op = dryRun ? Operation.RollbackDryRun : Operation.Rollback;
-        const rollback = await this.run(op, () => this.repository.rollback(dryRun));
+        const rollback = await this.run(op, () =>
+            this.repository.rollback(dryRun)
+        );
 
         if (!dryRun) {
-            if (rollback.kind === 'commit') {
-                // if there are currently files in the staging group, then 
+            if (rollback.kind === "commit") {
+                // if there are currently files in the staging group, then
                 // any previously-committed files should go there too.
                 if (dryRunDetails && dryRunDetails.commitDetails) {
                     const { affectedFiles } = dryRunDetails.commitDetails;
-                    if (this.stagingGroup.resources.length && affectedFiles.length) {
-                        const previouslyCommmitedResourcesToStage = affectedFiles.map(f => {
-                            const uri = Uri.file(path.join(this.repository.root, f.path));
-                            const resource = this.findTrackedResourceByUri(uri);
-                            return resource;
-                        }).filter(r => !!r) as Resource[];
-                        this.stage(...previouslyCommmitedResourcesToStage.map(r => r.resourceUri));
+                    if (
+                        this.stagingGroup.resources.length &&
+                        affectedFiles.length
+                    ) {
+                        const previouslyCommmitedResourcesToStage = affectedFiles
+                            .map((f) => {
+                                const uri = Uri.file(
+                                    path.join(this.repository.root, f.path)
+                                );
+                                const resource = this.findTrackedResourceByUri(
+                                    uri
+                                );
+                                return resource;
+                            })
+                            .filter((r) => !!r) as Resource[];
+                        this.stage(
+                            ...previouslyCommmitedResourcesToStage.map(
+                                (r) => r.resourceUri
+                            )
+                        );
                     }
                 }
             }
@@ -738,7 +993,12 @@ export class Repository implements IDisposable {
     }
 
     findTrackedResourceByUri(uri: Uri): Resource | undefined {
-        const groups = [this.workingDirectoryGroup, this.stagingGroup, this.mergeGroup, this.conflictGroup];
+        const groups = [
+            this.workingDirectoryGroup,
+            this.stagingGroup,
+            this.mergeGroup,
+            this.conflictGroup,
+        ];
         for (const group of groups) {
             for (const resource of group.resources) {
                 if (resource.resourceUri.toString() === uri.toString()) {
@@ -752,46 +1012,58 @@ export class Repository implements IDisposable {
 
     async enumerateSyncBookmarkNames(): Promise<string[]> {
         if (!typedConfig.useBookmarks) {
-            return []
+            return [];
         }
-        if (typedConfig.pushPullScope === 'current') {
+        if (typedConfig.pushPullScope === "current") {
             return this.activeBookmark ? [this.activeBookmark.name] : [];
         }
-        return await this.getBookmarkNamesFromHeads(typedConfig.pushPullScope === 'default')
+        return await this.getBookmarkNamesFromHeads(
+            typedConfig.pushPullScope === "default"
+        );
     }
 
     @throttle
     async setBookmark(name: string, opts: { force: boolean }): Promise<any> {
-        await this.run(Operation.SetBookmark, () => this.repository.bookmark(name, { force: opts.force }));
+        await this.run(Operation.SetBookmark, () =>
+            this.repository.bookmark(name, { force: opts.force })
+        );
     }
 
     @throttle
     async removeBookmark(name: string): Promise<any> {
-        await this.run(Operation.RemoveBookmark, () => this.repository.bookmark(name, { remove: true }));
+        await this.run(Operation.RemoveBookmark, () =>
+            this.repository.bookmark(name, { remove: true })
+        );
     }
 
     get pushPullBranchName(): string | undefined {
         if (typedConfig.useBookmarks) {
-            return undefined
+            return undefined;
         }
-        return this.expandScopeOption(typedConfig.pushPullScope, this.currentBranch);
+        return this.expandScopeOption(
+            typedConfig.pushPullScope,
+            this.currentBranch
+        );
     }
 
     get pushPullBookmarkName(): string | undefined {
         if (!typedConfig.useBookmarks) {
-            return undefined
+            return undefined;
         }
-        return this.expandScopeOption(typedConfig.pushPullScope, this.activeBookmark);
+        return this.expandScopeOption(
+            typedConfig.pushPullScope,
+            this.activeBookmark
+        );
     }
 
     private async createSyncOptions(): Promise<SyncOptions> {
         if (typedConfig.useBookmarks) {
-            const branch = (typedConfig.pushPullScope === 'default') ? 'default' : undefined;
+            const branch =
+                typedConfig.pushPullScope === "default" ? "default" : undefined;
             const bookmarks = await this.enumerateSyncBookmarkNames();
-            return { branch, bookmarks }
-        }
-        else {
-            return { branch: this.pushPullBranchName }
+            return { branch, bookmarks };
+        } else {
+            return { branch: this.pushPullBranchName };
         }
     }
 
@@ -801,11 +1073,10 @@ export class Repository implements IDisposable {
 
         if (typedConfig.useBookmarks) {
             // bookmarks
-            return { ...syncOptions, autoUpdate }
-        }
-        else {
-            // branches		
-            return { branch: syncOptions.branch, autoUpdate }
+            return { ...syncOptions, autoUpdate };
+        } else {
+            // branches
+            return { branch: syncOptions.branch, autoUpdate };
         }
     }
 
@@ -814,11 +1085,14 @@ export class Repository implements IDisposable {
 
         return {
             allowPushNewBranches: typedConfig.allowPushNewBranches,
-            ...pullOptions
-        }
+            ...pullOptions,
+        };
     }
 
-    private expandScopeOption(branchOptions: PushPullScopeOptions, ref: Ref | undefined): string | undefined {
+    private expandScopeOption(
+        branchOptions: PushPullScopeOptions,
+        ref: Ref | undefined
+    ): string | undefined {
         switch (branchOptions) {
             case "current":
                 return ref ? ref.name : undefined;
@@ -832,32 +1106,51 @@ export class Repository implements IDisposable {
         }
     }
 
-    async countIncomingOutgoingAfterDelay(expectedDeltas?: { incoming: number; outgoing: number }, delayMillis = 3000): Promise<void> {
+    async countIncomingOutgoingAfterDelay(
+        expectedDeltas?: { incoming: number; outgoing: number },
+        delayMillis = 3000
+    ): Promise<void> {
         try {
             await Promise.all([
-                this.countIncomingAfterDelay(expectedDeltas && expectedDeltas.incoming, delayMillis),
-                this.countOutgoingAfterDelay(expectedDeltas && expectedDeltas.outgoing, delayMillis)
+                this.countIncomingAfterDelay(
+                    expectedDeltas && expectedDeltas.incoming,
+                    delayMillis
+                ),
+                this.countOutgoingAfterDelay(
+                    expectedDeltas && expectedDeltas.outgoing,
+                    delayMillis
+                ),
             ]);
-        }
-        catch (err) {
-            if (err instanceof HgError && (
-                err.hgErrorCode === HgErrorCodes.AuthenticationFailed ||
-                err.hgErrorCode === HgErrorCodes.RepositoryIsUnrelated ||
-                err.hgErrorCode === HgErrorCodes.RepositoryDefaultNotFound)) {
-
+        } catch (err) {
+            if (
+                err instanceof HgError &&
+                (err.hgErrorCode === HgErrorCodes.AuthenticationFailed ||
+                    err.hgErrorCode === HgErrorCodes.RepositoryIsUnrelated ||
+                    err.hgErrorCode === HgErrorCodes.RepositoryDefaultNotFound)
+            ) {
                 this.changeAutoInoutState({
                     status: AutoInOutStatuses.Error,
-                    error: ((err.stderr || "").replace(/^abort:\s*/, '') || err.hgErrorCode || err.message).trim(),
-                })
+                    error: (
+                        (err.stderr || "").replace(/^abort:\s*/, "") ||
+                        err.hgErrorCode ||
+                        err.message
+                    ).trim(),
+                });
             }
             throw err;
         }
     }
 
-    async countIncomingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
+    async countIncomingAfterDelay(
+        expectedDelta = 0,
+        delayMillis = 3000
+    ): Promise<void> {
         // immediate UI update with expected
         if (expectedDelta) {
-            this._syncCounts.incoming = Math.max(0, this._syncCounts.incoming + expectedDelta);
+            this._syncCounts.incoming = Math.max(
+                0,
+                this._syncCounts.incoming + expectedDelta
+            );
             this._onDidChangeInOutState.fire();
         }
 
@@ -866,14 +1159,22 @@ export class Repository implements IDisposable {
             await delay(delayMillis);
         }
         const options: SyncOptions = await this.createSyncOptions();
-        this._syncCounts.incoming = await this.repository.countIncoming(options);
+        this._syncCounts.incoming = await this.repository.countIncoming(
+            options
+        );
         this._onDidChangeInOutState.fire();
     }
 
-    async countOutgoingAfterDelay(expectedDelta = 0, delayMillis = 3000): Promise<void> {
+    async countOutgoingAfterDelay(
+        expectedDelta = 0,
+        delayMillis = 3000
+    ): Promise<void> {
         // immediate UI update with expected
         if (expectedDelta) {
-            this._syncCounts.outgoing = Math.max(0, this._syncCounts.outgoing + expectedDelta);
+            this._syncCounts.outgoing = Math.max(
+                0,
+                this._syncCounts.outgoing + expectedDelta
+            );
             this._onDidChangeInOutState.fire();
         }
 
@@ -882,7 +1183,9 @@ export class Repository implements IDisposable {
             await delay(delayMillis);
         }
         const options: SyncOptions = await this.createSyncOptions();
-        this._syncCounts.outgoing = await this.repository.countOutgoing(options);
+        this._syncCounts.outgoing = await this.repository.countOutgoing(
+            options
+        );
         this._onDidChangeInOutState.fire();
     }
 
@@ -890,10 +1193,13 @@ export class Repository implements IDisposable {
     async pull(options?: PullOptions): Promise<void> {
         await this.run(Operation.Pull, async () => {
             try {
-                await this.repository.pull(options)
-            }
-            catch (e) {
-                if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
+                await this.repository.pull(options);
+            } catch (e) {
+                if (
+                    e instanceof HgError &&
+                    e.hgErrorCode ===
+                        HgErrorCodes.DefaultRepositoryNotConfigured
+                ) {
                     const action = await interaction.warnDefaultRepositoryNotConfigured();
                     if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
                         commands.executeCommand("hg.openhgrc");
@@ -911,26 +1217,36 @@ export class Repository implements IDisposable {
             try {
                 this._lastPushPath = path;
                 await this.repository.push(path, options);
-            }
-            catch (e) {
-                if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.DefaultRepositoryNotConfigured) {
+            } catch (e) {
+                if (
+                    e instanceof HgError &&
+                    e.hgErrorCode ===
+                        HgErrorCodes.DefaultRepositoryNotConfigured
+                ) {
                     const action = await interaction.warnDefaultRepositoryNotConfigured();
                     if (action === DefaultRepoNotConfiguredAction.OpenHGRC) {
                         commands.executeCommand("hg.openhgrc");
                     }
                     return;
-                }
-                else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead) {
+                } else if (
+                    e instanceof HgError &&
+                    e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteHead
+                ) {
                     const action = await interaction.warnPushCreatesNewHead();
                     if (action === PushCreatesNewHeadAction.Pull) {
                         commands.executeCommand("hg.pull");
                     }
                     return;
-                }
-                else if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches) {
+                } else if (
+                    e instanceof HgError &&
+                    e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches
+                ) {
                     const allow = interaction.warnPushCreatesNewBranchesAllow();
                     if (allow) {
-                        return this.push(path, { ...options, allowPushNewBranches: true })
+                        return this.push(path, {
+                            ...options,
+                            allowPushNewBranches: true,
+                        });
                     }
 
                     return;
@@ -945,11 +1261,18 @@ export class Repository implements IDisposable {
     merge(revQuery: string): Promise<IMergeResult> {
         return this.run(Operation.Merge, async () => {
             try {
-                return await this.repository.merge(revQuery)
-            }
-            catch (e) {
-                if (e instanceof HgError && e.hgErrorCode === HgErrorCodes.UntrackedFilesDiffer && e.hgFilenames) {
-                    e.hgFilenames = e.hgFilenames.map(filename => this.mapRepositoryRelativePathToWorkspaceRelativePath(filename));
+                return await this.repository.merge(revQuery);
+            } catch (e) {
+                if (
+                    e instanceof HgError &&
+                    e.hgErrorCode === HgErrorCodes.UntrackedFilesDiffer &&
+                    e.hgFilenames
+                ) {
+                    e.hgFilenames = e.hgFilenames.map((filename) =>
+                        this.mapRepositoryRelativePathToWorkspaceRelativePath(
+                            filename
+                        )
+                    );
                 }
                 throw e;
             }
@@ -964,19 +1287,29 @@ export class Repository implements IDisposable {
     }
 
     async shelve(options: ShelveOptions): Promise<void> {
-        return await this.run(Operation.Shelve, () => this.repository.shelve(options));
+        return await this.run(Operation.Shelve, () =>
+            this.repository.shelve(options)
+        );
     }
 
     async unshelve(options: UnshelveOptions): Promise<void> {
-        return await this.run(Operation.Shelve, () => this.repository.unshelve(options));
+        return await this.run(Operation.Shelve, () =>
+            this.repository.unshelve(options)
+        );
     }
 
     async unshelveAbort(): Promise<void> {
-        await this.run(Operation.UnshelveAbort, async () => await this.repository.unshelveAbort());
+        await this.run(
+            Operation.UnshelveAbort,
+            async () => await this.repository.unshelveAbort()
+        );
     }
 
     async unshelveContinue(): Promise<void> {
-        await this.run(Operation.UnshelveContinue, async () => await this.repository.unshelveContinue());
+        await this.run(
+            Operation.UnshelveContinue,
+            async () => await this.repository.unshelveContinue()
+        );
     }
 
     async getShelves(): Promise<Shelve[]> {
@@ -988,19 +1321,24 @@ export class Repository implements IDisposable {
         await this.whenIdleAndFocused();
 
         return await this.run(Operation.Show, async () => {
-            const relativePath = path.relative(this.repository.root, filePath).replace(/\\/g, '/');
+            const relativePath = path
+                .relative(this.repository.root, filePath)
+                .replace(/\\/g, "/");
             try {
-                return await this.repository.cat(relativePath, ref)
-            }
-            catch (e) {
-                if (e && e instanceof HgError && e.hgErrorCode === 'NoSuchFile') {
-                    return '';
+                return await this.repository.cat(relativePath, ref);
+            } catch (e) {
+                if (
+                    e &&
+                    e instanceof HgError &&
+                    e.hgErrorCode === "NoSuchFile"
+                ) {
+                    return "";
                 }
 
                 if (e.exitCode !== 0) {
                     throw new HgError({
-                        message: localize('cantshow', "Could not show object"),
-                        exitCode: e.exitCode
+                        message: localize("cantshow", "Could not show object"),
+                        exitCode: e.exitCode,
                     });
                 }
 
@@ -1009,60 +1347,71 @@ export class Repository implements IDisposable {
         });
     }
 
-    private async run<T>(operation: Operation, runOperation: () => Promise<T> = () => Promise.resolve<any>(null)): Promise<T> {
+    private async run<T>(
+        operation: Operation,
+        runOperation: () => Promise<T> = () => Promise.resolve<any>(null)
+    ): Promise<T> {
         if (this.state !== RepositoryState.Idle) {
-            throw new Error('Repository not initialized');
+            throw new Error("Repository not initialized");
         }
 
-        return window.withProgress({ location: ProgressLocation.SourceControl }, async () => {
-            this._operations = this._operations.start(operation);
-            this._onRunOperation.fire(operation);
+        return window.withProgress(
+            { location: ProgressLocation.SourceControl },
+            async () => {
+                this._operations = this._operations.start(operation);
+                this._onRunOperation.fire(operation);
 
-            try {
-                await this.unlocked();
-                const result = await runOperation();
+                try {
+                    await this.unlocked();
+                    const result = await runOperation();
 
-                if (!isReadOnly(operation)) {
-                    await this.updateModelState();
+                    if (!isReadOnly(operation)) {
+                        await this.updateModelState();
+                    }
+
+                    return result;
+                } catch (err) {
+                    if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
+                        this.state = RepositoryState.Disposed;
+
+                        // const disposables: Disposable[] = [];
+                        // this.onWorkspaceChange(this.onFSChange, this, disposables);
+                        // this.repositoryDisposable = combinedDisposable(disposables);
+
+                        // this.state = State.NotAnHgRepository;
+                    }
+
+                    throw err;
+                } finally {
+                    this._operations = this._operations.end(operation);
+                    this._onDidRunOperation.fire(operation);
                 }
-
-                return result;
             }
-            catch (err) {
-                if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
-                    this.state = RepositoryState.Disposed;
-
-                    // const disposables: Disposable[] = [];
-                    // this.onWorkspaceChange(this.onFSChange, this, disposables);
-                    // this.repositoryDisposable = combinedDisposable(disposables);
-
-                    // this.state = State.NotAnHgRepository;
-                }
-
-                throw err;
-            } finally {
-                this._operations = this._operations.end(operation);
-                this._onDidRunOperation.fire(operation);
-            }
-        });
+        );
     }
-    
+
     private async unlocked<T>(): Promise<void> {
         let attempt = 1;
 
-        const existsLocal = (path: string) => new Promise((resolve, reject) => {
-            fs.stat(path, (err) => {
-                if (err) {
-                    if (err.code === 'ENOENT') {
-                        return resolve(false);
+        const existsLocal = (path: string) =>
+            new Promise((resolve, reject) => {
+                fs.stat(path, (err) => {
+                    if (err) {
+                        if (err.code === "ENOENT") {
+                            return resolve(false);
+                        }
+                        reject(err);
                     }
-                    reject(err);
-                }
-                return resolve(true);
+                    return resolve(true);
+                });
             });
-        });
 
-        while (attempt <= 10 && await existsLocal(path.join(this.repository.root, '.hg', 'index.lock'))) {
+        while (
+            attempt <= 10 &&
+            (await existsLocal(
+                path.join(this.repository.root, ".hg", "index.lock")
+            ))
+        ) {
             await timeout(Math.pow(attempt, 2) * 50);
             attempt++;
         }
@@ -1071,8 +1420,7 @@ export class Repository implements IDisposable {
     private async updateRepositoryPaths() {
         try {
             this._paths = await this.repository.getPaths();
-        }
-        catch (e) {
+        } catch (e) {
             // noop
         }
     }
@@ -1082,8 +1430,7 @@ export class Repository implements IDisposable {
         try {
             this._paths = await this.repository.getPaths();
             return this._paths;
-        }
-        catch (e) {
+        } catch (e) {
             // noop
         }
 
@@ -1093,11 +1440,14 @@ export class Repository implements IDisposable {
     @throttle
     public async getRefs(): Promise<Ref[]> {
         if (typedConfig.useBookmarks) {
-            const bookmarks = await this.repository.getBookmarks()
-            return bookmarks
+            const bookmarks = await this.repository.getBookmarks();
+            return bookmarks;
         } else {
-            const [branches, tags] = await Promise.all([this.repository.getBranches(), this.repository.getTags()])
-            return [...branches, ...tags]
+            const [branches, tags] = await Promise.all([
+                this.repository.getBranches(),
+                this.repository.getTags(),
+            ]);
+            return [...branches, ...tags];
         }
     }
 
@@ -1107,10 +1457,12 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getBranchNamesWithMultipleHeads(branch?: string): Promise<string[]> {
+    public async getBranchNamesWithMultipleHeads(
+        branch?: string
+    ): Promise<string[]> {
         const allHeads = await this.repository.getHeads({ branch });
         const multiHeadBranches: string[] = [];
-        const headsPerBranch = groupBy(allHeads, h => h.branch)
+        const headsPerBranch = groupBy(allHeads, (h) => h.branch);
         for (const branch in headsPerBranch) {
             const branchHeads = headsPerBranch[branch];
             if (branchHeads.length > 1) {
@@ -1121,45 +1473,69 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getHashesOfNonDistinctBookmarkHeads(defaultOnly: boolean): Promise<string[]> {
-        const defaultOrAll = defaultOnly ? "default" : undefined
-        const allHeads = await this.repository.getHeads({ branch: defaultOrAll });
-        const headsWithoutBookmarks = allHeads.filter(h => h.bookmarks.length === 0);
-        if (headsWithoutBookmarks.length > 1) { // allow one version of any branch with no bookmark
-            return headsWithoutBookmarks.map(h => h.hash);
+    public async getHashesOfNonDistinctBookmarkHeads(
+        defaultOnly: boolean
+    ): Promise<string[]> {
+        const defaultOrAll = defaultOnly ? "default" : undefined;
+        const allHeads = await this.repository.getHeads({
+            branch: defaultOrAll,
+        });
+        const headsWithoutBookmarks = allHeads.filter(
+            (h) => h.bookmarks.length === 0
+        );
+        if (headsWithoutBookmarks.length > 1) {
+            // allow one version of any branch with no bookmark
+            return headsWithoutBookmarks.map((h) => h.hash);
         }
-        return []
+        return [];
     }
 
     @throttle
-    public async getBookmarkNamesFromHeads(defaultOnly: boolean): Promise<string[]> {
-        const defaultOrAll = defaultOnly ? "default" : undefined
-        const allHeads = await this.repository.getHeads({ branch: defaultOrAll });
-        const headsWithBookmarks = allHeads.filter(h => h.bookmarks.length > 0);
-        return headsWithBookmarks.reduce((prev, curr) => [...prev, ...curr.bookmarks], <string[]>[]);
+    public async getBookmarkNamesFromHeads(
+        defaultOnly: boolean
+    ): Promise<string[]> {
+        const defaultOrAll = defaultOnly ? "default" : undefined;
+        const allHeads = await this.repository.getHeads({
+            branch: defaultOrAll,
+        });
+        const headsWithBookmarks = allHeads.filter(
+            (h) => h.bookmarks.length > 0
+        );
+        return headsWithBookmarks.reduce(
+            (prev, curr) => [...prev, ...curr.bookmarks],
+            <string[]>[]
+        );
     }
 
     @throttle
-    public getHeads(options: { branch?: string; excludeSelf?: boolean } = {}): Promise<Commit[]> {
+    public getHeads(
+        options: { branch?: string; excludeSelf?: boolean } = {}
+    ): Promise<Commit[]> {
         const { branch, excludeSelf } = options;
         return this.repository.getHeads({ branch, excludeSelf });
     }
 
     @throttle
     public async getCommitDetails(revision: string): Promise<CommitDetails> {
-
-        const commitPromise = this.getLogEntries({ revQuery: revision, limit: 1 });
+        const commitPromise = this.getLogEntries({
+            revQuery: revision,
+            limit: 1,
+        });
         const fileStatusesPromise = this.repository.getStatus(revision);
         const parentsPromise = this.getParents(revision);
 
-        const [[commit], fileStatuses, [parent1, parent2]] = await Promise.all([commitPromise, fileStatusesPromise, parentsPromise]);
+        const [[commit], fileStatuses, [parent1, parent2]] = await Promise.all([
+            commitPromise,
+            fileStatusesPromise,
+            parentsPromise,
+        ]);
 
         return {
             ...commit,
             parent1,
             parent2,
-            files: fileStatuses
-        }
+            files: fileStatuses,
+        };
     }
 
     public async getLastCommitMessage(): Promise<string> {
@@ -1178,36 +1554,40 @@ export class Repository implements IDisposable {
             branch: options.branch,
             filePaths: filePaths,
             follow: true,
-            limit: options.limit || 200
+            limit: options.limit || 200,
         };
-        return this.repository.getLogEntries(opts)
+        return this.repository.getLogEntries(opts);
     }
 
     @throttle
     private async updateModelState(): Promise<void> {
         this._repoStatus = await this.repository.getSummary();
 
-        const useBookmarks = typedConfig.useBookmarks
-        const currentRefPromise: Promise<Bookmark | undefined> | Promise<Ref | undefined> = useBookmarks
+        const useBookmarks = typedConfig.useBookmarks;
+        const currentRefPromise:
+            | Promise<Bookmark | undefined>
+            | Promise<Ref | undefined> = useBookmarks
             ? this.repository.getActiveBookmark()
-            : this.repository.getCurrentBranch()
+            : this.repository.getCurrentBranch();
 
         const [fileStatuses, currentRef, resolveStatuses] = await Promise.all([
             this.repository.getStatus(),
             currentRefPromise,
-            this._repoStatus.isMerge ? this.repository.getResolveList() : Promise.resolve(undefined),
+            this._repoStatus.isMerge
+                ? this.repository.getResolveList()
+                : Promise.resolve(undefined),
         ]);
 
-        useBookmarks ?
-            this._activeBookmark = <Bookmark>currentRef :
-            this._currentBranch = currentRef;
+        useBookmarks
+            ? (this._activeBookmark = <Bookmark>currentRef)
+            : (this._currentBranch = currentRef);
 
         const groupInput: IGroupStatusesParams = {
             respositoryRoot: this.repository.root,
             fileStatuses: fileStatuses || [],
             repoStatus: this._repoStatus,
             resolveStatuses: resolveStatuses,
-            statusGroups: this._groups
+            statusGroups: this._groups,
         };
 
         this._groups = groupStatuses(groupInput);
@@ -1216,29 +1596,37 @@ export class Repository implements IDisposable {
     }
 
     get count(): number {
-        const countBadge = workspace.getConfiguration('hg').get<BadgeOptions>('countBadge');
+        const countBadge = workspace
+            .getConfiguration("hg")
+            .get<BadgeOptions>("countBadge");
 
         switch (countBadge) {
-            case 'off':
+            case "off":
                 return 0;
 
-            case 'tracked':
-                return this.mergeGroup.resources.length
-                    + this.stagingGroup.resources.length
-                    + this.workingDirectoryGroup.resources.length
-                    + this.conflictGroup.resources.length;
+            case "tracked":
+                return (
+                    this.mergeGroup.resources.length +
+                    this.stagingGroup.resources.length +
+                    this.workingDirectoryGroup.resources.length +
+                    this.conflictGroup.resources.length
+                );
 
-            case 'all':
+            case "all":
             default:
-                return this.mergeGroup.resources.length
-                    + this.stagingGroup.resources.length
-                    + this.workingDirectoryGroup.resources.length
-                    + this.conflictGroup.resources.length
-                    + this.untrackedGroup.resources.length
+                return (
+                    this.mergeGroup.resources.length +
+                    this.stagingGroup.resources.length +
+                    this.workingDirectoryGroup.resources.length +
+                    this.conflictGroup.resources.length +
+                    this.untrackedGroup.resources.length
+                );
         }
     }
 
-    private get hgrcPath(): string { return path.join(this.repository.root, ".hg", "hgrc"); }
+    private get hgrcPath(): string {
+        return path.join(this.repository.root, ".hg", "hgrc");
+    }
 
     async hgrcPathIfExists(): Promise<string | undefined> {
         const filePath: string = this.hgrcPath;
@@ -1250,11 +1638,16 @@ export class Repository implements IDisposable {
 
     async createHgrc(): Promise<string> {
         const filePath: string = this.hgrcPath;
-        const fd = fs.openSync(filePath, 'w');
-        fs.writeSync(fd, `[paths]
+        const fd = fs.openSync(filePath, "w");
+        fs.writeSync(
+            fd,
+            `[paths]
 ; Uncomment line below to add a remote path:
 ; default = https://bitbucket.org/<yourname>/<repo>
-`, 0, 'utf-8');
+`,
+            0,
+            "utf-8"
+        );
         fs.closeSync(fd);
         return filePath;
     }

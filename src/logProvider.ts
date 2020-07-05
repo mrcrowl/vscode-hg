@@ -22,7 +22,6 @@ const LOG_URI = "hg-log://hg/log";
 //     //     this.model.getLogEntries();
 //     // }
 
-
 //     dispose(): void {
 //         this.disposables.forEach(d => d.dispose());
 //     }
