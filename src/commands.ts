@@ -21,6 +21,7 @@ import {
     SourceControlResourceGroup,
     TextDocumentShowOptions,
     ViewColumn,
+    TextEditor,
 } from "vscode";
 import {
     Ref,
@@ -77,6 +78,7 @@ import { partition } from "./util";
 import * as nls from "vscode-nls";
 import typedConfig from "./config";
 import { toHgUri } from "./uri";
+import { LineChange, applyLineChanges } from "./diff";
 
 const localize = nls.loadMessageBundle();
 
@@ -576,6 +578,66 @@ export class CommandCenter {
     @command("hg.stageAll", { repository: true })
     async stageAll(repository: Repository): Promise<void> {
         await repository.stage();
+    }
+
+    @command("hg.revertChange")
+    async revertChange(
+        uri: Uri,
+        changes: LineChange[],
+        index: number
+    ): Promise<void> {
+        const textEditor = window.visibleTextEditors.filter(
+            (e) => e.document.uri.toString() === uri.toString()
+        )[0];
+
+        if (!textEditor) {
+            return;
+        }
+
+        await this._revertChanges(textEditor, [
+            ...changes.slice(0, index),
+            ...changes.slice(index + 1),
+        ]);
+    }
+
+    private async _revertChanges(
+        textEditor: TextEditor,
+        changes: LineChange[]
+    ): Promise<void> {
+        const modifiedDocument = textEditor.document;
+        const modifiedUri = modifiedDocument.uri;
+
+        if (modifiedUri.scheme !== "file") {
+            return;
+        }
+
+        const originalUri = toHgUri(modifiedUri, ".");
+        const originalDocument = await workspace.openTextDocument(originalUri);
+        const selectionsBeforeRevert = textEditor.selections;
+        const visibleRangesBeforeRevert = textEditor.visibleRanges;
+        const result = applyLineChanges(
+            originalDocument,
+            modifiedDocument,
+            changes
+        );
+
+        const edit = new WorkspaceEdit();
+        edit.replace(
+            modifiedUri,
+            new Range(
+                new Position(0, 0),
+                modifiedDocument.lineAt(
+                    modifiedDocument.lineCount - 1
+                ).range.end
+            ),
+            result
+        );
+        workspace.applyEdit(edit);
+
+        await modifiedDocument.save();
+
+        textEditor.selections = selectionsBeforeRevert;
+        textEditor.revealRange(visibleRangesBeforeRevert[0]);
     }
 
     @command("hg.markResolved")
