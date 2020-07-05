@@ -43,10 +43,13 @@ jobs:
         strategy:
             matrix:
                 os: [windows-latest, ubuntu-latest, macos-latest]
-        name: test-${{ matrix.os }}
+                vscode: ["stable"]
+            fail-fast: false
+        name: test-${{ matrix.os }}-vscode_${{ matrix.vscode }}
         runs-on: ${{ matrix.os }}
         needs: [format-check, lint-check]
         if: needs.format-check.result == 'success' && needs.lint-check.result == 'success'
+        timeout-minutes: 20
 
         steps:
             - uses: actions/checkout@v2
@@ -58,4 +61,21 @@ jobs:
 
             - run: npm ci
             - run: npm run compile
-            - run: npm run test
+
+            - name: Cache VSCode binary
+              id: cache-vscode
+              uses: actions/cache@v1
+              with:
+                  path: .vscode-test
+                  key: vscode-${{ runner.os }}-${{ matrix.vscode }}-${{ github.run_id }}
+                  restore-keys: |
+                      vscode-${{ runner.os }}-${{ matrix.vscode }}-
+                      vscode-${{ runner.os }}-
+
+            - name: Run tests
+              uses: GabrielBB/xvfb-action@v1.0
+              with:
+                  run: npm run test
+              env:
+                  CODE_VERSION: ${{ matrix.vscode }}
+              continue-on-error: ${{ matrix.vscode == 'insiders' }}
