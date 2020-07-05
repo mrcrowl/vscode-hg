@@ -1003,7 +1003,7 @@ export class Repository {
     }
 
     async shelve(opts: ShelveOptions): Promise<void> {
-        const args = ["shelve"];
+        const args = ["shelve", "--config", "extensions.shelve="];
         if (opts.name) {
             args.push("--name", opts.name);
         }
@@ -1012,9 +1012,12 @@ export class Repository {
     }
 
     async getShelves(): Promise<Shelve[]> {
-        const result = await this.run(["shelve", "--list", "--quiet"], {
-            stdoutIsBinaryEncodedInWindows: true,
-        });
+        const result = await this.run(
+            ["shelve", "--config", "extensions.shelve=", "--list", "--quiet"],
+            {
+                stdoutIsBinaryEncodedInWindows: true,
+            }
+        );
         const shelves = result.stdout
             .trim()
             .split("\n")
@@ -1024,7 +1027,13 @@ export class Repository {
     }
 
     async unshelve(opts: UnshelveOptions): Promise<void> {
-        const args = ["unshelve", "--name", opts.name];
+        const args = [
+            "unshelve",
+            "--config",
+            "extensions.shelve=",
+            "--name",
+            opts.name,
+        ];
         if (opts.keep) {
             args.push("--keep");
         }
@@ -1045,7 +1054,7 @@ export class Repository {
     }
 
     async purge(opts: PurgeOptions): Promise<void> {
-        const args = ["purge"];
+        const args = ["purge", "--config", "extensions.purge="];
 
         if (opts.paths && opts.paths.length) {
             args.push(...opts.paths);
@@ -1058,11 +1067,21 @@ export class Repository {
     }
 
     async unshelveAbort(): Promise<void> {
-        await this.run(["unshelve", "--abort"]);
+        await this.run([
+            "unshelve",
+            "--config",
+            "extensions.shelve=",
+            "--abort",
+        ]);
     }
 
     async unshelveContinue(): Promise<void> {
-        await this.run(["unshelve", "--continue"]);
+        await this.run([
+            "unshelve",
+            "--config",
+            "extensions.shelve=",
+            "--continue",
+        ]);
     }
 
     async tryGetLastCommitDetails(): Promise<ICommitDetails> {
