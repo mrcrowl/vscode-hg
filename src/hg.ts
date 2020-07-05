@@ -572,7 +572,7 @@ export interface Commit extends Revision {
 	bookmarks: string[];
 }
 
-export interface NativeCommit {
+interface NativeCommit {
 	rev: number;
 	node: string;
 	branch: string;
