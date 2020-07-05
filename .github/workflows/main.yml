@@ -24,7 +24,7 @@ jobs:
             - run: npm ci
             - run: npm run format-check
 
-    build:
+    lint-check:
         runs-on: ubuntu-latest
 
         steps:
@@ -38,5 +38,44 @@ jobs:
             - run: npm ci
             - run: npm run compile
             - run: npm run lint
-        # TODO install mercurial and run tests on multiple platforms
-        # - run: npm test
+
+    test:
+        strategy:
+            matrix:
+                os: [windows-latest, ubuntu-latest]
+                vscode: ["stable"]
+            fail-fast: false
+        name: test-${{ matrix.os }}-vscode_${{ matrix.vscode }}
+        runs-on: ${{ matrix.os }}
+        needs: [format-check, lint-check]
+        if: needs.format-check.result == 'success' && needs.lint-check.result == 'success'
+        timeout-minutes: 20
+
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+              with:
+                  node-version: "12.x"
+
+            - run: npm ci
+            - run: npm run compile
+
+            - name: Cache VSCode binary
+              id: cache-vscode
+              uses: actions/cache@v1
+              with:
+                  path: .vscode-test
+                  key: vscode-${{ runner.os }}-${{ matrix.vscode }}-${{ github.run_id }}
+                  restore-keys: |
+                      vscode-${{ runner.os }}-${{ matrix.vscode }}-
+                      vscode-${{ runner.os }}-
+
+            - name: Run tests
+              uses: GabrielBB/xvfb-action@v1.0
+              with:
+                  run: npm run test
+              env:
+                  CODE_VERSION: ${{ matrix.vscode }}
+              continue-on-error: ${{ matrix.vscode == 'insiders' }}
