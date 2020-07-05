@@ -585,6 +585,50 @@ export class CommandCenter {
 		}
 	}
 
+	@command('hg.purgeFiles', { repository: true })
+	async purgeFiles(repository: Repository): Promise<void> {
+		return this._purge(repository.untrackedGroup.resources);
+	}
+
+	@command('hg.purgeAll', { repository: true })
+	async purgeAll(repository: Repository): Promise<void> {
+		if (await interaction.confirmDeleteUntrackedAndIgnored()) {
+			return await repository.purgeAll();
+		}
+	}
+
+	@command('hg.purge')
+	async purge(...resourceStates: SourceControlResourceState[]): Promise<void> {
+		if (resourceStates.length === 0) {
+			const resource = this.getSCMResource();
+
+			if (!resource) {
+				return;
+			}
+
+			resourceStates = [resource];
+		}
+
+		const scmResources = resourceStates
+			.filter(s => s instanceof Resource && s.resourceGroup instanceof UntrackedGroup) as Resource[];
+		return this._purge(scmResources);
+	}
+
+	private async _purge(scmResources: Resource[]): Promise<void> {
+		if (!scmResources.length) {
+			return;
+		}
+
+		const fileNames = scmResources.map(r => path.basename(r.resourceUri.fsPath));
+		const confirmed = await interaction.confirmDeleteFiles(fileNames);
+		if (!confirmed) {
+			return;
+		}
+
+		const resources = scmResources.map(r => r.resourceUri);
+		await this.runByRepository(resources, async (repository, uris) => repository.purge(...uris));
+	}
+
 	private async smartCommit(repository: Repository, getCommitMessage: () => Promise<string | undefined>, opts: CommitOptions = {}): Promise<boolean> {
 		// validate no conflicts
 		const numConflictResources = repository.conflictGroup.resources.length;
