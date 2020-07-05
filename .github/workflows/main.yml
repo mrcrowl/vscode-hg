@@ -42,7 +42,7 @@ jobs:
     test:
         strategy:
             matrix:
-                os: [windows-latest, ubuntu-latest, macos-latest]
+                os: [windows-latest, ubuntu-latest]
                 vscode: ["stable"]
             fail-fast: false
         name: test-${{ matrix.os }}-vscode_${{ matrix.vscode }}
