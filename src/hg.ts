@@ -682,9 +682,9 @@ interface NativeCommit {
     user: string;
     date: [number, number];
     desc: string;
-    bookmarks: [string];
-    tags: [string];
-    parents: [string];
+    bookmarks: string[];
+    tags: string[];
+    parents: string[];
 }
 
 export interface CommitDetails extends Commit {
@@ -1561,7 +1561,6 @@ export class Repository {
         follow,
         limit,
     }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
-        //                       0=rev|1=hash|2=date       |3=author       |4=brnch |5=bkmarks (\t delim)  |6=commit message
         const args = ["log", "-T", "json"];
 
         if (revQuery) {
