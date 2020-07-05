@@ -12,5 +12,5 @@
     },
     "editor.codeActionsOnSave": {
         "source.organizeImports": false
-	}
+    }
 }

@@ -1,13 +1,13 @@
-import { workspace } from "vscode"
+import { workspace } from "vscode";
 
 export type PushPullScopeOptions = "default" | "current" | "all" | undefined;
 export type CommandModeOptions = "server" | "cli" | undefined;
 
-const DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS = 3 * 60 /* three minutes */;
+const DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS = 3 * 60; /* three minutes */
 
 class Config {
     private get config() {
-        return workspace.getConfiguration('hg');
+        return workspace.getConfiguration("hg");
     }
 
     private get<T>(name: keyof Config, defaultValue: T): T {
@@ -47,7 +47,10 @@ class Config {
     }
 
     get autoInOutInterval(): number {
-        return this.get("autoInOutInterval", DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS);
+        return this.get(
+            "autoInOutInterval",
+            DEFAULT_AUTO_IN_OUT_INTERVAL_SECONDS
+        );
     }
 
     get autoInOutIntervalMillis(): number {
@@ -75,9 +78,12 @@ class Config {
     }
 
     get pushPullBranch(): PushPullScopeOptions {
-        return this.get<PushPullScopeOptions>("pushPullBranch", this.pushPullScope);
+        return this.get<PushPullScopeOptions>(
+            "pushPullBranch",
+            this.pushPullScope
+        );
     }
 }
 
-const typedConfig = new Config()
-export default typedConfig
+const typedConfig = new Config();
+export default typedConfig;

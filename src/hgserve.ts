@@ -20,7 +20,7 @@ export function defer<T>(): Deferred<T> {
 }
 
 const defaults = {
-    hgOpts: ['serve', '--cmdserver', 'pipe']
+    hgOpts: ["serve", "--cmdserver", "pipe"],
 };
 
 export interface IExecutionResult {
@@ -54,9 +54,21 @@ export class HgCommandServer {
     }
 
     /** Static constructor */
-    public static async start(hgPath: string, repository: string, logger: (text: string) => void): Promise<HgCommandServer> {
+    public static async start(
+        hgPath: string,
+        repository: string,
+        logger: (text: string) => void
+    ): Promise<HgCommandServer> {
         const config = {
-            hgOpts: ['--config', 'ui.interactive=True', 'serve', '--cmdserver', 'pipe', '--cwd', repository]
+            hgOpts: [
+                "--config",
+                "ui.interactive=True",
+                "serve",
+                "--cmdserver",
+                "pipe",
+                "--cwd",
+                repository,
+            ],
         };
         const commandServer = new HgCommandServer(config, logger);
         return await commandServer.start(hgPath);
@@ -69,11 +81,18 @@ export class HgCommandServer {
         const lineInputHandler = async (body, limit) => {
             const response = await interaction.handleChoices(body, limit);
             if (this.serverProcess) {
-                serverSendLineInput(this.serverProcess, this.encoding, response);
+                serverSendLineInput(
+                    this.serverProcess,
+                    this.encoding,
+                    response
+                );
             }
         };
 
-        this.channelProcessor = new ChannelProcessor(this.encoding, lineInputHandler);
+        this.channelProcessor = new ChannelProcessor(
+            this.encoding,
+            lineInputHandler
+        );
         this.attachListeners();
         return this;
     }
@@ -94,12 +113,10 @@ export class HgCommandServer {
             this.serverProcess.stdout.removeAllListeners("data");
             this.serverProcess.stderr.removeAllListeners("data");
             this.serverProcess.stdin.end();
-        }
-        catch (e) {
+        } catch (e) {
             this.logger(`Failed to remove cmdserve listeners: ${e}`);
             // logger.error(`Failed to remove cmdserve listeners: ${e}`);
-        }
-        finally {
+        } finally {
             this.serverProcess = undefined;
         }
     }
@@ -110,18 +127,22 @@ export class HgCommandServer {
     }
 
     /** Enqueue a command  */
-    private enqueueCommand(cmd: string, ...args: string[]): Promise<IExecutionResult> {
+    private enqueueCommand(
+        cmd: string,
+        ...args: string[]
+    ): Promise<IExecutionResult> {
         if (this.serverProcess) {
             const command: PipelineCommand = {
-                cmd, args,
-                result: defer<IExecutionResult>()
-            }
+                cmd,
+                args,
+                result: defer<IExecutionResult>(),
+            };
             this.commandQueue.push(command);
             serverSendCommand(this.serverProcess, this.encoding, cmd, args);
             return command.result.promise;
         }
 
-        return Promise.reject("HGCommandServer is not started")
+        return Promise.reject("HGCommandServer is not started");
     }
 
     private dequeueCommand(): PipelineCommand | undefined {
@@ -142,7 +163,10 @@ export class HgCommandServer {
                 const chan = await stream.readChar();
                 const length = await stream.readInt();
                 const body = await stream.readString(length, "ascii");
-                const { capabilities, encoding } = this.parseCapabilitiesAndEncoding(body);
+                const {
+                    capabilities,
+                    encoding,
+                } = this.parseCapabilitiesAndEncoding(body);
                 this.capabilities = capabilities;
                 this.encoding = encoding;
 
@@ -154,13 +178,13 @@ export class HgCommandServer {
 
                 c(cp);
             });
-            cp.stderr.on("data", data => {
+            cp.stderr.on("data", (data) => {
                 if (this.starting) {
                     return e(data);
                 }
                 return this.handleServerError(data);
             });
-            cp.on("exit", code => {
+            cp.on("exit", (code) => {
                 if (cp) {
                     cp.removeAllListeners("exit");
                 }
@@ -169,20 +193,23 @@ export class HgCommandServer {
     }
 
     private spawnHgServer(path) {
-        const processEnv = { "HGENCODING": "UTF-8", ...process.env };
+        const processEnv = { HGENCODING: "UTF-8", ...process.env };
         const spawnOpts = {
             env: processEnv,
-            cwd: path || process.cwd()
+            cwd: path || process.cwd(),
         };
-        return spawn('hg', this.config.hgOpts, spawnOpts);
+        return spawn("hg", this.config.hgOpts, spawnOpts);
     }
 
-
     /** Parse the capabilities and encoding when the cmd server starts up */
-    parseCapabilitiesAndEncoding(data: string): { capabilities: string[]; encoding: string; } {
+    parseCapabilitiesAndEncoding(
+        data: string
+    ): { capabilities: string[]; encoding: string } {
         let matches = /capabilities: (.*?)\nencoding: (.*?)$/.exec(data);
         if (!matches) {
-            matches = /capabilities: (.*?)\nencoding: (.*?)\n(.*?)$/g.exec(data);
+            matches = /capabilities: (.*?)\nencoding: (.*?)\n(.*?)$/g.exec(
+                data
+            );
         }
 
         if (!matches) {
@@ -192,7 +219,7 @@ export class HgCommandServer {
         const [_, caps, encoding] = matches;
         return {
             capabilities: caps.split(" "),
-            encoding: encoding
+            encoding: encoding,
         };
     }
 
@@ -222,7 +249,7 @@ export class HgCommandServer {
             this.channelProcessor.consume(data);
         });
 
-        this.channelProcessor.event(result => {
+        this.channelProcessor.event((result) => {
             const command = this.dequeueCommand();
             if (command) {
                 command.result.resolve(result);
@@ -242,7 +269,10 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
     private exitCode: number | undefined;
     private input: StreamReader;
 
-    constructor(private encoding: string, private lineInputHandler: (body: string, limit: number) => Promise<void>) {
+    constructor(
+        private encoding: string,
+        private lineInputHandler: (body: string, limit: number) => Promise<void>
+    ) {
         super();
         this.input = new StreamReader();
         this.reset();
@@ -280,25 +310,32 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
                 }
 
                 case OUTPUT_CHANNEL: {
-                    const outputBody = await this.input.readString(length, this.encoding);
+                    const outputBody = await this.input.readString(
+                        length,
+                        this.encoding
+                    );
                     this.outputBodies.push(outputBody);
                     break;
                 }
 
                 case ERROR_CHANNEL: {
-                    const errorBody = await this.input.readString(length, this.encoding);
+                    const errorBody = await this.input.readString(
+                        length,
+                        this.encoding
+                    );
                     this.errorBodies.push(errorBody);
                     break;
                 }
-
             }
 
             if (this.exitCode !== undefined) {
                 const stdout = this.outputBodies.join("");
                 const stderr = this.errorBodies.join("");
                 const result = <IExecutionResult>{
-                    stdout, stderr, exitCode: this.exitCode
-                }
+                    stdout,
+                    stderr,
+                    exitCode: this.exitCode,
+                };
 
                 this.reset();
                 this.fire(result);
@@ -327,7 +364,7 @@ class StreamReader {
     public write(data: Buffer) {
         this.buffers.push({
             data: data,
-            size: data.byteLength
+            size: data.byteLength,
         });
         if (this.currentRead) {
             this.continueRead();
@@ -354,7 +391,7 @@ class StreamReader {
             remainingBytes: length,
             chunks: [],
             result: defer<Buffer>(),
-        }
+        };
         return this.continueRead();
     }
 
@@ -363,13 +400,15 @@ class StreamReader {
         while (currentRead.remainingBytes > 0 && this.buffers.length > 0) {
             const { data, size } = this.buffers[0];
             const availableBytes = size - this.offset;
-            const chunkSize = Math.min(availableBytes, currentRead.remainingBytes);
+            const chunkSize = Math.min(
+                availableBytes,
+                currentRead.remainingBytes
+            );
             const chunk = data.slice(this.offset, this.offset + chunkSize);
             if (availableBytes - chunkSize === 0) {
                 this.buffers.shift();
                 this.offset = 0;
-            }
-            else {
+            } else {
                 this.offset += chunkSize;
             }
             currentRead.chunks.push(chunk);
@@ -388,9 +427,16 @@ class StreamReader {
 const UINT32_SIZE = 4;
 const UINT8_SIZE = 1;
 
-async function serverSendCommand(server: ChildProcess, encoding: string, cmd: string, args: string[] = []) {
+async function serverSendCommand(
+    server: ChildProcess,
+    encoding: string,
+    cmd: string,
+    args: string[] = []
+) {
     if (!server) {
-        throw new Error("Must start the command server before issuing commands");
+        throw new Error(
+            "Must start the command server before issuing commands"
+        );
     }
     const cmdLength = cmd.length + 1;
     const argsJoined = args.join("\0");
@@ -399,14 +445,25 @@ async function serverSendCommand(server: ChildProcess, encoding: string, cmd: st
     const buffer = new Buffer(totalBufferSize);
     buffer.write(cmd + "\n", 0, cmdLength, encoding);
     buffer.writeUInt32BE(argsJoinedLength, cmdLength);
-    buffer.write(argsJoined, cmdLength + UINT32_SIZE, argsJoinedLength, encoding);
+    buffer.write(
+        argsJoined,
+        cmdLength + UINT32_SIZE,
+        argsJoinedLength,
+        encoding
+    );
     // logger.info(`hgserve:stdin:\\0${cmd}\\n${argsJoinedLength}${argsJoined}`);
     await writeBufferToStdIn(server, buffer);
 }
 
-async function serverSendLineInput(server: ChildProcess, encoding: string, text: string) {
+async function serverSendLineInput(
+    server: ChildProcess,
+    encoding: string,
+    text: string
+) {
     if (!server) {
-        throw new Error("Must start the command server before issuing commands");
+        throw new Error(
+            "Must start the command server before issuing commands"
+        );
     }
     const textLength = text.length + 1;
     const totalBufferSize = textLength + UINT32_SIZE;
@@ -417,11 +474,14 @@ async function serverSendLineInput(server: ChildProcess, encoding: string, text:
     await writeBufferToStdIn(server, buffer);
 }
 
-function writeBufferToStdIn(server: ChildProcess, buffer: Buffer): Promise<any> {
+function writeBufferToStdIn(
+    server: ChildProcess,
+    buffer: Buffer
+): Promise<any> {
     return new Promise((c, e) => server.stdin.write(buffer, c));
 }
 
-const LINE_CHANNEL = 'L';
-const RESULT_CHANNEL = 'r';
-const OUTPUT_CHANNEL = 'o';
-const ERROR_CHANNEL = 'e';
+const LINE_CHANNEL = "L";
+const RESULT_CHANNEL = "r";
+const OUTPUT_CHANNEL = "o";
+const ERROR_CHANNEL = "e";
