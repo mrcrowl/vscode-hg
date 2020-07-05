@@ -24,7 +24,7 @@ jobs:
             - run: npm ci
             - run: npm run format-check
 
-    build:
+    lint-check:
         runs-on: ubuntu-latest
 
         steps:
@@ -38,5 +38,24 @@ jobs:
             - run: npm ci
             - run: npm run compile
             - run: npm run lint
-        # TODO install mercurial and run tests on multiple platforms
-        # - run: npm test
+
+    test:
+        strategy:
+            matrix:
+                os: [windows-latest, ubuntu-latest, macos-latest]
+        name: test-${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        needs: [format-check, lint-check]
+        if: needs.format-check.result == 'success' && needs.lint-check.result == 'success'
+
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+              with:
+                  node-version: "12.x"
+
+            - run: npm ci
+            - run: npm run compile
+            - run: npm run test
