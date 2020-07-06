@@ -1413,39 +1413,19 @@ export class Repository {
     }
 
     async getSummary(): Promise<IRepoStatus> {
-        const summaryResult = await this.run(["summary", "-q"]);
-        const summary = summaryResult.stdout;
-        const lines = summary.trim().split("\n");
-        const parentLines = lines.filter((line) => line.startsWith("parent:"));
-        const parents = parentLines.length
-            ? this.parseParentLines(parentLines)
-            : [];
+        const parents = await this.getLogEntries({ revQuery: "p1() + p2()" });
 
-        const commitLine = lines.filter((line) =>
-            line.startsWith("commit:")
-        )[0];
-        if (commitLine) {
-            const isMerge = /\bmerge\b/.test(commitLine);
-            return { isMerge, parents };
-        }
-
-        return { isMerge: false, parents };
-    }
-
-    parseParentLines(parentLines: string[]): Ref[] {
-        // e.g. "parent: 44:2f88476fceca tip"
-        const refs: Ref[] = [];
-        for (const line of parentLines) {
-            const match = line.match(/^parent:\s+(\d+):([a-f0-9]+)/);
-            if (match) {
-                const [_, rev, hash] = match;
-                refs.push({
-                    type: RefType.Commit,
-                    commit: hash,
-                });
-            }
-        }
-        return refs;
+        return {
+            isMerge: parents.length > 1,
+            parents: parents.map(
+                (p: Commit): Ref => {
+                    return {
+                        type: RefType.Commit,
+                        commit: p.hash.substr(0, 12),
+                    };
+                }
+            ),
+        };
     }
 
     async getLastCommitMessage(): Promise<string> {
