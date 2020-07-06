@@ -1460,7 +1460,10 @@ export class Repository implements IDisposable {
     public async getBranchNamesWithMultipleHeads(
         branch?: string
     ): Promise<string[]> {
-        const allHeads = await this.repository.getHeads({ branch });
+        const allHeads = await this.repository.getHeads({
+            branch,
+            excludeSecret: true,
+        });
         const multiHeadBranches: string[] = [];
         const headsPerBranch = groupBy(allHeads, (h) => h.branch);
         for (const branch in headsPerBranch) {
@@ -1479,6 +1482,7 @@ export class Repository implements IDisposable {
         const defaultOrAll = defaultOnly ? "default" : undefined;
         const allHeads = await this.repository.getHeads({
             branch: defaultOrAll,
+            excludeSecret: true,
         });
         const headsWithoutBookmarks = allHeads.filter(
             (h) => h.bookmarks.length === 0

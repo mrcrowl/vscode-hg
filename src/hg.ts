@@ -1607,9 +1607,14 @@ export class Repository {
     async getHeads(options?: {
         branch?: string;
         excludeSelf?: boolean;
+        excludeSecret?: boolean;
     }): Promise<Commit[]> {
-        const except = options && options.excludeSelf ? " - ." : "";
-        const revQuery = `head() and not closed()${except}`;
+        const excludeSelf = options && options.excludeSelf ? " - ." : "";
+        const heads =
+            options && options.excludeSecret
+                ? "heads(all() and not secret())"
+                : "head()";
+        const revQuery = `${heads} and not closed()${excludeSelf}`;
         return this.getLogEntries({
             revQuery,
             branch: options && options.branch,
