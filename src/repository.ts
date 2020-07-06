@@ -1438,12 +1438,23 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getBranchesAndTags(): Promise<Ref[]> {
-        const [branches, tags] = await Promise.all([
-            this.repository.getBranches(),
-            this.repository.getTags(),
-        ]);
-        return [...branches, ...tags];
+    public async getBranches(): Promise<Ref[]> {
+        return this.repository.getBranches();
+    }
+
+    @throttle
+    public async getTags(): Promise<Ref[]> {
+        return this.repository.getTags();
+    }
+
+    @throttle
+    public async getDraftHeads(): Promise<Ref[]> {
+        return this.repository.getDraftHeads();
+    }
+
+    @throttle
+    public async getPublicTip(): Promise<Ref[]> {
+        return this.repository.getPublicTip();
     }
 
     @throttle

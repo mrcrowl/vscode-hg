@@ -1093,7 +1093,14 @@ export class CommandCenter {
                 this.focusScm();
                 return;
             }
-            refs = await repository.getBranchesAndTags();
+
+            const [branches, tags, maxPublic, draftHeads] = await Promise.all([
+                repository.getBranches(),
+                repository.getTags(),
+                repository.getPublicTip(),
+                repository.getDraftHeads(),
+            ]);
+            refs = [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
 
         const choice = await interaction.pickUpdateRevision(refs, unclean);
