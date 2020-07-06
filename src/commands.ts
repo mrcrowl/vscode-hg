@@ -1057,7 +1057,7 @@ export class CommandCenter {
 
         if (typedConfig.useBookmarks) {
             // bookmarks
-            const bookmarkRefs = (await repository.getRefs()) as Bookmark[];
+            const bookmarkRefs = await repository.getBookmarks();
             const { isClean, repoStatus } = repository;
             unclean = !isClean || (repoStatus && repoStatus.isMerge) || false;
             if (unclean) {
@@ -1093,7 +1093,7 @@ export class CommandCenter {
                 this.focusScm();
                 return;
             }
-            refs = await repository.getRefs();
+            refs = await repository.getBranchesAndTags();
         }
 
         const choice = await interaction.pickUpdateRevision(refs, unclean);
@@ -1502,7 +1502,7 @@ export class CommandCenter {
         const bookmarkName = await interaction.inputBookmarkName();
 
         if (bookmarkName) {
-            const bookmarkRefs = await repository.getRefs();
+            const bookmarkRefs = await repository.getBookmarks();
             const existingBookmarks = bookmarkRefs.filter(
                 (ref) => ref.type === RefType.Bookmark
             ) as Bookmark[];
@@ -1546,7 +1546,7 @@ export class CommandCenter {
             }
         }
 
-        const bookmarkRefs = await repository.getRefs();
+        const bookmarkRefs = await repository.getBookmarks();
         const existingBookmarks = bookmarkRefs.filter(
             (ref) => ref.type === RefType.Bookmark
         ) as Bookmark[];

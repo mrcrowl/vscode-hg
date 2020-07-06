@@ -1433,17 +1433,17 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getRefs(): Promise<Ref[]> {
-        if (typedConfig.useBookmarks) {
-            const bookmarks = await this.repository.getBookmarks();
-            return bookmarks;
-        } else {
-            const [branches, tags] = await Promise.all([
-                this.repository.getBranches(),
-                this.repository.getTags(),
-            ]);
-            return [...branches, ...tags];
-        }
+    public async getBookmarks(): Promise<Bookmark[]> {
+        return this.repository.getBookmarks();
+    }
+
+    @throttle
+    public async getBranchesAndTags(): Promise<Ref[]> {
+        const [branches, tags] = await Promise.all([
+            this.repository.getBranches(),
+            this.repository.getTags(),
+        ]);
+        return [...branches, ...tags];
     }
 
     @throttle
