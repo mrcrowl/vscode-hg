@@ -61,6 +61,7 @@ export const enum PushCreatesNewHeadAction {
 export const enum WarnScenario {
     Merge,
     Update,
+    Rebase,
 }
 export const enum DefaultRepoNotConfiguredAction {
     None,
@@ -380,6 +381,19 @@ export namespace interaction {
                     "clean repo",
                     "Please clean your repository working directory before updating."
                 );
+                break;
+            case HgErrorCodes.NothingToRebase:
+                message = localize("nothing to rebase", "Nothing to rebase.");
+                type = "warning";
+                options.modal = false;
+                break;
+            case HgErrorCodes.NoRebaseInProgress:
+                message = localize(
+                    "no rebase in progress",
+                    "No rebase in progress."
+                );
+                type = "warning";
+                options.modal = false;
                 break;
             case HgErrorCodes.ShelveConflict:
                 // TODO: Show "Abort" button
