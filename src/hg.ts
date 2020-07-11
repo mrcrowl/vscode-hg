@@ -937,24 +937,6 @@ export class Repository {
         }
     }
 
-    async undo(): Promise<void> {
-        await this.run(["clean", "-fd"]);
-
-        try {
-            await this.run(["checkout", "--", "."]);
-        } catch (err) {
-            if (
-                /did not match any file\(s\) known to hg\./.test(
-                    err.stderr || ""
-                )
-            ) {
-                return;
-            }
-
-            throw err;
-        }
-    }
-
     async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
         const args = ["rollback"];
 
