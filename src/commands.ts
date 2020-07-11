@@ -1094,13 +1094,20 @@ export class CommandCenter {
             return;
         }
 
-        const choice = await interaction.pickUpdateRevision(
-            refs,
+        const placeHolder = `Select a ${
+            useBookmarks ? "bookmark" : "branch/tag"
+        } to update to: ${
             uncleanBookmarks
-        );
-
+                ? "(only showing local bookmarks while working directory unclean)"
+                : ""
+        }`;
+        const choice = await interaction.pickRevision(refs, placeHolder);
         if (choice) {
-            await choice.run(repository);
+            const ref =
+                choice.type === RefType.Commit ? choice.commit : choice.name;
+            if (ref) {
+                await repository.update(ref);
+            }
         }
     }
 
