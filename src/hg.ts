@@ -198,7 +198,7 @@ export class HgFinder {
                     this.logAttempt(path);
                     cp.exec(
                         "hg --version",
-                        { encoding: "utf-8" },
+                        { encoding: "utf-8", env: { HGPLAIN: "" } },
                         (err, stdout: Buffer) => {
                             if (err) {
                                 return e("hg not found");
@@ -253,7 +253,9 @@ export class HgFinder {
         return new Promise<IHg>((c, e) => {
             const buffers: Buffer[] = [];
             this.logAttempt(path);
-            const child = cp.spawn(path, ["--version"]);
+            const child = cp.spawn(path, ["--version"], {
+                env: { HGPLAIN: "" },
+            });
             child.stdout.on("data", (b: Buffer) => buffers.push(b));
             child.on("error", e);
             child.on("exit", (code) => {
