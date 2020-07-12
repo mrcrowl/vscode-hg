@@ -281,6 +281,12 @@
                 "category": "Hg"
             },
             {
+                "command": "hg.revertChange",
+                "title": "%command.revertChange%",
+                "category": "Hg",
+                "icon": "$(discard)"
+            },
+            {
                 "command": "hg.unstage",
                 "title": "%command.unstage%",
                 "category": "Hg",
@@ -396,6 +402,10 @@
                 {
                     "command": "hg.stageAll",
                     "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.revertChange",
+                    "when": "false"
                 },
                 {
                     "command": "hg.unstage",
@@ -791,6 +801,12 @@
                 {
                     "command": "hg.fileLog",
                     "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0 && !isInDiffEditor"
+                }
+            ],
+            "scm/change/title": [
+                {
+                    "command": "hg.revertChange",
+                    "when": "config.hg.enabled && !hg.missing && originalResourceScheme == hg"
                 }
             ]
         },

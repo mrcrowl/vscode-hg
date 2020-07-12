@@ -9,6 +9,7 @@
     "command.openFiles": "Open Files",
     "command.stage": "Stage Changes",
     "command.stageAll": "Stage All Changes",
+    "command.revertChange": "Revert Change",
     "command.unstage": "Unstage Changes",
     "command.unstageAll": "Unstage All Changes",
     "command.clean": "Discard Changes",
