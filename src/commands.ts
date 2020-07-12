@@ -1066,27 +1066,62 @@ export class CommandCenter {
 
     @command("hg.update", { repository: true })
     async update(repository: Repository): Promise<void> {
-        let refs: Ref[];
-        let unclean = false;
+        const useBookmarks = typedConfig.useBookmarks;
 
-        if (typedConfig.useBookmarks) {
+        if (
+            !useBookmarks &&
+            (await this.checkThenWarnOutstandingMergeOrUnclean(
+                repository,
+                WarnScenario.Update
+            ))
+        ) {
+            return;
+        }
+
+        const { isClean, repoStatus } = repository;
+        const uncleanBookmarks =
+            useBookmarks && (!isClean || (repoStatus && repoStatus.isMerge));
+
+        const refs = await this.getUpdateCandidates(
+            repository,
+            useBookmarks,
+            uncleanBookmarks
+        );
+
+        if (uncleanBookmarks && refs.length === 0) {
+            this.checkThenWarnOutstandingMergeOrUnclean(
+                repository,
+                WarnScenario.Update
+            );
+            return;
+        }
+
+        const choice = await interaction.pickUpdateRevision(
+            refs,
+            uncleanBookmarks
+        );
+
+        if (choice) {
+            await choice.run(repository);
+        }
+    }
+
+    private async getUpdateCandidates(
+        repository: Repository,
+        useBookmarks: boolean,
+        uncleanBookmarks?: boolean
+    ): Promise<Ref[]> {
+        if (useBookmarks) {
             // bookmarks
-            const { isClean, repoStatus } = repository;
-            unclean = !isClean || (repoStatus && repoStatus.isMerge) || false;
-            if (unclean) {
+            if (uncleanBookmarks) {
                 // unclean: only allow bookmarks already on the parents
-                const bookmarks = await repository.getBookmarks();
-                const parents = await repository.getParents();
-                refs = bookmarks.filter((b) =>
+                const [bookmarks, parents] = await Promise.all([
+                    repository.getBookmarks(),
+                    repository.getParents(),
+                ]);
+                return bookmarks.filter((b) =>
                     parents.some((p) => p.hash.startsWith(b.commit!))
                 );
-                if (refs.length === 0) {
-                    this.checkThenWarnOutstandingMergeOrUnclean(
-                        repository,
-                        WarnScenario.Update
-                    );
-                    return;
-                }
             } else {
                 // clean: allow all bookmarks and other commits
                 const [bookmarks, maxPublic, draftHeads] = await Promise.all([
@@ -1094,32 +1129,17 @@ export class CommandCenter {
                     repository.getPublicTip({ excludeBookmarks: true }),
                     repository.getDraftHeads({ excludeBookmarks: true }),
                 ]);
-                refs = [...bookmarks, ...maxPublic, ...draftHeads];
+                return [...bookmarks, ...maxPublic, ...draftHeads];
             }
         } else {
             // branches/tags
-            if (
-                await this.checkThenWarnOutstandingMergeOrUnclean(
-                    repository,
-                    WarnScenario.Update
-                )
-            ) {
-                return;
-            }
-
             const [branches, tags, maxPublic, draftHeads] = await Promise.all([
                 repository.getBranches(),
                 repository.getTags(),
                 repository.getPublicTip({ excludeTags: true }),
                 repository.getDraftHeads({ excludeTags: true }),
             ]);
-            refs = [...branches, ...tags, ...maxPublic, ...draftHeads];
-        }
-
-        const choice = await interaction.pickUpdateRevision(refs, unclean);
-
-        if (choice) {
-            await choice.run(repository);
+            return [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
     }
 
