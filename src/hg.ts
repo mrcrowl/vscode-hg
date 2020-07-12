@@ -939,6 +939,19 @@ export class Repository {
         }
     }
 
+    async purge(opts: PurgeOptions): Promise<void> {
+        const args = ["purge", "--config", "extensions.purge="];
+
+        if (opts.paths && opts.paths.length) {
+            args.push(...opts.paths);
+        }
+        if (opts.all) {
+            args.push("--all");
+        }
+
+        await this.run(args);
+    }
+
     async rollback(dryRun?: boolean): Promise<HgRollbackDetails> {
         const args = ["rollback"];
 
@@ -1035,19 +1048,6 @@ export class Repository {
 
             throw err;
         }
-    }
-
-    async purge(opts: PurgeOptions): Promise<void> {
-        const args = ["purge", "--config", "extensions.purge="];
-
-        if (opts.paths && opts.paths.length) {
-            args.push(...opts.paths);
-        }
-        if (opts.all) {
-            args.push("--all");
-        }
-
-        await this.run(args);
     }
 
     async unshelveAbort(): Promise<void> {
