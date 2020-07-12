@@ -1463,6 +1463,42 @@ export class Repository implements IDisposable {
         return this.repository.getParents(revision);
     }
 
+    public async getUpdateCandidates(
+        useBookmarks: boolean,
+        uncleanBookmarks?: boolean
+    ): Promise<Ref[]> {
+        if (useBookmarks) {
+            // bookmarks
+            if (uncleanBookmarks) {
+                // unclean: only allow bookmarks already on the parents
+                const [bookmarks, parents] = await Promise.all([
+                    this.getBookmarks(),
+                    this.getParents(),
+                ]);
+                return bookmarks.filter((b) =>
+                    parents.some((p) => p.hash.startsWith(b.commit!))
+                );
+            } else {
+                // clean: allow all bookmarks and other commits
+                const [bookmarks, maxPublic, draftHeads] = await Promise.all([
+                    this.getBookmarks(),
+                    this.getPublicTip({ excludeBookmarks: true }),
+                    this.getDraftHeads({ excludeBookmarks: true }),
+                ]);
+                return [...bookmarks, ...maxPublic, ...draftHeads];
+            }
+        } else {
+            // branches/tags
+            const [branches, tags, maxPublic, draftHeads] = await Promise.all([
+                this.getBranches(),
+                this.getTags(),
+                this.getPublicTip({ excludeTags: true }),
+                this.getDraftHeads({ excludeTags: true }),
+            ]);
+            return [...branches, ...tags, ...maxPublic, ...draftHeads];
+        }
+    }
+
     @throttle
     public async getBranchNamesWithMultipleHeads(
         branch?: string

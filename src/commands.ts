@@ -1082,8 +1082,7 @@ export class CommandCenter {
         const uncleanBookmarks =
             useBookmarks && (!isClean || (repoStatus && repoStatus.isMerge));
 
-        const refs = await this.getUpdateCandidates(
-            repository,
+        const refs = await repository.getUpdateCandidates(
             useBookmarks,
             uncleanBookmarks
         );
@@ -1103,43 +1102,6 @@ export class CommandCenter {
 
         if (choice) {
             await choice.run(repository);
-        }
-    }
-
-    private async getUpdateCandidates(
-        repository: Repository,
-        useBookmarks: boolean,
-        uncleanBookmarks?: boolean
-    ): Promise<Ref[]> {
-        if (useBookmarks) {
-            // bookmarks
-            if (uncleanBookmarks) {
-                // unclean: only allow bookmarks already on the parents
-                const [bookmarks, parents] = await Promise.all([
-                    repository.getBookmarks(),
-                    repository.getParents(),
-                ]);
-                return bookmarks.filter((b) =>
-                    parents.some((p) => p.hash.startsWith(b.commit!))
-                );
-            } else {
-                // clean: allow all bookmarks and other commits
-                const [bookmarks, maxPublic, draftHeads] = await Promise.all([
-                    repository.getBookmarks(),
-                    repository.getPublicTip({ excludeBookmarks: true }),
-                    repository.getDraftHeads({ excludeBookmarks: true }),
-                ]);
-                return [...bookmarks, ...maxPublic, ...draftHeads];
-            }
-        } else {
-            // branches/tags
-            const [branches, tags, maxPublic, draftHeads] = await Promise.all([
-                repository.getBranches(),
-                repository.getTags(),
-                repository.getPublicTip({ excludeTags: true }),
-                repository.getDraftHeads({ excludeTags: true }),
-            ]);
-            return [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
     }
 
