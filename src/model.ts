@@ -6,80 +6,24 @@
 
 import {
     Uri,
-    Command,
     EventEmitter,
     Event,
-    SourceControlResourceState,
-    SourceControlResourceDecorations,
     Disposable,
     window,
     workspace,
-    commands,
-    ProgressLocation,
     SourceControlResourceGroup,
     SourceControl,
     WorkspaceFoldersChangeEvent,
     TextEditor,
     QuickPickItem,
 } from "vscode";
-import {
-    Hg,
-    Repository as BaseRepository,
-    Ref,
-    Path,
-    PushOptions,
-    PullOptions,
-    Commit,
-    HgErrorCodes,
-    HgError,
-    IFileStatus,
-    HgRollbackDetails,
-    IRepoStatus,
-    IMergeResult,
-    LogEntryOptions,
-    LogEntryRepositoryOptions,
-    CommitDetails,
-    Revision,
-    SyncOptions,
-    Bookmark,
-} from "./hg";
-import {
-    anyEvent,
-    eventToPromise,
-    filterEvent,
-    mapEvent,
-    EmptyDisposable,
-    combinedDisposable,
-    dispose,
-    groupBy,
-    partition,
-    delay,
-} from "./util";
-import { memoize, throttle, debounce, sequentialize } from "./decorators";
+import { Hg, HgErrorCodes } from "./hg";
+import { anyEvent, filterEvent, dispose } from "./util";
+import { memoize, debounce, sequentialize } from "./decorators";
 import * as path from "path";
 import * as fs from "fs";
 import * as nls from "vscode-nls";
-import {
-    groupStatuses,
-    IStatusGroups,
-    IGroupStatusesParams,
-    createEmptyStatusGroups,
-    ResourceGroup,
-    MergeGroup,
-    ConflictGroup,
-    StagingGroup,
-    WorkingDirectoryGroup,
-    UntrackedGroup,
-    ResourceGroupId,
-} from "./resourceGroups";
-import {
-    interaction,
-    PushCreatesNewHeadAction,
-    DefaultRepoNotConfiguredAction,
-} from "./interaction";
-import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import typedConfig from "./config";
-import { PushPullScopeOptions } from "./config";
 import { Repository, RepositoryState } from "./repository";
 
 const localize = nls.loadMessageBundle();
@@ -100,8 +44,6 @@ class RepositoryPick implements QuickPickItem {
 
     constructor(public readonly repository: Repository) {}
 }
-
-const exists = (path: string) => new Promise((c) => fs.exists(path, c));
 
 export interface ModelChangeEvent {
     repository: Repository;

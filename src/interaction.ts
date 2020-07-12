@@ -13,12 +13,9 @@ import {
     workspace,
     Uri,
     MessageOptions,
-    OutputChannel,
     WorkspaceFolder,
     Disposable,
 } from "vscode";
-import { ChildProcess } from "child_process";
-import { Model } from "./model";
 import {
     HgRollbackDetails,
     Path,
@@ -36,7 +33,7 @@ import { humanise } from "./humanise";
 import * as fs from "fs";
 import * as os from "os";
 import typedConfig from "./config";
-import { Repository, Resource, Status, LogEntriesOptions } from "./repository";
+import { Repository, LogEntriesOptions } from "./repository";
 const localize = nls.loadMessageBundle();
 
 const USE_CHANGED = "Use changed version";
@@ -161,8 +158,7 @@ export namespace interaction {
     }
 
     export async function checkThenWarnOutstandingMerge(
-        repository: Repository,
-        scenario: WarnScenario
+        repository: Repository
     ): Promise<boolean> {
         const { repoStatus } = repository;
         if (repoStatus && repoStatus.isMerge) {
@@ -1114,10 +1110,7 @@ export namespace interaction {
         return choice === deleteOption;
     }
 
-    export async function handleChoices(
-        stdout: string,
-        limit: number
-    ): Promise<string> {
+    export async function handleChoices(stdout: string): Promise<string> {
         /* other [merge rev] changed letters.txt which local [working copy] deleted
     use (c)hanged version, leave (d)eleted, or leave (u)nresolved*/
         const [options, prompt, ..._] = stdout.split("\n").reverse();

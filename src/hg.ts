@@ -4,37 +4,22 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as cp from "child_process";
 import {
     assign,
-    uniqBy,
     groupBy,
-    denodeify,
     IDisposable,
     toDisposable,
     dispose,
     mkdirp,
     asciiOnly,
     writeStringToTempFile,
-    log,
 } from "./util";
-import {
-    EventEmitter,
-    Event,
-    OutputChannel,
-    workspace,
-    Disposable,
-} from "vscode";
-import * as nls from "vscode-nls";
+import { EventEmitter, Event, workspace, Disposable } from "vscode";
 import { HgCommandServer } from "./hgserve";
-import { activate } from "./main";
 
-const localize = nls.loadMessageBundle();
-const readdir = denodeify<string[]>(fs.readdir);
-const readfile = denodeify<string>(fs.readFile);
 const isWindows = os.platform() === "win32";
 
 export interface IHg {
@@ -1023,7 +1008,7 @@ export class Repository {
         }
 
         try {
-            const result = await this.run(args);
+            await this.run(args);
         } catch (err) {
             if (/unresolved conflicts/.test(err.stderr || "")) {
                 err.hgErrorCode = HgErrorCodes.ShelveConflict;
@@ -1252,7 +1237,7 @@ export class Repository {
             .split("\n")
             .filter((line) => !!line)
             .map((line: string): string[] => {
-                const [revision, hash, tabDelimBookmarks] = line.split(":", 3);
+                const [_rev, _hash, tabDelimBookmarks] = line.split(":", 3);
                 const bookmarks = tabDelimBookmarks
                     ? tabDelimBookmarks.split("\t")
                     : [];

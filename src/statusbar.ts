@@ -4,14 +4,12 @@
  *  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, Command, EventEmitter, Event, workspace } from "vscode";
+import { Disposable, Command, EventEmitter, Event } from "vscode";
 import { RefType, Ref, Bookmark, IRepoStatus } from "./hg";
-import { Model } from "./model";
 import { anyEvent, dispose } from "./util";
 import { AutoInOutStatuses, AutoInOutState } from "./autoinout";
 import * as nls from "vscode-nls";
 import typedConfig from "./config";
-import { activate } from "./main";
 import { Repository, Operation } from "./repository";
 
 const localize = nls.loadMessageBundle();

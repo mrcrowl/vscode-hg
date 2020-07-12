@@ -27,7 +27,6 @@ class TimeSpan {
     }
 }
 
-const AVERAGE_WEEKS_PER_MONTH = 4.34524;
 const BULLET = "\u2022";
 const FILE_LIST_LIMIT = 8;
 
@@ -117,7 +116,6 @@ export namespace humanise {
                     addSeconds(now, -elapsedSeconds)
                 );
                 const yesterday: Date = addDays(today, -1);
-                const wholeDays: number = Math.round(elapsed.totalDays);
 
                 if (startDate.getTime() == yesterday.getTime()) {
                     return "yesterday";

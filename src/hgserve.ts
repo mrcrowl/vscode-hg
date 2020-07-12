@@ -1,7 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
-import { window, InputBoxOptions } from "vscode";
 import { interaction } from "./interaction";
-import { EventEmitter, Event } from "vscode";
+import { EventEmitter } from "vscode";
 // import { logger } from "./logger";
 
 export interface Deferred<T> {
@@ -78,8 +77,8 @@ export class HgCommandServer {
     private async start(hgPath: string): Promise<HgCommandServer> {
         this.hgPath = hgPath;
         this.serverProcess = await this.spawnCommandServerProcess(hgPath);
-        const lineInputHandler = async (body, limit) => {
-            const response = await interaction.handleChoices(body, limit);
+        const lineInputHandler = async (body: string, _limit: number) => {
+            const response = await interaction.handleChoices(body);
             if (this.serverProcess) {
                 serverSendLineInput(
                     this.serverProcess,
@@ -160,7 +159,7 @@ export class HgCommandServer {
             cp.stdout.once("data", async (data: Buffer) => {
                 stream.write(data);
 
-                const chan = await stream.readChar();
+                const _chan = await stream.readChar();
                 const length = await stream.readInt();
                 const body = await stream.readString(length, "ascii");
                 const {
@@ -184,7 +183,7 @@ export class HgCommandServer {
                 }
                 return this.handleServerError(data);
             });
-            cp.on("exit", (code) => {
+            cp.on("exit", (_code) => {
                 if (cp) {
                     cp.removeAllListeners("exit");
                 }
@@ -478,7 +477,7 @@ function writeBufferToStdIn(
     server: ChildProcess,
     buffer: Buffer
 ): Promise<any> {
-    return new Promise((c, e) => server.stdin.write(buffer, c));
+    return new Promise((c, _e) => server.stdin.write(buffer, c));
 }
 
 const LINE_CHANNEL = "L";

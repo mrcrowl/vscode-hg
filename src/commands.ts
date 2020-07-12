@@ -11,13 +11,11 @@ import {
     Disposable,
     window,
     workspace,
-    QuickPickItem,
     OutputChannel,
     Range,
     WorkspaceEdit,
     Position,
     SourceControlResourceState,
-    SourceControl,
     SourceControlResourceGroup,
     TextDocumentShowOptions,
     ViewColumn,
@@ -31,13 +29,9 @@ import {
     Commit,
     HgError,
     HgErrorCodes,
-    PushOptions,
-    IMergeResult,
-    LogEntryOptions,
     IFileStatus,
     CommitDetails,
     Revision,
-    SyncOptions,
     Bookmark,
 } from "./hg";
 import { Model } from "./model";
@@ -58,8 +52,6 @@ import {
     MergeGroup,
     UntrackedGroup,
     ConflictGroup,
-    ResourceGroup,
-    ResourceGroupId,
     isResourceGroup,
 } from "./resourceGroups";
 import {
@@ -67,13 +59,10 @@ import {
     BranchExistsAction,
     WarnScenario,
     CommitSources,
-    DescribedBackAction,
     DefaultRepoNotConfiguredAction,
     LogMenuAPI,
 } from "./interaction";
 import { humanise } from "./humanise";
-import * as vscode from "vscode";
-import * as fs from "fs";
 import { partition } from "./util";
 import * as nls from "vscode-nls";
 import typedConfig from "./config";
@@ -362,7 +351,6 @@ export class CommandCenter {
             // a resource group proxy object?
             const [resourceGroup] = resources;
             if (isResourceGroup(resourceGroup)) {
-                const groupId = resourceGroup.id;
                 const resources = resourceGroup.resourceStates as Resource[];
                 return this.openFile(...resources);
             }
@@ -447,7 +435,6 @@ export class CommandCenter {
             // a resource group proxy object?
             const [resourceGroup] = resources;
             if (isResourceGroup(resourceGroup)) {
-                const groupId = resourceGroup.id;
                 const resources = resourceGroup.resourceStates as Resource[];
                 return this.openChange(...resources);
             }
@@ -660,7 +647,7 @@ export class CommandCenter {
         }
 
         const resources = scmResources.map((r) => r.resourceUri);
-        await this.runByRepository(resources, async (repository, uris) =>
+        await this.runByRepository(resources, async (repository, _uris) =>
             repository.resolve(resources, { mark: true })
         );
     }
@@ -685,7 +672,7 @@ export class CommandCenter {
         }
 
         const resources = scmResources.map((r) => r.resourceUri);
-        await this.runByRepository(resources, async (repository, uris) =>
+        await this.runByRepository(resources, async (repository, _uris) =>
             repository.resolve(resources)
         );
     }
@@ -709,7 +696,7 @@ export class CommandCenter {
             return;
         }
         const resources = scmResources.map((r) => r.resourceUri);
-        await this.runByRepository(resources, async (repository, uris) =>
+        await this.runByRepository(resources, async (repository, _uris) =>
             repository.unresolve(resources)
         );
     }
@@ -1082,8 +1069,7 @@ export class CommandCenter {
                 if (refs.length === 0) {
                     // no current bookmarks, so fall back to warnings
                     (await interaction.checkThenWarnOutstandingMerge(
-                        repository,
-                        WarnScenario.Update
+                        repository
                     )) ||
                         (await interaction.checkThenWarnUnclean(
                             repository,
@@ -1098,10 +1084,7 @@ export class CommandCenter {
         } else {
             // branches/tags
             if (
-                (await interaction.checkThenWarnOutstandingMerge(
-                    repository,
-                    WarnScenario.Update
-                )) ||
+                (await interaction.checkThenWarnOutstandingMerge(repository)) ||
                 (await interaction.checkThenWarnUnclean(
                     repository,
                     WarnScenario.Update
@@ -1167,10 +1150,7 @@ export class CommandCenter {
     @command("hg.mergeWithLocal", { repository: true })
     async mergeWithLocal(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(
-                repository,
-                WarnScenario.Merge
-            )) ||
+            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
             (await interaction.checkThenWarnUnclean(
                 repository,
                 WarnScenario.Merge
@@ -1194,10 +1174,7 @@ export class CommandCenter {
     @command("hg.mergeHeads", { repository: true })
     async mergeHeads(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(
-                repository,
-                WarnScenario.Merge
-            )) ||
+            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
             (await interaction.checkThenWarnUnclean(
                 repository,
                 WarnScenario.Merge
@@ -1394,8 +1371,6 @@ export class CommandCenter {
 
     @command("hg.push", { repository: true })
     async push(repository: Repository): Promise<void> {
-        const paths = await repository.getPaths();
-
         // check for branches with 2+ heads
         const validated = typedConfig.useBookmarks
             ? await this.validateBookmarkPush(repository)
@@ -1435,7 +1410,7 @@ export class CommandCenter {
                 repository.getCommitDetails(revision),
             getLogEntries: (options: LogEntriesOptions) =>
                 repository.getLogEntries(options),
-            diffToLocal: (file: IFileStatus, commit: CommitDetails) => {
+            diffToLocal: (_file: IFileStatus, _commit: CommitDetails) => {
                 // do nothing.
             },
             diffToParent: (file: IFileStatus, commit: CommitDetails) =>
@@ -1687,7 +1662,6 @@ export class CommandCenter {
         }
 
         if (uri.scheme === "file") {
-            const uriString = uri.toString();
             const repository = this.model.getRepository(uri);
 
             if (!repository) {

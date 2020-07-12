@@ -5,16 +5,12 @@ import {
     Event,
     scm,
     SourceControl,
-    SourceControlInputBox,
-    SourceControlResourceGroup,
     SourceControlResourceState,
     SourceControlResourceDecorations,
     Disposable,
     ProgressLocation,
     window,
     workspace,
-    WorkspaceEdit,
-    ThemeColor,
     commands,
 } from "vscode";
 import {
@@ -77,7 +73,6 @@ import {
     interaction,
     PushCreatesNewHeadAction,
 } from "./interaction";
-import { exists } from "fs";
 import { toHgUri } from "./uri";
 
 const timeout = (millis: number) => new Promise((c) => setTimeout(c, millis));
@@ -635,7 +630,7 @@ export class Repository implements IDisposable {
         await this.run(Operation.Status);
     }
 
-    private onFSChange(uri: Uri): void {
+    private onFSChange(_uri: Uri): void {
         if (!typedConfig.autoRefresh) {
             return;
         }
@@ -680,7 +675,7 @@ export class Repository implements IDisposable {
     }
 
     @debounce(1000)
-    private onHgrcChange(uri: Uri): void {
+    private onHgrcChange(_uri: Uri): void {
         this._onDidChangeHgrc.fire();
         if (typedConfig.commandMode === "server") {
             this.repository.hg.onConfigurationChange(true);
@@ -737,7 +732,7 @@ export class Repository implements IDisposable {
                 resources = this._groups.working.resources;
             }
 
-            const [missingAndAddedResources, otherResources] = partition(
+            const [missingAndAddedResources, _otherResources] = partition(
                 resources,
                 (r) => r.status === Status.MISSING || r.status === Status.ADDED
             );
@@ -1634,7 +1629,7 @@ export class Repository implements IDisposable {
 
     async hgrcPathIfExists(): Promise<string | undefined> {
         const filePath: string = this.hgrcPath;
-        const exists = await new Promise((c, e) => fs.exists(filePath, c));
+        const exists = await new Promise((c, _e) => fs.exists(filePath, c));
         if (exists) {
             return filePath;
         }
