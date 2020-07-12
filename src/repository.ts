@@ -1434,35 +1434,6 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getBookmarks(): Promise<Bookmark[]> {
-        return this.repository.getBookmarks();
-    }
-
-    @throttle
-    public async getBranches(): Promise<Ref[]> {
-        return this.repository.getBranches();
-    }
-
-    @throttle
-    public async getTags(): Promise<Ref[]> {
-        return this.repository.getTags();
-    }
-
-    @throttle
-    public async getDraftHeads(opts: GetRefsOptions): Promise<Ref[]> {
-        return this.repository.getDraftHeads(opts);
-    }
-
-    @throttle
-    public async getPublicTip(opts: GetRefsOptions): Promise<Ref[]> {
-        return this.repository.getPublicTip(opts);
-    }
-
-    @throttle
-    public getParents(revision?: string): Promise<Commit[]> {
-        return this.repository.getParents(revision);
-    }
-
     public async getUpdateCandidates(
         useBookmarks: boolean,
         uncleanBookmarks?: boolean
@@ -1472,31 +1443,43 @@ export class Repository implements IDisposable {
             if (uncleanBookmarks) {
                 // unclean: only allow bookmarks already on the parents
                 const [bookmarks, parents] = await Promise.all([
-                    this.getBookmarks(),
-                    this.getParents(),
+                    this.repository.getBookmarks(),
+                    this.repository.getParents(),
                 ]);
                 return bookmarks.filter((b) =>
                     parents.some((p) => p.hash.startsWith(b.commit!))
                 );
             } else {
                 // clean: allow all bookmarks and other commits
+                const opts = { excludeBookmarks: true } as GetRefsOptions;
                 const [bookmarks, maxPublic, draftHeads] = await Promise.all([
-                    this.getBookmarks(),
-                    this.getPublicTip({ excludeBookmarks: true }),
-                    this.getDraftHeads({ excludeBookmarks: true }),
+                    this.repository.getBookmarks(),
+                    this.repository.getPublicTip(opts),
+                    this.repository.getDraftHeads(opts),
                 ]);
                 return [...bookmarks, ...maxPublic, ...draftHeads];
             }
         } else {
             // branches/tags
+            const opts = { excludeTags: true } as GetRefsOptions;
             const [branches, tags, maxPublic, draftHeads] = await Promise.all([
-                this.getBranches(),
-                this.getTags(),
-                this.getPublicTip({ excludeTags: true }),
-                this.getDraftHeads({ excludeTags: true }),
+                this.repository.getBranches(),
+                this.repository.getTags(),
+                this.repository.getPublicTip(opts),
+                this.repository.getDraftHeads(opts),
             ]);
             return [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
+    }
+
+    @throttle
+    public async getBookmarks(): Promise<Bookmark[]> {
+        return this.repository.getBookmarks();
+    }
+
+    @throttle
+    public getParents(revision?: string): Promise<Commit[]> {
+        return this.repository.getParents(revision);
     }
 
     @throttle
