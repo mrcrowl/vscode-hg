@@ -1050,6 +1050,20 @@ export class CommandCenter {
         }
     }
 
+    private async checkThenWarnOutstandingMergeOrUnclean(
+        repository: Repository,
+        scenario: WarnScenario
+    ): Promise<boolean> {
+        if (
+            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
+            (await interaction.checkThenWarnUnclean(repository, scenario))
+        ) {
+            this.focusScm();
+            return true;
+        }
+        return false;
+    }
+
     @command("hg.update", { repository: true })
     async update(repository: Repository): Promise<void> {
         let refs: Ref[];
@@ -1067,14 +1081,10 @@ export class CommandCenter {
                     parents.some((p) => p.hash.startsWith(b.commit!))
                 );
                 if (refs.length === 0) {
-                    // no current bookmarks, so fall back to warnings
-                    (await interaction.checkThenWarnOutstandingMerge(
-                        repository
-                    )) ||
-                        (await interaction.checkThenWarnUnclean(
-                            repository,
-                            WarnScenario.Update
-                        ));
+                    this.checkThenWarnOutstandingMergeOrUnclean(
+                        repository,
+                        WarnScenario.Update
+                    );
                     return;
                 }
             } else {
@@ -1084,13 +1094,11 @@ export class CommandCenter {
         } else {
             // branches/tags
             if (
-                (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-                (await interaction.checkThenWarnUnclean(
+                await this.checkThenWarnOutstandingMergeOrUnclean(
                     repository,
                     WarnScenario.Update
-                ))
+                )
             ) {
-                this.focusScm();
                 return;
             }
 
@@ -1157,13 +1165,11 @@ export class CommandCenter {
     @command("hg.mergeWithLocal", { repository: true })
     async mergeWithLocal(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-            (await interaction.checkThenWarnUnclean(
+            await this.checkThenWarnOutstandingMergeOrUnclean(
                 repository,
                 WarnScenario.Merge
-            ))
+            )
         ) {
-            this.focusScm();
             return;
         }
 
@@ -1181,13 +1187,11 @@ export class CommandCenter {
     @command("hg.mergeHeads", { repository: true })
     async mergeHeads(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-            (await interaction.checkThenWarnUnclean(
+            await this.checkThenWarnOutstandingMergeOrUnclean(
                 repository,
                 WarnScenario.Merge
-            ))
+            )
         ) {
-            this.focusScm();
             return;
         }
 
