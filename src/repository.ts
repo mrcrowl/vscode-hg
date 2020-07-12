@@ -31,6 +31,7 @@ import {
     HgRollbackDetails,
     ShelveOptions,
     UnshelveOptions,
+    GetRefsOptions,
     RefType,
 } from "./hg";
 import {
@@ -1448,13 +1449,13 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getDraftHeads(): Promise<Ref[]> {
-        return this.repository.getDraftHeads();
+    public async getDraftHeads(opts: GetRefsOptions): Promise<Ref[]> {
+        return this.repository.getDraftHeads(opts);
     }
 
     @throttle
-    public async getPublicTip(): Promise<Ref[]> {
-        return this.repository.getPublicTip();
+    public async getPublicTip(opts: GetRefsOptions): Promise<Ref[]> {
+        return this.repository.getPublicTip(opts);
     }
 
     @throttle

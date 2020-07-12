@@ -87,6 +87,11 @@ export interface ICommitDetails {
     affectedFiles: IFileStatus[];
 }
 
+export interface GetRefsOptions {
+    excludeBookmarks?: boolean;
+    excludeTags?: boolean;
+}
+
 export enum RefType {
     Branch,
     Tag,
@@ -1593,13 +1598,17 @@ export class Repository {
         return branchRefs;
     }
 
-    async getDraftHeads(): Promise<Ref[]> {
+    async getDraftHeads(opts: GetRefsOptions): Promise<Ref[]> {
         const draftHeads = await this.getNativeCommits({
             revQuery: "head() and draft()",
         });
 
         return draftHeads
-            .filter((c) => c.tags.length === 0)
+            .filter(
+                (c) =>
+                    (!opts.excludeTags || c.tags.length === 0) &&
+                    (!opts.excludeBookmarks || c.bookmarks.length === 0)
+            )
             .map((c) => {
                 return {
                     type: RefType.Commit,
@@ -1608,14 +1617,18 @@ export class Repository {
             });
     }
 
-    async getPublicTip(): Promise<Ref[]> {
+    async getPublicTip(opts: GetRefsOptions): Promise<Ref[]> {
         const maxPublic = await this.getNativeCommits({
             revQuery: "max(public())",
             limit: 1,
         });
 
         return maxPublic
-            .filter((c) => c.tags.length === 0)
+            .filter(
+                (c) =>
+                    (!opts.excludeTags || c.tags.length === 0) &&
+                    (!opts.excludeBookmarks || c.bookmarks.length === 0)
+            )
             .map((c) => {
                 return {
                     name: "public tip",

@@ -1071,13 +1071,13 @@ export class CommandCenter {
 
         if (typedConfig.useBookmarks) {
             // bookmarks
-            const bookmarkRefs = await repository.getBookmarks();
             const { isClean, repoStatus } = repository;
             unclean = !isClean || (repoStatus && repoStatus.isMerge) || false;
             if (unclean) {
                 // unclean: only allow bookmarks already on the parents
+                const bookmarks = await repository.getBookmarks();
                 const parents = await repository.getParents();
-                refs = bookmarkRefs.filter((b) =>
+                refs = bookmarks.filter((b) =>
                     parents.some((p) => p.hash.startsWith(b.commit!))
                 );
                 if (refs.length === 0) {
@@ -1088,8 +1088,13 @@ export class CommandCenter {
                     return;
                 }
             } else {
-                // clean: allow all bookmarks
-                refs = bookmarkRefs;
+                // clean: allow all bookmarks and other commits
+                const [bookmarks, maxPublic, draftHeads] = await Promise.all([
+                    repository.getBookmarks(),
+                    repository.getPublicTip({ excludeBookmarks: true }),
+                    repository.getDraftHeads({ excludeBookmarks: true }),
+                ]);
+                refs = [...bookmarks, ...maxPublic, ...draftHeads];
             }
         } else {
             // branches/tags
@@ -1105,8 +1110,8 @@ export class CommandCenter {
             const [branches, tags, maxPublic, draftHeads] = await Promise.all([
                 repository.getBranches(),
                 repository.getTags(),
-                repository.getPublicTip(),
-                repository.getDraftHeads(),
+                repository.getPublicTip({ excludeTags: true }),
+                repository.getDraftHeads({ excludeTags: true }),
             ]);
             refs = [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
