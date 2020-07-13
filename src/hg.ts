@@ -1067,36 +1067,6 @@ export class Repository {
         }
     }
 
-    async revertFiles(treeish: string, paths: string[]): Promise<void> {
-        const result = await this.run(["branch"]);
-        let args: string[];
-
-        // In case there are no branches, we must use rm --cached
-        if (!result.stdout) {
-            args = ["rm", "--cached", "-r", "--"];
-        } else {
-            args = ["reset", "-q", treeish, "--"];
-        }
-
-        if (paths && paths.length) {
-            args.push(...paths);
-        } else {
-            args.push(".");
-        }
-
-        try {
-            await this.run(args);
-        } catch (err) {
-            // In case there are merge conflicts to be resolved, hg reset will output
-            // some "needs merge" data. We try to get around that.
-            if (/([^:]+: needs merge\n)+/m.test(err.stdout || "")) {
-                return;
-            }
-
-            throw err;
-        }
-    }
-
     async countIncoming(options?: SyncOptions): Promise<number> {
         try {
             return options && options.bookmarks && options.bookmarks.length
