@@ -8,14 +8,13 @@
 
 import {
     ExtensionContext,
-    workspace,
     window,
     Disposable,
     commands,
     Uri,
     OutputChannel,
 } from "vscode";
-import { HgFinder, Hg, IHg, HgFindAttemptLogger } from "./hg";
+import { HgFinder, Hg, IHg } from "./hg";
 import { Model } from "./model";
 import { CommandCenter } from "./commands";
 import { warnAboutMissingHg } from "./interaction";
@@ -30,10 +29,6 @@ async function init(
     outputChannel: OutputChannel,
     disposables: Disposable[]
 ): Promise<Model> {
-    const { name, version, aiKey } = require(context.asAbsolutePath(
-        "./package.json"
-    )) as { name: string; version: string; aiKey: string };
-
     commands.registerCommand("hg.showOutput", () => outputChannel.show());
     disposables.push(outputChannel);
 

@@ -6,17 +6,7 @@
 
 import "mocha";
 import * as assert from "assert";
-import {
-    workspace,
-    commands,
-    window,
-    Uri,
-    WorkspaceEdit,
-    Range,
-    TextDocument,
-    extensions,
-    scm,
-} from "vscode";
+import { commands, Uri, extensions } from "vscode";
 import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -41,23 +31,6 @@ suite("hg", () => {
 
     function file(relativePath: string) {
         return path.join(cwd, relativePath);
-    }
-
-    function uri(relativePath: string) {
-        return Uri.file(file(relativePath));
-    }
-
-    async function open(relativePath: string) {
-        const doc = await workspace.openTextDocument(uri(relativePath));
-        await window.showTextDocument(doc);
-        return doc;
-    }
-
-    async function type(doc: TextDocument, text: string) {
-        const edit = new WorkspaceEdit();
-        const end = doc.lineAt(doc.lineCount - 1).range.end;
-        edit.replace(doc.uri, new Range(end, end), text);
-        await workspace.applyEdit(edit);
     }
 
     suiteSetup(async function () {

@@ -61,7 +61,7 @@ class Config {
         return this.get("useBookmarks", false);
     }
 
-    setUseBookmarks(value: true) {
+    setUseBookmarks(_value: true) {
         return this.update("useBookmarks", true);
     }
 

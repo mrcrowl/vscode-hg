@@ -14,8 +14,6 @@ import {
 } from "vscode";
 import { debounce, throttle } from "./decorators";
 import { Model, ModelChangeEvent, OriginalResourceChangeEvent } from "./model";
-import { readFile } from "fs";
-import * as vscode from "vscode";
 import { filterEvent, eventToPromise } from "./util";
 import { fromHgUri, toHgUri } from "./uri";
 

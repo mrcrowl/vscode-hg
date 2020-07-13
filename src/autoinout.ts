@@ -6,10 +6,9 @@
 
 import { workspace, Disposable } from "vscode";
 import { HgErrorCodes, HgError } from "./hg";
-import { Model } from "./model";
 import { throttle } from "./decorators";
 import typedConfig from "./config";
-import { Repository, Operation, Operations } from "./repository";
+import { Repository, Operation } from "./repository";
 
 export const enum AutoInOutStatuses {
     Disabled,

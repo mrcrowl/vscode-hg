@@ -243,5 +243,5 @@ export function asciiOnly(text: string): boolean {
 }
 
 export async function delay(millis: number): Promise<any> {
-    return new Promise((c, e) => setTimeout(c, millis));
+    return new Promise((c, _e) => setTimeout(c, millis));
 }
