@@ -266,38 +266,36 @@ export class Resource implements SourceControlResourceState {
 }
 
 export const enum Operation {
-    Status = 1 << 0,
-    Add = 1 << 1,
-    RevertFiles = 1 << 2,
-    Commit = 1 << 3,
-    Clean = 1 << 4,
-    Branch = 1 << 5,
-    Update = 1 << 6,
-    Rollback = 1 << 7,
-    RollbackDryRun = 1 << 8,
-    // CountIncoming = 1 << 8,
-    Pull = 1 << 9,
-    Push = 1 << 10,
-    Sync = 1 << 11,
-    Init = 1 << 12,
-    Show = 1 << 13,
-    Stage = 1 << 14,
-    GetCommitTemplate = 1 << 15,
-    // CountOutgoing = 1 << 16,
-    Resolve = 1 << 17,
-    Unresolve = 1 << 18,
-    Parents = 1 << 19,
-    Forget = 1 << 20,
-    Merge = 1 << 21,
-    AddRemove = 1 << 22,
-    SetBookmark = 1 << 23,
-    RemoveBookmark = 1 << 24,
-    Shelve = 1 << 25,
-    UnshelveContinue = 1 << 26,
-    UnshelveAbort = 1 << 27,
-    Rebase = 1 << 28,
-    RebaseContinue = 1 << 29,
-    RebaseAbort = 1 << 30,
+    Status = "Status",
+    Add = "Add",
+    RevertFiles = "RevertFiles",
+    Commit = "Commit",
+    Clean = "Clean",
+    Branch = "Branch",
+    Update = "Update",
+    Rollback = "Rollback",
+    RollbackDryRun = "RollbackDryRun",
+    Pull = "Pull",
+    Push = "Push",
+    Sync = "Sync",
+    Init = "Init",
+    Show = "Show",
+    Stage = "Stage",
+    GetCommitTemplate = "GetCommitTemplate",
+    Resolve = "Resolve",
+    Unresolve = "Unresolve",
+    Parents = "Parents",
+    Forget = "Forget",
+    Merge = "Merge",
+    AddRemove = "AddRemove",
+    SetBookmark = "SetBookmark",
+    RemoveBookmark = "RemoveBookmark",
+    Shelve = "Shelve",
+    UnshelveContinue = "UnshelveContinue",
+    UnshelveAbort = "UnshelveAbort",
+    Rebase = "Rebase",
+    RebaseContinue = "RebaseContinue",
+    RebaseAbort = "RebaseAbort",
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -316,24 +314,39 @@ export interface Operations {
 }
 
 class OperationsImpl implements Operations {
-    constructor(private readonly operations: number = 0) {
-        // noop
+    private operations = new Map<Operation, number>();
+
+    start(operation: Operation): void {
+        this.operations.set(
+            operation,
+            (this.operations.get(operation) || 0) + 1
+        );
     }
 
-    start(operation: Operation): OperationsImpl {
-        return new OperationsImpl(this.operations | operation);
-    }
+    end(operation: Operation): void {
+        const count = (this.operations.get(operation) || 0) - 1;
 
-    end(operation: Operation): OperationsImpl {
-        return new OperationsImpl(this.operations & ~operation);
+        if (count <= 0) {
+            this.operations.delete(operation);
+        } else {
+            this.operations.set(operation, count);
+        }
     }
 
     isRunning(operation: Operation): boolean {
-        return (this.operations & operation) !== 0;
+        return this.operations.has(operation);
     }
 
     isIdle(): boolean {
-        return this.operations === 0;
+        const operations = this.operations.keys();
+
+        for (const operation of operations) {
+            if (!isReadOnly(operation)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -1403,7 +1416,7 @@ export class Repository implements IDisposable, QuickDiffProvider {
         return window.withProgress(
             { location: ProgressLocation.SourceControl },
             async () => {
-                this._operations = this._operations.start(operation);
+                this._operations.start(operation);
                 this._onRunOperation.fire(operation);
 
                 try {
@@ -1418,17 +1431,11 @@ export class Repository implements IDisposable, QuickDiffProvider {
                 } catch (err) {
                     if (err.hgErrorCode === HgErrorCodes.NotAnHgRepository) {
                         this.state = RepositoryState.Disposed;
-
-                        // const disposables: Disposable[] = [];
-                        // this.onWorkspaceChange(this.onFSChange, this, disposables);
-                        // this.repositoryDisposable = combinedDisposable(disposables);
-
-                        // this.state = State.NotAnHgRepository;
                     }
 
                     throw err;
                 } finally {
-                    this._operations = this._operations.end(operation);
+                    this._operations.end(operation);
                     this._onDidRunOperation.fire(operation);
                 }
             }
