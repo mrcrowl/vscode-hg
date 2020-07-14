@@ -296,8 +296,9 @@ export const enum Operation {
 
 function isReadOnly(operation: Operation): boolean {
     switch (operation) {
-        case Operation.Show:
         case Operation.GetCommitTemplate:
+        case Operation.Show:
+        case Operation.RollbackDryRun:
             return true;
         default:
             return false;
