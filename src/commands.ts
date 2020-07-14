@@ -22,7 +22,6 @@ import {
     TextEditor,
 } from "vscode";
 import {
-    Ref,
     RefType,
     ShelveOptions,
     Hg,
