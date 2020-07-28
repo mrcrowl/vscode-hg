@@ -22,7 +22,6 @@ import {
     TextEditor,
 } from "vscode";
 import {
-    Ref,
     RefType,
     ShelveOptions,
     Hg,
@@ -1050,53 +1049,55 @@ export class CommandCenter {
         }
     }
 
+    private async checkThenWarnOutstandingMergeOrUnclean(
+        repository: Repository,
+        scenario: WarnScenario
+    ): Promise<boolean> {
+        if (
+            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
+            (await interaction.checkThenWarnUnclean(repository, scenario))
+        ) {
+            this.focusScm();
+            return true;
+        }
+        return false;
+    }
+
     @command("hg.update", { repository: true })
     async update(repository: Repository): Promise<void> {
-        let refs: Ref[];
-        let unclean = false;
+        const useBookmarks = typedConfig.useBookmarks;
 
-        if (typedConfig.useBookmarks) {
-            // bookmarks
-            const bookmarkRefs = (await repository.getRefs()) as Bookmark[];
-            const { isClean, repoStatus } = repository;
-            unclean = !isClean || (repoStatus && repoStatus.isMerge) || false;
-            if (unclean) {
-                // unclean: only allow bookmarks already on the parents
-                const parents = await repository.getParents();
-                refs = bookmarkRefs.filter((b) =>
-                    parents.some((p) => p.hash.startsWith(b.commit!))
-                );
-                if (refs.length === 0) {
-                    // no current bookmarks, so fall back to warnings
-                    (await interaction.checkThenWarnOutstandingMerge(
-                        repository
-                    )) ||
-                        (await interaction.checkThenWarnUnclean(
-                            repository,
-                            WarnScenario.Update
-                        ));
-                    return;
-                }
-            } else {
-                // clean: allow all bookmarks
-                refs = bookmarkRefs;
-            }
-        } else {
-            // branches/tags
-            if (
-                (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-                (await interaction.checkThenWarnUnclean(
-                    repository,
-                    WarnScenario.Update
-                ))
-            ) {
-                this.focusScm();
-                return;
-            }
-            refs = await repository.getRefs();
+        if (
+            !useBookmarks &&
+            (await this.checkThenWarnOutstandingMergeOrUnclean(
+                repository,
+                WarnScenario.Update
+            ))
+        ) {
+            return;
         }
 
-        const choice = await interaction.pickUpdateRevision(refs, unclean);
+        const { isClean, repoStatus } = repository;
+        const uncleanBookmarks =
+            useBookmarks && (!isClean || (repoStatus && repoStatus.isMerge));
+
+        const refs = await repository.getUpdateCandidates(
+            useBookmarks,
+            uncleanBookmarks
+        );
+
+        if (uncleanBookmarks && refs.length === 0) {
+            this.checkThenWarnOutstandingMergeOrUnclean(
+                repository,
+                WarnScenario.Update
+            );
+            return;
+        }
+
+        const choice = await interaction.pickUpdateRevision(
+            refs,
+            uncleanBookmarks
+        );
 
         if (choice) {
             await choice.run(repository);
@@ -1150,13 +1151,11 @@ export class CommandCenter {
     @command("hg.mergeWithLocal", { repository: true })
     async mergeWithLocal(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-            (await interaction.checkThenWarnUnclean(
+            await this.checkThenWarnOutstandingMergeOrUnclean(
                 repository,
                 WarnScenario.Merge
-            ))
+            )
         ) {
-            this.focusScm();
             return;
         }
 
@@ -1174,13 +1173,11 @@ export class CommandCenter {
     @command("hg.mergeHeads", { repository: true })
     async mergeHeads(repository: Repository): Promise<void> {
         if (
-            (await interaction.checkThenWarnOutstandingMerge(repository)) ||
-            (await interaction.checkThenWarnUnclean(
+            await this.checkThenWarnOutstandingMergeOrUnclean(
                 repository,
                 WarnScenario.Merge
-            ))
+            )
         ) {
-            this.focusScm();
             return;
         }
 
@@ -1502,7 +1499,7 @@ export class CommandCenter {
         const bookmarkName = await interaction.inputBookmarkName();
 
         if (bookmarkName) {
-            const bookmarkRefs = await repository.getRefs();
+            const bookmarkRefs = await repository.getBookmarks();
             const existingBookmarks = bookmarkRefs.filter(
                 (ref) => ref.type === RefType.Bookmark
             ) as Bookmark[];
@@ -1546,7 +1543,7 @@ export class CommandCenter {
             }
         }
 
-        const bookmarkRefs = await repository.getRefs();
+        const bookmarkRefs = await repository.getBookmarks();
         const existingBookmarks = bookmarkRefs.filter(
             (ref) => ref.type === RefType.Bookmark
         ) as Bookmark[];

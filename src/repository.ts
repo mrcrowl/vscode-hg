@@ -31,6 +31,7 @@ import {
     HgRollbackDetails,
     ShelveOptions,
     UnshelveOptions,
+    GetRefsOptions,
     RefType,
 } from "./hg";
 import {
@@ -1433,17 +1434,47 @@ export class Repository implements IDisposable {
     }
 
     @throttle
-    public async getRefs(): Promise<Ref[]> {
-        if (typedConfig.useBookmarks) {
-            const bookmarks = await this.repository.getBookmarks();
-            return bookmarks;
+    public async getUpdateCandidates(
+        useBookmarks: boolean,
+        uncleanBookmarks?: boolean
+    ): Promise<Ref[]> {
+        if (useBookmarks) {
+            // bookmarks
+            if (uncleanBookmarks) {
+                // unclean: only allow bookmarks already on the parents
+                const [bookmarks, parents] = await Promise.all([
+                    this.repository.getBookmarks(),
+                    this.repository.getParents(),
+                ]);
+                return bookmarks.filter((b) =>
+                    parents.some((p) => p.hash.startsWith(b.commit!))
+                );
+            } else {
+                // clean: allow all bookmarks and other commits
+                const opts = { excludeBookmarks: true } as GetRefsOptions;
+                const [bookmarks, maxPublic, draftHeads] = await Promise.all([
+                    this.repository.getBookmarks(),
+                    this.repository.getPublicTip(opts),
+                    this.repository.getDraftHeads(opts),
+                ]);
+                return [...bookmarks, ...maxPublic, ...draftHeads];
+            }
         } else {
-            const [branches, tags] = await Promise.all([
+            // branches/tags
+            const opts = { excludeTags: true } as GetRefsOptions;
+            const [branches, tags, maxPublic, draftHeads] = await Promise.all([
                 this.repository.getBranches(),
                 this.repository.getTags(),
+                this.repository.getPublicTip(opts),
+                this.repository.getDraftHeads(opts),
             ]);
-            return [...branches, ...tags];
+            return [...branches, ...tags, ...maxPublic, ...draftHeads];
         }
+    }
+
+    @throttle
+    public async getBookmarks(): Promise<Bookmark[]> {
+        return this.repository.getBookmarks();
     }
 
     @throttle

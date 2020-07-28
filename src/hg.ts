@@ -87,6 +87,11 @@ export interface ICommitDetails {
     affectedFiles: IFileStatus[];
 }
 
+export interface GetRefsOptions {
+    excludeBookmarks?: boolean;
+    excludeTags?: boolean;
+}
+
 export enum RefType {
     Branch,
     Tag,
@@ -1473,13 +1478,13 @@ export class Repository {
         return activeBookmark;
     }
 
-    async getLogEntries({
+    private async getNativeCommits({
         revQuery,
         branch,
         filePaths,
         follow,
         limit,
-    }: LogEntryRepositoryOptions = {}): Promise<Commit[]> {
+    }: LogEntryRepositoryOptions = {}): Promise<NativeCommit[]> {
         const args = ["log", "-T", "json"];
 
         if (revQuery) {
@@ -1503,8 +1508,16 @@ export class Repository {
         }
 
         const result = await this.run(args);
-        const logEntries = JSON.parse(result.stdout.trim()).map(
-            (commit: NativeCommit): Commit | null => {
+        return JSON.parse(result.stdout.trim()) as NativeCommit[];
+    }
+
+    async getLogEntries(
+        options: LogEntryRepositoryOptions = {}
+    ): Promise<Commit[]> {
+        const nativeCommits = await this.getNativeCommits(options);
+
+        return nativeCommits.map(
+            (commit: NativeCommit): Commit => {
                 return {
                     revision: commit.rev,
                     date: new Date(commit.date[0] * 1000),
@@ -1516,7 +1529,6 @@ export class Repository {
                 } as Commit;
             }
         );
-        return logEntries;
     }
 
     async getParents(revision?: string): Promise<Commit[]> {
@@ -1584,6 +1596,46 @@ export class Repository {
             .filter((ref) => !!ref) as Ref[];
 
         return branchRefs;
+    }
+
+    async getDraftHeads(opts: GetRefsOptions): Promise<Ref[]> {
+        const draftHeads = await this.getNativeCommits({
+            revQuery: "head() and draft()",
+        });
+
+        return draftHeads
+            .filter(
+                (c) =>
+                    (!opts.excludeTags || c.tags.length === 0) &&
+                    (!opts.excludeBookmarks || c.bookmarks.length === 0)
+            )
+            .map((c) => {
+                return {
+                    type: RefType.Commit,
+                    commit: c.node.substr(0, 12),
+                };
+            });
+    }
+
+    async getPublicTip(opts: GetRefsOptions): Promise<Ref[]> {
+        const maxPublic = await this.getNativeCommits({
+            revQuery: "max(public())",
+            limit: 1,
+        });
+
+        return maxPublic
+            .filter(
+                (c) =>
+                    (!opts.excludeTags || c.tags.length === 0) &&
+                    (!opts.excludeBookmarks || c.bookmarks.length === 0)
+            )
+            .map((c) => {
+                return {
+                    name: "public tip",
+                    type: RefType.Commit,
+                    commit: c.node.substr(0, 12),
+                };
+            });
     }
 
     async getBookmarks(): Promise<Bookmark[]> {

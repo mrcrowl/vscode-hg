@@ -616,10 +616,13 @@ export namespace interaction {
                   .map((ref) => new UpdateTagItem(ref))
             : [];
 
-        const picks = [...branches, ...bookmarks, ...tags];
-        const revType = useBookmarks ? "bookmark" : "branch/tag";
+        const commits = refs
+            .filter((ref) => ref.type === RefType.Commit)
+            .map((ref) => new UpdateCommitItem(ref));
 
-        const placeHolder = `Select a ${revType} to update to: ${
+        const picks = [...branches, ...bookmarks, ...tags, ...commits];
+
+        const placeHolder = `Select a revision to update to: ${
             unclean
                 ? "(only showing local bookmarks while working directory unclean)"
                 : ""
@@ -1249,7 +1252,8 @@ class UpdateRefItem implements QuickPickItem {
     constructor(protected ref: Ref) {}
 
     async run(repository: Repository): Promise<void> {
-        const ref = this.treeish;
+        const ref =
+            this.ref.type === RefType.Commit ? this.ref.commit : this.treeish;
 
         if (!ref) {
             return;
@@ -1271,6 +1275,12 @@ class UpdateTagItem extends UpdateRefItem {
 class UpdateBookmarkItem extends UpdateRefItem {
     protected get icon(): string {
         return "$(bookmark) ";
+    }
+}
+
+class UpdateCommitItem extends UpdateRefItem {
+    protected get icon(): string {
+        return "$(git-commit) ";
     }
 }
 
