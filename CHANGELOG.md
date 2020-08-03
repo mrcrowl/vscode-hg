@@ -1,3 +1,18 @@
+# **v1.7.0**
+
+## What's New
+
+-   Added support for purge (deleting untracked files) [#100](https://github.com/mrcrowl/vscode-hg/issues/100)
+-   Added ability to revert a single change block [#68](https://github.com/mrcrowl/vscode-hg/issues/68)
+-   Improved update command by displaying "draft heads" and "public tip" [#116](https://github.com/mrcrowl/vscode-hg/issues/116)
+-   Added support for rebase [#113](https://github.com/mrcrowl/vscode-hg/issues/113)
+
+## Bug fixes
+
+-   Fix: ignore secret changes on push [#37](https://github.com/mrcrowl/vscode-hg/issues/37)
+-   Fix: don't warn for multiple heads on push when using topic [#140](https://github.com/mrcrowl/vscode-hg/issues/140)
+-   Fix: hg version in non-english installs is now displayed correctly
+
 # **v1.6.0**
 
 ## What's New

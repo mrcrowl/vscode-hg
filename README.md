@@ -32,7 +32,11 @@
 
 -   Undo/rollback.
 
--   Shelve/Unshelve support (NB: requires shelve extension to be enabled).
+-   Shelve/Unshelve support.
+
+-   Purge support.
+
+-   Rebase support.
 
 # Feedback & Contributing
 
