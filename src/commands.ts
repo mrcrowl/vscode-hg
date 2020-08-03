@@ -1094,13 +1094,20 @@ export class CommandCenter {
             return;
         }
 
-        const choice = await interaction.pickUpdateRevision(
-            refs,
+        const placeHolder = `Select a ${
+            useBookmarks ? "bookmark" : "branch/tag"
+        } to update to: ${
             uncleanBookmarks
-        );
-
+                ? "(only showing local bookmarks while working directory unclean)"
+                : ""
+        }`;
+        const choice = await interaction.pickRevision(refs, placeHolder);
         if (choice) {
-            await choice.run(repository);
+            const ref =
+                choice.type === RefType.Commit ? choice.commit : choice.name;
+            if (ref) {
+                await repository.update(ref);
+            }
         }
     }
 
@@ -1236,6 +1243,48 @@ export class CommandCenter {
                 }
             }
         }
+    }
+
+    @command("hg.rebaseCurrentBranch", { repository: true })
+    public async rebaseCurrentBranch(repository: Repository): Promise<void> {
+        if (
+            await this.checkThenWarnOutstandingMergeOrUnclean(
+                repository,
+                WarnScenario.Rebase
+            )
+        ) {
+            return;
+        }
+
+        const refs = await repository.getUpdateCandidates(false, false);
+
+        const choice = await interaction.pickRevision(
+            refs,
+            "Select a destination"
+        );
+
+        if (!choice) {
+            return;
+        }
+        const ref =
+            choice.type === RefType.Commit ? choice.commit : choice.name;
+        if (!ref) {
+            return;
+        }
+        const result = await repository.rebaseCurrentBranch(ref);
+        if (result.unresolvedCount > 0) {
+            interaction.warnUnresolvedFiles(result.unresolvedCount);
+        }
+    }
+
+    @command("hg.rebaseAbort", { repository: true })
+    public async rebaseAbort(repository: Repository): Promise<void> {
+        await repository.rebaseAbort();
+    }
+
+    @command("hg.rebaseContinue", { repository: true })
+    public async rebaseContinue(repository: Repository): Promise<void> {
+        await repository.rebaseContinue();
     }
 
     @command("hg.shelve", { repository: true })

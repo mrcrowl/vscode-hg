@@ -61,6 +61,7 @@ export const enum PushCreatesNewHeadAction {
 export const enum WarnScenario {
     Merge,
     Update,
+    Rebase,
 }
 export const enum DefaultRepoNotConfiguredAction {
     None,
@@ -381,6 +382,19 @@ export namespace interaction {
                     "Please clean your repository working directory before updating."
                 );
                 break;
+            case HgErrorCodes.NothingToRebase:
+                message = localize("nothing to rebase", "Nothing to rebase.");
+                type = "warning";
+                options.modal = false;
+                break;
+            case HgErrorCodes.NoRebaseInProgress:
+                message = localize(
+                    "no rebase in progress",
+                    "No rebase in progress."
+                );
+                type = "warning";
+                options.modal = false;
+                break;
             case HgErrorCodes.ShelveConflict:
                 // TODO: Show "Abort" button
                 message = localize(
@@ -592,45 +606,39 @@ export namespace interaction {
         return choice && choice.commit;
     }
 
-    export async function pickUpdateRevision(
+    export async function pickRevision(
         refs: Ref[],
-        unclean = false
-    ): Promise<UpdateRefItem | undefined> {
+        placeHolder: string
+    ): Promise<Ref | undefined> {
         const useBookmarks = typedConfig.useBookmarks;
 
         const branches = !useBookmarks
             ? refs
                   .filter((ref) => ref.type === RefType.Branch)
-                  .map((ref) => new UpdateRefItem(ref))
+                  .map((ref) => new RevisionItem(ref))
             : [];
 
         const bookmarks = useBookmarks
             ? refs
                   .filter((ref) => ref.type === RefType.Bookmark)
-                  .map((ref) => new UpdateBookmarkItem(ref))
+                  .map((ref) => new BookmarkItem(ref))
             : [];
 
         const tags = !useBookmarks
             ? refs
                   .filter((ref) => ref.type === RefType.Tag)
-                  .map((ref) => new UpdateTagItem(ref))
+                  .map((ref) => new TaggedRevisionItem(ref))
             : [];
 
         const commits = refs
             .filter((ref) => ref.type === RefType.Commit)
-            .map((ref) => new UpdateCommitItem(ref));
+            .map((ref) => new SingleCommitItem(ref));
 
         const picks = [...branches, ...bookmarks, ...tags, ...commits];
-
-        const placeHolder = `Select a revision to update to: ${
-            unclean
-                ? "(only showing local bookmarks while working directory unclean)"
-                : ""
-        }`;
-        const choice = await window.showQuickPick<UpdateRefItem>(picks, {
+        const choice = await window.showQuickPick<RevisionItem>(picks, {
             placeHolder,
         });
-        return choice;
+        return choice?.ref;
     }
 
     function describeLogEntrySource(kind: CommitSources): string {
@@ -1232,12 +1240,9 @@ class LogEntryItem extends CommitItem {
     }
 }
 
-class UpdateRefItem implements QuickPickItem {
+class RevisionItem implements QuickPickItem {
     protected get shortCommit(): string {
         return (this.ref.commit || "").substr(0, SHORT_HASH_LENGTH);
-    }
-    protected get treeish(): string | undefined {
-        return this.ref.name;
     }
     protected get icon(): string {
         return "";
@@ -1249,21 +1254,10 @@ class UpdateRefItem implements QuickPickItem {
         return this.shortCommit;
     }
 
-    constructor(protected ref: Ref) {}
-
-    async run(repository: Repository): Promise<void> {
-        const ref =
-            this.ref.type === RefType.Commit ? this.ref.commit : this.treeish;
-
-        if (!ref) {
-            return;
-        }
-
-        await repository.update(ref);
-    }
+    constructor(public ref: Ref) {}
 }
 
-class UpdateTagItem extends UpdateRefItem {
+class TaggedRevisionItem extends RevisionItem {
     protected get icon(): string {
         return "$(tag) ";
     }
@@ -1272,13 +1266,13 @@ class UpdateTagItem extends UpdateRefItem {
     }
 }
 
-class UpdateBookmarkItem extends UpdateRefItem {
+class BookmarkItem extends RevisionItem {
     protected get icon(): string {
         return "$(bookmark) ";
     }
 }
 
-class UpdateCommitItem extends UpdateRefItem {
+class SingleCommitItem extends RevisionItem {
     protected get icon(): string {
         return "$(git-commit) ";
     }

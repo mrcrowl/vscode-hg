@@ -242,6 +242,21 @@
                 "category": "Hg"
             },
             {
+                "command": "hg.rebaseCurrentBranch",
+                "title": "%command.rebaseCurrentBranch%",
+                "category": "Hg"
+            },
+            {
+                "command": "hg.rebaseAbort",
+                "title": "%command.rebaseAbort%",
+                "category": "Hg"
+            },
+            {
+                "command": "hg.rebaseContinue",
+                "title": "%command.rebaseContinue%",
+                "category": "Hg"
+            },
+            {
                 "command": "hg.refresh",
                 "title": "%command.refresh%",
                 "category": "Hg",

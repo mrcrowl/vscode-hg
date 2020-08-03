@@ -26,6 +26,7 @@ import {
     PushOptions,
     HgErrorCodes,
     IMergeResult,
+    RebaseResult,
     CommitDetails,
     LogEntryRepositoryOptions,
     HgRollbackDetails,
@@ -293,6 +294,9 @@ export const enum Operation {
     Shelve = 1 << 25,
     UnshelveContinue = 1 << 26,
     UnshelveAbort = 1 << 27,
+    Rebase = 1 << 28,
+    RebaseContinue = 1 << 29,
+    RebaseAbort = 1 << 30,
 }
 
 function isReadOnly(operation: Operation): boolean {
@@ -1280,6 +1284,41 @@ export class Repository implements IDisposable {
             return uri.fsPath.startsWith(this.repository.root);
         }
         return true;
+    }
+
+    async rebaseCurrentBranch(destination: string): Promise<RebaseResult> {
+        return this.run(Operation.Rebase, async () => {
+            try {
+                return await this.repository.rebaseCurrentBranch(destination);
+            } catch (e) {
+                if (
+                    e instanceof HgError &&
+                    e.hgErrorCode === HgErrorCodes.UntrackedFilesDiffer &&
+                    e.hgFilenames
+                ) {
+                    e.hgFilenames = e.hgFilenames.map((filename) =>
+                        this.mapRepositoryRelativePathToWorkspaceRelativePath(
+                            filename
+                        )
+                    );
+                }
+                throw e;
+            }
+        });
+    }
+
+    async rebaseAbort(): Promise<void> {
+        await this.run(
+            Operation.RebaseAbort,
+            async () => await this.repository.rebaseAbort()
+        );
+    }
+
+    async rebaseContinue(): Promise<void> {
+        await this.run(
+            Operation.RebaseContinue,
+            async () => await this.repository.rebaseContinue()
+        );
     }
 
     async shelve(options: ShelveOptions): Promise<void> {

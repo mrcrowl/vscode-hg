@@ -53,6 +53,10 @@ export interface SyncOptions {
     revs?: string[];
 }
 
+export interface RebaseResult {
+    unresolvedCount: number;
+}
+
 export interface ShelveOptions {
     name?: string;
 }
@@ -421,6 +425,8 @@ export const HgErrorCodes = {
     BranchAlreadyExists: "BranchAlreadyExists",
     NoRollbackInformationAvailable: "NoRollbackInformationAvailable",
     UntrackedFilesDiffer: "UntrackedFilesDiffer",
+    NothingToRebase: "NothingToRebase",
+    NoRebaseInProgress: "NoRebaseInProgress",
     DefaultRepositoryNotConfigured: "DefaultRepositoryNotConfigured",
     UnshelveInProgress: "UnshelveInProgress",
     ShelveConflict: "ShelveConflict",
@@ -987,6 +993,71 @@ export class Repository {
             }
             throw error;
         }
+    }
+
+    private async rebase(args: string[]): Promise<RebaseResult> {
+        try {
+            await this.run([
+                "rebase",
+                "--config",
+                "extensions.rebase=",
+                "--tool",
+                "internal:merge",
+                ...args,
+            ]);
+            return {
+                unresolvedCount: 0,
+            };
+        } catch (e) {
+            if (
+                e instanceof HgError &&
+                e.stdout &&
+                e.stdout.match(/nothing to rebase/)
+            ) {
+                e.hgErrorCode = HgErrorCodes.NothingToRebase;
+                throw e;
+            }
+
+            if (
+                e instanceof HgError &&
+                e.stderr &&
+                e.stderr.match(/no rebase in progress/)
+            ) {
+                e.hgErrorCode = HgErrorCodes.NoRebaseInProgress;
+            }
+
+            if (
+                e instanceof HgError &&
+                e.stderr &&
+                e.stderr.match(/untracked files in working directory differ/)
+            ) {
+                e.hgErrorCode = HgErrorCodes.UntrackedFilesDiffer;
+                e.hgFilenames = this.parseUntrackedFilenames(e.stderr);
+            }
+
+            if (e instanceof HgError && e.exitCode === 1) {
+                const match = (e.stdout || "").match(/(\d+) files unresolved/);
+                if (match) {
+                    return {
+                        unresolvedCount: parseInt(match[1]),
+                    };
+                }
+            }
+
+            throw e;
+        }
+    }
+
+    async rebaseCurrentBranch(destination: string): Promise<RebaseResult> {
+        return this.rebase(["--base", ".", "--dest", destination]);
+    }
+
+    async rebaseAbort(): Promise<void> {
+        await this.rebase(["--abort"]);
+    }
+
+    async rebaseContinue(): Promise<RebaseResult> {
+        return this.rebase(["--continue"]);
     }
 
     async shelve(opts: ShelveOptions): Promise<void> {
