@@ -537,6 +537,38 @@
                 {
                     "command": "hg.logRepo",
                     "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.shelve",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.unshelve",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.unshelveKeep",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.unshelveAbort",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.unshelveContinue",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.rebaseCurrentBranch",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.rebaseAbort",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
+                {
+                    "command": "hg.rebaseContinue",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
                 }
             ],
             "scm/title": [
