@@ -244,7 +244,7 @@ export class HgFinder {
             const buffers: Buffer[] = [];
             this.logAttempt(path);
             const child = cp.spawn(path, ["--version"], {
-                env: { HGPLAIN: "" },
+                env: { ...process.env, HGPLAIN: "" },
             });
             child.stdout.on("data", (b: Buffer) => buffers.push(b));
             child.on("error", e);
