@@ -18,7 +18,7 @@ import { HgFinder, Hg, IHg } from "./hg";
 import { Model } from "./model";
 import { CommandCenter } from "./commands";
 import { warnAboutMissingHg } from "./interaction";
-import { HgContentProvider } from "./contentProvider";
+import { HgFileSystemProvider } from "./contentProvider";
 import * as nls from "vscode-nls";
 import typedConfig from "./config";
 
@@ -68,7 +68,7 @@ async function init(
 
     disposables.push(
         new CommandCenter(hg, model, outputChannel),
-        new HgContentProvider(model)
+        new HgFileSystemProvider(model)
     );
 
     await checkHgVersion(info);

@@ -18,7 +18,7 @@ import {
     QuickPickItem,
 } from "vscode";
 import { Hg, HgErrorCodes } from "./hg";
-import { anyEvent, filterEvent, dispose } from "./util";
+import { anyEvent, filterEvent, dispose, eventToPromise } from "./util";
 import { memoize, debounce, sequentialize } from "./decorators";
 import * as path from "path";
 import * as fs from "fs";
@@ -63,6 +63,8 @@ function isParent(parent: string, child: string): boolean {
     return child.startsWith(parent);
 }
 
+type State = "uninitialized" | "initialized";
+
 export class Model implements Disposable {
     private _onDidOpenRepository = new EventEmitter<Repository>();
     readonly onDidOpenRepository: Event<Repository> = this._onDidOpenRepository
@@ -91,6 +93,31 @@ export class Model implements Disposable {
     private possibleHgRepositoryPaths = new Set<string>();
 
     private enabled = false;
+
+    private _onDidChangeState = new EventEmitter<State>();
+    readonly onDidChangeState = this._onDidChangeState.event;
+
+    private _state: State = "uninitialized";
+    get state(): State {
+        return this._state;
+    }
+
+    setState(state: State): void {
+        this._state = state;
+        this._onDidChangeState.fire(state);
+    }
+
+    @memoize
+    get isInitialized(): Promise<void> {
+        if (this._state === "initialized") {
+            return Promise.resolve();
+        }
+
+        return eventToPromise(
+            filterEvent(this.onDidChangeState, (s) => s === "initialized")
+        ) as Promise<any>;
+    }
+
     private configurationChangeDisposable: Disposable;
     private disposables: Disposable[] = [];
 
@@ -101,6 +128,7 @@ export class Model implements Disposable {
             this
         );
 
+        this.setState("uninitialized");
         if (this.enabled) {
             this.enable();
         }
@@ -128,17 +156,12 @@ export class Model implements Disposable {
             this,
             this.disposables
         );
-        this.onDidChangeWorkspaceFolders({
-            added: workspace.workspaceFolders || [],
-            removed: [],
-        });
 
         window.onDidChangeVisibleTextEditors(
             this.onDidChangeVisibleTextEditors,
             this,
             this.disposables
         );
-        this.onDidChangeVisibleTextEditors(window.visibleTextEditors);
 
         const fsWatcher = workspace.createFileSystemWatcher("**");
         this.disposables.push(fsWatcher);
@@ -161,8 +184,18 @@ export class Model implements Disposable {
             this.disposables
         );
 
-        this.scanWorkspaceFolders();
-        // this.status();
+        this.doInitialScan().finally(() => this.setState("initialized"));
+    }
+
+    private async doInitialScan(): Promise<void> {
+        await Promise.all([
+            this.onDidChangeWorkspaceFolders({
+                added: workspace.workspaceFolders || [],
+                removed: [],
+            }),
+            this.onDidChangeVisibleTextEditors(window.visibleTextEditors),
+            this.scanWorkspaceFolders(),
+        ]);
     }
 
     private disable(): void {

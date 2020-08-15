@@ -11,10 +11,22 @@ import {
     Event,
     EventEmitter,
     window,
+    FileSystemError,
+    FileStat,
+    FileType,
+    FileChangeEvent,
+    FileSystemProvider,
+    FileChangeType,
 } from "vscode";
 import { debounce, throttle } from "./decorators";
 import { Model, ModelChangeEvent, OriginalResourceChangeEvent } from "./model";
-import { filterEvent, eventToPromise } from "./util";
+import {
+    EmptyDisposable,
+    eventToPromise,
+    filterEvent,
+    isDescendant,
+    pathEquals,
+} from "./util";
 import { fromHgUri, toHgUri } from "./uri";
 
 interface CacheRow {
@@ -22,21 +34,17 @@ interface CacheRow {
     timestamp: number;
 }
 
-interface Cache {
-    [uri: string]: CacheRow;
-}
-
 const THREE_MINUTES = 1000 * 60 * 3;
 const FIVE_MINUTES = 1000 * 60 * 5;
 
-export class HgContentProvider {
-    private _onDidChange = new EventEmitter<Uri>();
-    get onDidChange(): Event<Uri> {
-        return this._onDidChange.event;
-    }
+export class HgFileSystemProvider implements FileSystemProvider {
+    private _onDidChangeFile = new EventEmitter<FileChangeEvent[]>();
+    readonly onDidChangeFile: Event<FileChangeEvent[]> = this._onDidChangeFile
+        .event;
 
     private changedRepositoryRoots = new Set<string>();
-    private cache: Cache = Object.create(null);
+    private cache = new Map<string, CacheRow>();
+    private mtime = new Date().getTime();
     private disposables: Disposable[] = [];
 
     constructor(private model: Model) {
@@ -46,7 +54,10 @@ export class HgContentProvider {
                 this.onDidChangeOriginalResource,
                 this
             ),
-            workspace.registerTextDocumentContentProvider("hg", this)
+            workspace.registerFileSystemProvider("hg", this, {
+                isReadonly: true,
+                isCaseSensitive: true,
+            })
         );
 
         setInterval(() => this.cleanup(), FIVE_MINUTES);
@@ -64,7 +75,11 @@ export class HgContentProvider {
             return;
         }
 
-        this._onDidChange.fire(toHgUri(uri, "", true));
+        const hgUri = toHgUri(uri, "", true);
+        this.mtime = new Date().getTime();
+        this._onDidChangeFile.fire([
+            { type: FileChangeType.Changed, uri: hgUri },
+        ]);
     }
 
     @debounce(1100)
@@ -82,63 +97,102 @@ export class HgContentProvider {
             await eventToPromise(onDidFocusWindow);
         }
 
-        Object.keys(this.cache).forEach((key) => {
-            const uri = this.cache[key].uri;
+        const events: FileChangeEvent[] = [];
+
+        for (const { uri } of this.cache.values()) {
             const fsPath = uri.fsPath;
 
             for (const root of this.changedRepositoryRoots) {
-                if (fsPath.startsWith(root)) {
-                    this._onDidChange.fire(uri);
-                    return;
+                if (isDescendant(root, fsPath)) {
+                    events.push({ type: FileChangeType.Changed, uri });
+                    break;
                 }
             }
-        });
+        }
+
+        if (events.length > 0) {
+            this.mtime = new Date().getTime();
+            this._onDidChangeFile.fire(events);
+        }
 
         this.changedRepositoryRoots.clear();
-
-        // await this.model.whenIdle();
-
-        // Object.keys(this.cache).forEach(key => this.onDidChangeEmitter.fire(this.cache[key].uri));
     }
 
-    async provideTextDocumentContent(uri: Uri): Promise<string> {
+    watch(): Disposable {
+        return EmptyDisposable;
+    }
+
+    async stat(uri: Uri): Promise<FileStat> {
+        await this.model.isInitialized;
+
+        const repository = this.model.getRepository(uri);
+        if (!repository) {
+            throw FileSystemError.FileNotFound();
+        }
+        // TODO get file type and size from mercurial
+        return { type: FileType.File, size: 0, mtime: this.mtime, ctime: 0 };
+    }
+
+    readDirectory(): Thenable<[string, FileType][]> {
+        throw new Error("Method not implemented.");
+    }
+
+    createDirectory(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    async readFile(uri: Uri): Promise<Uint8Array> {
+        await this.model.isInitialized;
+
         const repository = this.model.getRepository(uri);
 
         if (!repository) {
-            return "";
+            throw FileSystemError.FileNotFound();
         }
 
         const cacheKey = uri.toString();
         const timestamp = new Date().getTime();
-        const cacheValue = { uri, timestamp };
+        const cacheValue: CacheRow = { uri, timestamp };
 
-        this.cache[cacheKey] = cacheValue;
+        this.cache.set(cacheKey, cacheValue);
 
         const { path, ref } = fromHgUri(uri);
 
         try {
-            return await repository.show(ref, path);
+            return await repository.showAsStream(ref, path);
         } catch (err) {
-            // no-op
+            return new Uint8Array(0);
         }
+    }
 
-        return "";
+    writeFile(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    delete(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    rename(): void {
+        throw new Error("Method not implemented.");
     }
 
     private cleanup(): void {
         const now = new Date().getTime();
-        const cache = Object.create(null);
+        const cache = new Map<string, CacheRow>();
 
-        Object.keys(this.cache).forEach((key) => {
-            const row = this.cache[key];
-            const isOpen = window.visibleTextEditors.some(
-                (e) => e.document.uri.fsPath === row.uri.fsPath
-            );
+        for (const row of this.cache.values()) {
+            const { path } = fromHgUri(row.uri);
+            const isOpen = workspace.textDocuments
+                .filter((d) => d.uri.scheme === "file")
+                .some((d) => pathEquals(d.uri.fsPath, path));
 
             if (isOpen || now - row.timestamp < THREE_MINUTES) {
-                cache[row.uri.toString()] = row;
+                cache.set(row.uri.toString(), row);
+            } else {
+                // TODO: should fire delete events?
             }
-        });
+        }
 
         this.cache = cache;
     }

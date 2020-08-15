@@ -801,6 +801,35 @@ export class Repository {
         return result.stdout;
     }
 
+    async catAsStream(relativePath: string, ref: string): Promise<Buffer> {
+        const args = ["cat", relativePath];
+        if (ref) {
+            args.push("-r", ref);
+        }
+        const child = this.stream(args);
+
+        if (!child.stdout) {
+            return Promise.reject<Buffer>("Can't open file from hg");
+        }
+
+        const { exitCode, stdout, stderr } = await exec(child);
+
+        if (exitCode) {
+            const err = new HgError({
+                message: "Could not show object.",
+                exitCode,
+            });
+
+            if (/exists on disk, but not in/.test(stderr)) {
+                err.hgErrorCode = HgErrorCodes.NoSuchFile;
+            }
+
+            return Promise.reject<Buffer>(err);
+        }
+
+        return stdout;
+    }
+
     async bookmark(
         name: string,
         opts?: { remove?: boolean; force?: boolean }
