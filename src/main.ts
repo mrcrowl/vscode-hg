@@ -18,7 +18,7 @@ import { HgFinder, Hg, IHg } from "./hg";
 import { Model } from "./model";
 import { CommandCenter } from "./commands";
 import { warnAboutMissingHg } from "./interaction";
-import { HgFileSystemProvider } from "./contentProvider";
+import { HgFileSystemProvider } from "./fileSystemProvider";
 import * as nls from "vscode-nls";
 import typedConfig from "./config";
 
