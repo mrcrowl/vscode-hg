@@ -968,7 +968,17 @@
                     "default": "all"
                 }
             }
-        }
+        },
+        "resourceLabelFormatters": [
+            {
+                "scheme": "hg",
+                "formatting": {
+                    "label": "${path}${authority}",
+                    "separator": "/",
+                    "workspaceSuffix": "Mercurial"
+                }
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
