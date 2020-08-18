@@ -12,6 +12,7 @@ import {
     window,
     workspace,
     commands,
+    QuickDiffProvider,
 } from "vscode";
 import {
     Repository as BaseRepository,
@@ -348,7 +349,7 @@ export interface CommitOptions {
     amend?: boolean;
 }
 
-export class Repository implements IDisposable {
+export class Repository implements IDisposable, QuickDiffProvider {
     private _onDidChangeRepository = new EventEmitter<Uri>();
     readonly onDidChangeRepository: Event<Uri> = this._onDidChangeRepository
         .event;
@@ -1379,6 +1380,15 @@ export class Repository implements IDisposable {
 
                 throw e;
             }
+        });
+    }
+
+    async showAsStream(ref: string, filePath: string): Promise<Buffer> {
+        return this.run(Operation.Show, () => {
+            const relativePath = path
+                .relative(this.repository.root, filePath)
+                .replace(/\\/g, "/");
+            return this.repository.catAsStream(relativePath, ref);
         });
     }
 

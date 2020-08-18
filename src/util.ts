@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from "vscode";
-import { dirname } from "path";
+import { dirname, sep } from "path";
 import * as fs from "fs";
 import * as tmp from "tmp";
 
@@ -214,6 +214,38 @@ export async function writeStringToTempFile(
         disposables.push(tempFile);
     }
     return tempFile.fsPath;
+}
+
+function isWindowsPath(path: string): boolean {
+    return /^[a-zA-Z]:\\/.test(path);
+}
+
+export function isDescendant(parent: string, descendant: string): boolean {
+    if (parent === descendant) {
+        return true;
+    }
+
+    if (parent.charAt(parent.length - 1) !== sep) {
+        parent += sep;
+    }
+
+    // Windows is case insensitive
+    if (isWindowsPath(parent)) {
+        parent = parent.toLowerCase();
+        descendant = descendant.toLowerCase();
+    }
+
+    return descendant.startsWith(parent);
+}
+
+export function pathEquals(a: string, b: string): boolean {
+    // Windows is case insensitive
+    if (isWindowsPath(a)) {
+        a = a.toLowerCase();
+        b = b.toLowerCase();
+    }
+
+    return a === b;
 }
 
 async function createTempFile(): Promise<{
