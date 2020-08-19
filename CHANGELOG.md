@@ -1,3 +1,9 @@
+# **v1.7.1**
+
+## Bug fix
+
+-   Fix: gutter indicators stopped working with Visual Studio Code 1.48 [#158](https://github.com/mrcrowl/vscode-hg/issues/158)
+
 # **v1.7.0**
 
 ## What's New
