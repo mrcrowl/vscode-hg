@@ -45,6 +45,7 @@ import {
     delay,
     groupBy,
     partition,
+    isDescendant,
 } from "./util";
 import { memoize, throttle, debounce } from "./decorators";
 import { StatusBarCommands } from "./statusbar";
@@ -562,21 +563,23 @@ export class Repository implements IDisposable, QuickDiffProvider {
     constructor(private readonly repository: BaseRepository) {
         this.updateRepositoryPaths();
 
-        const fsWatcher = workspace.createFileSystemWatcher("**");
-        this.disposables.push(fsWatcher);
+        const workspaceWatcher = workspace.createFileSystemWatcher("**");
+        this.disposables.push(workspaceWatcher);
 
-        const onWorkspaceChange = anyEvent(
-            fsWatcher.onDidChange,
-            fsWatcher.onDidCreate,
-            fsWatcher.onDidDelete
+        const onWorkspaceFileChange = anyEvent(
+            workspaceWatcher.onDidChange,
+            workspaceWatcher.onDidCreate,
+            workspaceWatcher.onDidDelete
         );
-        const onRepositoryChange = filterEvent(
-            onWorkspaceChange,
-            (uri) => !/^\.\./.test(path.relative(repository.root, uri.fsPath))
+        const onWorkspaceRepositoryFileChange = filterEvent(
+            onWorkspaceFileChange,
+            (uri) => isDescendant(repository.root, uri.fsPath)
         );
         const onRelevantRepositoryChange = filterEvent(
-            onRepositoryChange,
-            (uri) => !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path)
+            onWorkspaceRepositoryFileChange,
+            (uri) =>
+                !/\/\.hg$/.test(uri.path) &&
+                !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path)
         );
         onRelevantRepositoryChange(this.onFSChange, this, this.disposables);
 
