@@ -1,6 +1,8 @@
-# Change Log
+# Changelog
 
-<!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+### [2.0.3](https://github.com/vivekvjn/vscode-hg/compare/v2.0.2...v2.0.3) (2020-09-09)
 
 ## [2.0.1]
 

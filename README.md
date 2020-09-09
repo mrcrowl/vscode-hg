@@ -33,10 +33,6 @@
 
 - Undo/rollback.
 
-# Feedback & Contributing
-
-- Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/vivekvjn/vscode-hg/issues) (_yes_, I see the irony).
-- Feel free to submit [pull requests](https://github.com/vivekvjn/vscode-hg/pulls).
 
 ## Initialize a new repo
 
@@ -129,6 +125,19 @@
 - The server feature is still expiremental, and is therefore not the default.
   `"cli"` &mdash; spawn a new `hg` process per command (default).
   `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_
+
+
+# Feedback & Contributing
+
+- Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/vivekvjn/vscode-hg/issues) (_yes_, I see the irony).
+- Feel free to submit [pull requests](https://github.com/vivekvjn/vscode-hg/pulls).
+
+
+## Release
+  This starts a git-flow release branch with recommened semver and bumps version number and updates changelog
+  ```sh
+  npm run release
+  ``` 
 
 # Acknowledgements
 
