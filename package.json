@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/vivekvjn/vscode-hg/issues"
   },
-  "version": "2.0.3",
+  "version": "2.0.4",
   "engines": {
     "vscode": "^1.48.0"
   },
@@ -806,7 +806,7 @@
   },
   "standard-version": {
     "scripts": {
-      "prerelease": "git flow release start `node get-next-version.js`"
+      "prerelease": "git flow release start v`node get-next-version.js`"
     },
     "skip": {
       "tag": true

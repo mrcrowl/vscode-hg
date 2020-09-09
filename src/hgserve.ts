@@ -262,7 +262,7 @@ class ChannelProcessor extends EventEmitter<IExecutionResult> {
   private input: StreamReader;
 
   constructor(
-    private encoding: string,
+    private encoding: BufferEncoding,
     private lineInputHandler: (body: string, limit: number) => Promise<void>
   ) {
     super();
@@ -363,7 +363,7 @@ class StreamReader {
     return buffer.readUInt32BE(0);
   }
 
-  public async readString(length: number, encoding: string): Promise<string> {
+  public async readString(length: number, encoding: BufferEncoding): Promise<string> {
     const buffer = await this.readBuffer(length);
     return buffer.toString(encoding);
   }
