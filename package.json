@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/vivekvjn/vscode-hg/issues"
   },
-  "version": "2.0.3",
+  "version": "2.0.4",
   "engines": {
     "vscode": "^1.48.0"
   },
