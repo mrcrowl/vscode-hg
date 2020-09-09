@@ -806,7 +806,7 @@
   },
   "standard-version": {
     "scripts": {
-      "prebump": "git flow release start `node get-next-version.js`"
+      "prerelease": "git flow release start `node get-next-version.js`"
     },
     "skip": {
       "tag": true
