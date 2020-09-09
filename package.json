@@ -804,6 +804,11 @@
     "test": "node ./out/test/runTest.js",
     "release": "standard-version"
   },
+  "standard-version": {
+    "skip": {
+      "tag": true
+    }
+  },
   "dependencies": {
     "tmp": "^0.2.1",
     "vscode-nls": "^5.0.0"
