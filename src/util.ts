@@ -202,20 +202,6 @@ export function uniqueFilter<T>(keyFn: (t: T) => string): (t: T) => boolean {
     };
 }
 
-export async function writeStringToTempFile(
-    contents: string,
-    disposables?: IDisposable[]
-): Promise<string> {
-    const tempFile = await createTempFile();
-    await new Promise<void>((c, e) =>
-        fs.writeFile(tempFile.fsPath, contents, (err) => (err ? e(err) : c()))
-    );
-    if (disposables) {
-        disposables.push(tempFile);
-    }
-    return tempFile.fsPath;
-}
-
 function isWindowsPath(path: string): boolean {
     return /^[a-zA-Z]:\\/.test(path);
 }
@@ -236,6 +222,20 @@ export function isDescendant(parent: string, descendant: string): boolean {
     }
 
     return descendant.startsWith(parent);
+}
+
+export async function writeStringToTempFile(
+    contents: string,
+    disposables?: IDisposable[]
+): Promise<string> {
+    const tempFile = await createTempFile();
+    await new Promise<void>((c, e) =>
+        fs.writeFile(tempFile.fsPath, contents, (err) => (err ? e(err) : c()))
+    );
+    if (disposables) {
+        disposables.push(tempFile);
+    }
+    return tempFile.fsPath;
 }
 
 export function pathEquals(a: string, b: string): boolean {
