@@ -82,12 +82,7 @@ import { toHgUri } from "./uri";
 const timeout = (millis: number) => new Promise((c) => setTimeout(c, millis));
 
 const localize = nls.loadMessageBundle();
-const iconsRootPath = path.join(
-    path.dirname(__dirname),
-    "..",
-    "resources",
-    "icons"
-);
+const iconsRootPath = path.join(__dirname, "..", "resources", "icons");
 
 type BadgeOptions = "off" | "all" | "tracked";
 
