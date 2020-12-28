@@ -170,18 +170,16 @@ export class CommandCenter {
         }
 
         if (!left) {
-            const document = await workspace.openTextDocument(right);
-            await window.showTextDocument(document, opts);
-            return;
+            await commands.executeCommand("vscode.open", right, opts, title);
+        } else {
+            await commands.executeCommand<void>(
+                "vscode.diff",
+                left,
+                right,
+                title,
+                opts
+            );
         }
-
-        return await commands.executeCommand<void>(
-            "vscode.diff",
-            left,
-            right,
-            title,
-            opts
-        );
     }
 
     private getLeftResource(resource: Resource): Uri | undefined {
