@@ -17,6 +17,7 @@ import {
     ThemeColor,
     workspace,
     ConfigurationChangeEvent,
+    Uri,
 } from "vscode";
 import { Hg, ILineAnnotation } from "./hg";
 import { Model } from "./model";
@@ -33,9 +34,34 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     } as DecorationRenderOptions
 );
 
-// const gutterAnnotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
+const fileCache = new (class LineAnnotationCache {
+    private fileAnnotationCache = new Map<Uri, ILineAnnotation[]>();
 
-// });
+    async getFileAnnotations(
+        repo: Repository,
+        uri: Uri
+    ): Promise<ILineAnnotation[]> {
+        // Cache file annotations
+        if (!this.fileAnnotationCache.has(uri)) {
+            this.fileAnnotationCache.set(
+                uri,
+                await repo.annotate(uri, "wdir()")
+            );
+        }
+        return this.fileAnnotationCache.get(uri)!;
+    }
+
+    clearFileCache(file?: Uri | TextDocument): void {
+        // Clear cache of a single file if given, or the whole thing
+        if (file instanceof Uri) {
+            this.fileAnnotationCache.delete(file);
+        } else if (file) {
+            this.fileAnnotationCache.delete((file as TextDocument).uri);
+        } else {
+            this.fileAnnotationCache.clear();
+        }
+    }
+})();
 
 export class LineTracker<T> extends Disposable {
     private disposable: Disposable | undefined;
@@ -103,14 +129,13 @@ export class LineTracker<T> extends Disposable {
         if (event.textEditor.document.uri.scheme != "file") {
             return;
         }
-        console.log();
         const uncommittedChangeDiffs = await this.diffHeadAndEditorContents(
             event.textEditor.document,
             repo
         );
-        const workingCopyAnnotations = await repo.annotate(
-            event.textEditor.document.uri,
-            "wdir()"
+        const workingCopyAnnotations = await fileCache.getFileAnnotations(
+            repo,
+            event.textEditor.document.uri
         );
         const annotations = applyLineChangesToAnnotations(
             workingCopyAnnotations,
@@ -181,11 +206,13 @@ export class LineTracker<T> extends Disposable {
             window.onDidChangeTextEditorSelection(
                 this.onTextEditorSelectionChanged,
                 this
-            )
+            ),
+            workspace.onDidCloseTextDocument(fileCache.clearFileCache)
         );
     }
     stop(): void {
         this.disposable?.dispose();
         this.disposable = undefined;
+        fileCache.clearFileCache();
     }
 }
