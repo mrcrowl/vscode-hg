@@ -16,7 +16,7 @@ import {
 } from "vscode";
 import { HgFinder, Hg, IHg } from "./hg";
 import { Model } from "./model";
-import { LineTracker } from "./annotations";
+import { CurrentLineAnnotationProvider } from "./annotations";
 import { CommandCenter } from "./commands";
 import { warnAboutMissingHg } from "./interaction";
 import { HgFileSystemProvider } from "./fileSystemProvider";
@@ -70,7 +70,7 @@ async function init(
     disposables.push(
         new CommandCenter(hg, model, outputChannel),
         new HgFileSystemProvider(model),
-        new LineTracker(hg, model)
+        new CurrentLineAnnotationProvider(hg, model)
     );
 
     await checkHgVersion(info);

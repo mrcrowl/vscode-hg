@@ -18,13 +18,18 @@ import {
     workspace,
     ConfigurationChangeEvent,
     Uri,
+    TextEditor,
+    MarkdownString,
+    TextDocumentChangeEvent,
 } from "vscode";
 import { Hg, ILineAnnotation } from "./hg";
 import { Model } from "./model";
 import { Repository } from "./repository";
 import typedConfig from "./config";
 
-const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType(
+const GUTTER_CHARACTER_WIDTH = 50;
+
+const currentLineDecoration: TextEditorDecorationType = window.createTextEditorDecorationType(
     {
         after: {
             margin: "0 0 0 3em",
@@ -34,6 +39,15 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
     } as DecorationRenderOptions
 );
 
+const gutterDecoration: TextEditorDecorationType = window.createTextEditorDecorationType(
+    {
+        before: {
+            margin: "0",
+            textDecoration: "none",
+        },
+        rangeBehavior: DecorationRangeBehavior.ClosedOpen,
+    } as DecorationRenderOptions
+);
 const fileCache = new (class LineAnnotationCache {
     private fileAnnotationCache = new Map<Uri, ILineAnnotation[]>();
 
@@ -63,11 +77,11 @@ const fileCache = new (class LineAnnotationCache {
     }
 })();
 
-export class LineTracker<T> extends Disposable {
-    private disposable: Disposable | undefined;
-    private configDisposable: Disposable;
-    private hg: Hg;
-    private model: Model;
+abstract class BaseAnnotationProvider extends Disposable {
+    protected disposable: Disposable | undefined;
+    protected configDisposable: Disposable;
+    protected hg: Hg;
+    protected model: Model;
 
     constructor(hg: Hg, model: Model) {
         super(() => this.dispose());
@@ -88,13 +102,7 @@ export class LineTracker<T> extends Disposable {
         }
     }
 
-    applyConfiguration(): void {
-        if (typedConfig.lineAnnotationEnabled) {
-            this.start();
-        } else {
-            this.stop();
-        }
-    }
+    abstract applyConfiguration(): void;
 
     async diffHeadAndEditorContents(
         document: TextDocument,
@@ -118,6 +126,27 @@ export class LineTracker<T> extends Disposable {
         );
         const lineChanges: ILineChange[] = diffComputer.computeDiff().changes;
         return lineChanges;
+    }
+
+    dispose(): void {
+        this.stop();
+        this.configDisposable.dispose();
+    }
+
+    stop(): void {
+        this.disposable?.dispose();
+        this.disposable = undefined;
+        fileCache.clearFileCache();
+    }
+}
+
+export class CurrentLineAnnotationProvider extends BaseAnnotationProvider {
+    applyConfiguration(): void {
+        if (typedConfig.lineAnnotationEnabled) {
+            this.start();
+        } else {
+            this.stop();
+        }
     }
 
     @debounce(0)
@@ -148,7 +177,7 @@ export class LineTracker<T> extends Disposable {
             event.textEditor.document
         );
 
-        event.textEditor.setDecorations(annotationDecoration, decorations);
+        event.textEditor.setDecorations(currentLineDecoration, decorations);
     }
 
     generateDecorations(
@@ -197,10 +226,6 @@ export class LineTracker<T> extends Disposable {
         }
     }
 
-    dispose(): void {
-        this.stop();
-        this.configDisposable.dispose();
-    }
     start(): void {
         this.disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(
@@ -210,9 +235,241 @@ export class LineTracker<T> extends Disposable {
             workspace.onDidCloseTextDocument(fileCache.clearFileCache)
         );
     }
+}
+
+export class GutterAnnotationProvider extends BaseAnnotationProvider {
+    private _editor: TextEditor;
+    private _decorations: DecorationOptions[] | undefined;
+
+    constructor(editor: TextEditor, hg: Hg, model: Model) {
+        super(hg, model);
+        this._editor = editor;
+    }
+
+    applyConfiguration(): void {
+        return;
+    }
+
+    async provideAnnotations(): Promise<void> {
+        const repo = this.model.repositories[0];
+        const uncommittedChangeDiffs = await this.diffHeadAndEditorContents(
+            this._editor.document,
+            repo
+        );
+        const workingCopyAnnotations = await fileCache.getFileAnnotations(
+            repo,
+            this._editor.document.uri
+        );
+        const annotations = applyLineChangesToAnnotations(
+            workingCopyAnnotations,
+            uncommittedChangeDiffs
+        );
+
+        const decorations = this.generateDecorations(
+            annotations,
+            [],
+            this._editor.document
+        );
+
+        this.setDecorations(decorations);
+    }
+
+    protected setDecorations(decorations: DecorationOptions[]): void {
+        if (this._decorations?.length) {
+            this.clearDecorations();
+        }
+
+        this._decorations = decorations;
+        if (this._decorations?.length) {
+            this._editor.setDecorations(gutterDecoration, decorations);
+        }
+    }
+
+    clearDecorations(): void {
+        if (this._editor == null) return;
+
+        this._editor.setDecorations(gutterDecoration, []);
+        this._decorations = undefined;
+    }
+
+    generateDecorations(
+        annotations: ILineAnnotation[],
+        selections: number[],
+        document: TextDocument
+    ): DecorationOptions[] {
+        const annotationColor = new ThemeColor("input.foreground");
+        let previousHash: string | undefined;
+        const decorations = annotations.map((annotation, l) => {
+            let text: string;
+            if (annotation.hash != previousHash) {
+                text = this.formatAnnotation(annotation);
+                previousHash = annotation.hash;
+            } else {
+                text = "".padEnd(GUTTER_CHARACTER_WIDTH);
+            }
+
+            return {
+                range: document.validateRange(new Range(l, 0, l, 0)),
+                renderOptions: {
+                    before: {
+                        backgroundColor: new ThemeColor(
+                            "editorGroupHeader.tabsBackground"
+                        ),
+                        color: annotationColor,
+                        contentText: text,
+                        fontWeight: "normal",
+                        height: "100%",
+                        margin: "0 26px -1px 0",
+                        textDecoration: "overline solid rgba(0, 0, 0, .2)",
+                        width: `calc(${GUTTER_CHARACTER_WIDTH}ch)`,
+                    },
+                },
+            };
+        });
+        return decorations;
+    }
+
+    formatAnnotation(annotation: ILineAnnotation): string {
+        if (annotation.hash == "ffffffffffff") {
+            return "Uncommitted changes".padEnd(GUTTER_CHARACTER_WIDTH);
+        } else if (!annotation.description) {
+            return annotation.hash.padEnd(GUTTER_CHARACTER_WIDTH);
+        } else {
+            const dateString = annotation.date?.toLocaleDateString() || "";
+            const descriptionWidth =
+                GUTTER_CHARACTER_WIDTH - dateString.length - 2;
+            let description;
+            if (annotation.description.length >= descriptionWidth) {
+                description =
+                    annotation.description.substring(0, descriptionWidth - 1) +
+                    "…";
+            } else {
+                description = annotation.description.padEnd(
+                    descriptionWidth,
+                    "\u00a0"
+                );
+            }
+            return `${description}  ${dateString}`;
+        }
+    }
+
+    restore(editor: TextEditor): void {
+        this._editor = editor;
+        if (this._decorations?.length) {
+            this._editor.setDecorations(gutterDecoration, this._decorations);
+        }
+    }
+
+    start(): void {
+        this.provideAnnotations();
+    }
+
     stop(): void {
-        this.disposable?.dispose();
-        this.disposable = undefined;
-        fileCache.clearFileCache();
+        this.clearDecorations();
+        fileCache.clearFileCache(this._editor.document);
+    }
+
+    dispose(): void {
+        this.stop();
+    }
+}
+
+export class FileAnnotationController implements Disposable {
+    private _hg: Hg;
+    private _model: Model;
+    private _disposables = new Array<Disposable>();
+    private _annotationProviders = new Map<Uri, GutterAnnotationProvider>();
+
+    constructor(hg: Hg, model: Model) {
+        this._hg = hg;
+        this._model = model;
+        this._disposables.push(
+            workspace.onDidChangeTextDocument(this.onDocumentChanged, this),
+            workspace.onDidCloseTextDocument(this.onDocumentClosed, this),
+            window.onDidChangeVisibleTextEditors(
+                this.onVisibleTextEditorsChanged,
+                this
+            )
+        );
+    }
+
+    isShowing(editor: TextEditor): boolean {
+        return this._annotationProviders.has(this.getProviderKey(editor));
+    }
+
+    toggle(editor: TextEditor): void {
+        if (this.isShowing(editor)) {
+            this.clear(editor.document);
+        } else {
+            this.show(editor);
+        }
+    }
+
+    getProvider(
+        editor: TextEditor | undefined
+    ): GutterAnnotationProvider | undefined {
+        if (editor == null || editor.document == null) return undefined;
+        const key = this.getProviderKey(editor);
+        return this._annotationProviders.get(key);
+    }
+
+    getProviderKey(docOrEd: TextDocument | TextEditor): Uri {
+        let document: TextDocument;
+        if ("document" in docOrEd) {
+            document = docOrEd.document;
+        } else {
+            document = docOrEd;
+        }
+        return document.uri;
+    }
+
+    show(editor: TextEditor): void {
+        if (this.getProvider(editor)) {
+            return;
+        }
+
+        const provider = new GutterAnnotationProvider(
+            editor,
+            this._hg,
+            this._model
+        );
+        provider.start();
+        this._annotationProviders.set(this.getProviderKey(editor), provider);
+    }
+
+    clear(document: TextDocument): void {
+        const key = this.getProviderKey(document);
+        if (!this._annotationProviders.has(key)) {
+            return;
+        }
+        const provider = this._annotationProviders.get(key)!;
+        provider.dispose();
+        this._annotationProviders.delete(key);
+    }
+
+    @debounce(50)
+    onDocumentChanged(e: TextDocumentChangeEvent): void {
+        // Clear the annotation on edit
+        this.clear(e.document);
+    }
+
+    onDocumentClosed(document: TextDocument): void {
+        this.clear(document);
+    }
+
+    onVisibleTextEditorsChanged(editors: readonly TextEditor[]): void {
+        // VS Code clears decorations on tab change, so we need to restore them
+        let provider: GutterAnnotationProvider | undefined;
+        for (const e of editors) {
+            provider = this.getProvider(e);
+            if (provider == null) continue;
+
+            void provider.restore(e);
+        }
+    }
+
+    dispose(): void {
+        this._disposables.forEach((provider) => provider.dispose());
+        this._annotationProviders.forEach((provider) => provider.dispose());
     }
 }

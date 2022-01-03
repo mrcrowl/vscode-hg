@@ -53,11 +53,6 @@
                 "icon": "$(add)"
             },
             {
-                "command": "hg.annotate",
-                "title": "%command.annotate%",
-                "category": "Hg"
-            },
-            {
                 "command": "hg.branch",
                 "title": "%command.branch%",
                 "category": "Hg"
@@ -347,13 +342,18 @@
                 "command": "hg.unshelveContinue",
                 "title": "%command.unshelveContinue%",
                 "category": "Hg"
+            },
+            {
+                "command": "hg.toggleAnnotations",
+                "title": "%command.toggleAnnotations%",
+                "category": "Hg"
             }
         ],
         "menus": {
             "commandPalette": [
                 {
-                    "command": "hg.annotate",
-                    "when": "config.hg.enabled && !hg.missing"
+                    "command": "hg.toggleAnnotations",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
                 },
                 {
                     "command": "hg.clone",
