@@ -1258,7 +1258,7 @@ export class Repository implements IDisposable, QuickDiffProvider {
                     e instanceof HgError &&
                     e.hgErrorCode === HgErrorCodes.PushCreatesNewRemoteBranches
                 ) {
-                    const allow = interaction.warnPushCreatesNewBranchesAllow();
+                    const allow = await interaction.warnPushCreatesNewBranchesAllow();
                     if (allow) {
                         return this.push(path, {
                             ...options,
