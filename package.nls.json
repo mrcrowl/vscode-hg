@@ -1,4 +1,5 @@
 {
+    "command.annotate": "Annotate",
     "command.clone": "Clone",
     "command.init": "Initialize Repository (Hg)",
     "command.close": "Close Repository",

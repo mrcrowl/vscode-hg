@@ -53,6 +53,11 @@
                 "icon": "$(add)"
             },
             {
+                "command": "hg.annotate",
+                "title": "%command.annotate%",
+                "category": "Hg"
+            },
+            {
                 "command": "hg.branch",
                 "title": "%command.branch%",
                 "category": "Hg"
@@ -346,6 +351,10 @@
         ],
         "menus": {
             "commandPalette": [
+                {
+                    "command": "hg.annotate",
+                    "when": "config.hg.enabled && !hg.missing"
+                },
                 {
                     "command": "hg.clone",
                     "when": "config.hg.enabled && !hg.missing"
@@ -991,6 +1000,7 @@
     },
     "dependencies": {
         "tmp": "0.2.1",
+        "vscode-diff": "^2.0.2",
         "vscode-nls": "^2.0.1"
     },
     "devDependencies": {
