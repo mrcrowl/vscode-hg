@@ -17,7 +17,7 @@ import {
     asciiOnly,
     writeStringToTempFile,
 } from "./util";
-import { EventEmitter, Event, workspace, Disposable } from "vscode";
+import { EventEmitter, Event, workspace, Disposable, Uri } from "vscode";
 import { HgCommandServer } from "./hgserve";
 
 const isWindows = os.platform() === "win32";
@@ -64,6 +64,10 @@ export interface ShelveOptions {
 export interface UnshelveOptions {
     name: string;
     keep?: boolean;
+}
+
+export interface MoveOptions {
+    after: boolean;
 }
 
 export interface PurgeOptions {
@@ -1156,6 +1160,14 @@ export class Repository {
             "extensions.shelve=",
             "--continue",
         ]);
+    }
+
+    async move(src: Uri, dest: Uri, opts: MoveOptions): Promise<void> {
+        const args = ["move", src.path, dest.path];
+        if (opts.after) {
+            args.push("--after");
+        }
+        await this.run(args);
     }
 
     async tryGetLastCommitDetails(): Promise<ICommitDetails> {
