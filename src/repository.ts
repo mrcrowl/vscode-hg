@@ -13,6 +13,7 @@ import {
     workspace,
     commands,
     QuickDiffProvider,
+    FileRenameEvent,
 } from "vscode";
 import {
     Repository as BaseRepository,
@@ -35,6 +36,7 @@ import {
     UnshelveOptions,
     GetRefsOptions,
     RefType,
+    MoveOptions,
 } from "./hg";
 import {
     anyEvent,
@@ -279,6 +281,7 @@ export const enum Operation {
     Unresolve = "Unresolve",
     Forget = "Forget",
     Merge = "Merge",
+    Move = "Move",
     AddRemove = "AddRemove",
     SetBookmark = "SetBookmark",
     RemoveBookmark = "RemoveBookmark",
@@ -592,6 +595,10 @@ export class Repository implements IDisposable, QuickDiffProvider {
         );
         onHgrcChange(this.onHgrcChange, this, this.disposables);
 
+        this.disposables.push(
+            workspace.onDidRenameFiles(this.onFileRename, this)
+        );
+
         this._sourceControl = scm.createSourceControl(
             "hg",
             "Hg",
@@ -900,6 +907,7 @@ export class Repository implements IDisposable, QuickDiffProvider {
                     case Status.DELETED:
                     case Status.MISSING:
                     case Status.MODIFIED:
+                    case Status.RENAMED:
                     default:
                         toRevert.push(this.mapResourceToRepoRelativePath(r));
                         break;
@@ -1391,6 +1399,19 @@ export class Repository implements IDisposable, QuickDiffProvider {
         });
     }
 
+    async move(
+        files: readonly { oldUri: Uri; newUri: Uri }[],
+        options: MoveOptions
+    ): Promise<void> {
+        return await this.run(Operation.Move, async () => {
+            Promise.all(
+                files.map(({ oldUri, newUri }) => {
+                    this.repository.move(oldUri, newUri, options);
+                })
+            );
+        });
+    }
+
     async showAsStream(ref: string, filePath: string): Promise<Buffer> {
         return this.run(Operation.Show, () => {
             const relativePath = path
@@ -1470,6 +1491,10 @@ export class Repository implements IDisposable, QuickDiffProvider {
         } catch (e) {
             // noop
         }
+    }
+
+    private async onFileRename(e: FileRenameEvent) {
+        return this.move(e.files, { after: true });
     }
 
     @throttle
