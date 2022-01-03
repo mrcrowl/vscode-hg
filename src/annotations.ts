@@ -23,7 +23,7 @@ import {
     TextDocumentChangeEvent,
 } from "vscode";
 import { Hg, ILineAnnotation } from "./hg";
-import { Model } from "./model";
+import { Model, ModelChangeEvent } from "./model";
 import { Repository } from "./repository";
 import typedConfig from "./config";
 
@@ -226,13 +226,22 @@ export class CurrentLineAnnotationProvider extends BaseAnnotationProvider {
         }
     }
 
+    @debounce(1000)
+    onRepositoryChanged(_e: ModelChangeEvent): void {
+        fileCache.clearFileCache();
+    }
+
     start(): void {
         this.disposable = Disposable.from(
             window.onDidChangeTextEditorSelection(
                 this.onTextEditorSelectionChanged,
                 this
             ),
-            workspace.onDidCloseTextDocument(fileCache.clearFileCache)
+            workspace.onDidCloseTextDocument(
+                fileCache.clearFileCache,
+                fileCache
+            ),
+            this.model.onDidChangeRepository(this.onRepositoryChanged, this)
         );
     }
 }
