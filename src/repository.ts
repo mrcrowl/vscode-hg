@@ -577,7 +577,7 @@ export class Repository implements IDisposable, QuickDiffProvider {
             onWorkspaceRepositoryFileChange,
             (uri) =>
                 !/\/\.hg$/.test(uri.path) &&
-                !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+)?)$/.test(uri.path)
+                !/\/\.hg\/(\w?lock.*|.*\.log([-.]\w+~?)?)$/.test(uri.path)
         );
         onRelevantRepositoryChange(this.onFSChange, this, this.disposables);
 
