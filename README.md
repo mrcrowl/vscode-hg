@@ -138,7 +138,8 @@
     `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_
 
 `hg.annotationEnabled`
-- Enables annotation decorations at end of lines
+
+-   Enables annotation decorations at end of lines
 
 # Acknowledgements
 
