@@ -15,10 +15,13 @@ import {
     TextEditorSelectionChangeEvent,
     TextDocument,
     ThemeColor,
+    workspace,
+    ConfigurationChangeEvent,
 } from "vscode";
 import { Hg, ILineAnnotation } from "./hg";
 import { Model } from "./model";
 import { Repository } from "./repository";
+import typedConfig from "./config";
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType(
     {
@@ -36,6 +39,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 
 export class LineTracker<T> extends Disposable {
     private disposable: Disposable | undefined;
+    private configDisposable: Disposable;
     private hg: Hg;
     private model: Model;
 
@@ -43,7 +47,27 @@ export class LineTracker<T> extends Disposable {
         super(() => this.dispose());
         this.hg = hg;
         this.model = model;
-        this.start();
+        this.configDisposable = Disposable.from(
+            workspace.onDidChangeConfiguration(
+                this.onConfigurationChanged,
+                this
+            )
+        );
+        this.applyConfiguration();
+    }
+
+    onConfigurationChanged(e: ConfigurationChangeEvent): void {
+        if (e.affectsConfiguration("hg")) {
+            this.applyConfiguration();
+        }
+    }
+
+    applyConfiguration(): void {
+        if (typedConfig.lineAnnotationEnabled) {
+            this.start();
+        } else {
+            this.stop();
+        }
     }
 
     async diffHeadAndEditorContents(
@@ -150,6 +174,7 @@ export class LineTracker<T> extends Disposable {
 
     dispose(): void {
         this.stop();
+        this.configDisposable.dispose();
     }
     start(): void {
         this.disposable = Disposable.from(
@@ -160,9 +185,7 @@ export class LineTracker<T> extends Disposable {
         );
     }
     stop(): void {
-        if (this.disposable) {
-            this.disposable.dispose();
-        }
+        this.disposable?.dispose();
         this.disposable = undefined;
     }
 }

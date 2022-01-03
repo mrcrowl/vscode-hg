@@ -975,6 +975,11 @@
                         "%config.pushPullScope.default%"
                     ],
                     "default": "all"
+                },
+                "hg.lineAnnotationEnabled": {
+                    "type": "boolean",
+                    "description": "%config.lineAnnotationEnabled%",
+                    "default": false
                 }
             }
         },

@@ -78,5 +78,6 @@
     "config.pushPullScope.all": "All branches / bookmarks",
     "config.pushPullScope.current": "Only the current branch / bookmark",
     "config.pushPullScope.default": "Only the default branch / bookmarks on the default branch",
-    "config.useBookmarks": "Use bookmarks instead of branches"
+    "config.useBookmarks": "Use bookmarks instead of branches",
+    "config.lineAnnotationEnabled": "Show annotation at the end of the line"
 }
