@@ -1485,6 +1485,17 @@ export class CommandCenter {
         );
     }
 
+    @command("hg.logRev", { repository: true })
+    async logRev(repository: Repository, rev: string): Promise<void> {
+        const commit = await repository.getCommitDetails(rev);
+        const selectedFile = await interaction.presentCommitDetails(
+            commit,
+            undefined,
+            this.createLogMenuAPI(repository)
+        );
+        selectedFile?.run();
+    }
+
     @command("hg.logDefault", { repository: true })
     async logDefault(repository: Repository): Promise<void> {
         interaction.presentLogMenu(

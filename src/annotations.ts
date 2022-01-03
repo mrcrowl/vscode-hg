@@ -307,9 +307,9 @@ export class GutterAnnotationProvider extends BaseAnnotationProvider {
             } else {
                 text = "".padEnd(GUTTER_CHARACTER_WIDTH);
             }
-
-            return {
+            const decoration = {
                 range: document.validateRange(new Range(l, 0, l, 0)),
+                hoverMessage: this.hoverForAnnotation(annotation, document.uri),
                 renderOptions: {
                     before: {
                         backgroundColor: new ThemeColor(
@@ -319,14 +319,33 @@ export class GutterAnnotationProvider extends BaseAnnotationProvider {
                         contentText: text,
                         fontWeight: "normal",
                         height: "100%",
-                        margin: "0 26px -1px 0",
+                        margin: "0 26px -1px 6px",
                         textDecoration: "overline solid rgba(0, 0, 0, .2)",
                         width: `calc(${GUTTER_CHARACTER_WIDTH}ch)`,
                     },
                 },
             };
+            return decoration;
         });
         return decorations;
+    }
+
+    hoverForAnnotation(
+        annotation: ILineAnnotation,
+        _fileUri: Uri
+    ): MarkdownString {
+        const commandArgs = encodeURIComponent(
+            JSON.stringify([annotation.hash])
+        );
+        const commandUri = Uri.parse(`command:hg.logRev?${commandArgs}`);
+        let hoverMsg = new MarkdownString(
+            `[${annotation.hash}](${commandUri}): `
+        );
+        hoverMsg = hoverMsg.appendText(
+            `${annotation.user} &bullet; ${annotation.description}`
+        );
+        hoverMsg.isTrusted = true;
+        return hoverMsg;
     }
 
     formatAnnotation(annotation: ILineAnnotation): string {
