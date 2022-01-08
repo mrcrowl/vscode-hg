@@ -100,6 +100,13 @@ export interface GetRefsOptions {
     excludeTags?: boolean;
 }
 
+export interface ILineAnnotation {
+    hash: string;
+    user: string;
+    date?: Date;
+    description: string;
+}
+
 export enum RefType {
     Branch,
     Tag,
@@ -1641,6 +1648,35 @@ export class Repository {
                 } as Commit;
             }
         );
+    }
+
+    async annotate(filePath: string, rev?: string): Promise<ILineAnnotation[]> {
+        const templateFields = [
+            "short(node)",
+            "shortdate(date)",
+            "person(author)",
+            "firstline(desc)",
+        ];
+        const args = [
+            "annotate",
+            "-T",
+            `"{lines % '{${templateFields.join("}|{")}}\\n'}"`,
+            filePath,
+        ];
+        if (rev) {
+            args.push("-r", rev);
+        }
+        const annotateResult = await this.run(args);
+        const lines = annotateResult.stdout.trim().split("\n");
+        return lines.map((annotation) => {
+            const components = annotation.split("|", templateFields.length);
+            return {
+                hash: components[0],
+                date: new Date(components[1]),
+                user: components[2],
+                description: components[3],
+            } as ILineAnnotation;
+        });
     }
 
     async getParents(revision?: string): Promise<Commit[]> {

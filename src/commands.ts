@@ -43,6 +43,7 @@ import {
     LogEntriesOptions,
     Repository,
 } from "./repository";
+import { FileAnnotationController } from "./annotations";
 import * as path from "path";
 import * as os from "os";
 import {
@@ -97,15 +98,14 @@ function command(commandId: string, options: CommandOptions = {}): Function {
 export class CommandCenter {
     private model: Model;
     private disposables: Disposable[];
+    private fileAnnotationsController: FileAnnotationController;
 
     constructor(
         private hg: Hg,
-        model: Model | undefined,
+        model: Model,
         private outputChannel: OutputChannel
     ) {
-        if (model) {
-            this.model = model;
-        }
+        this.model = model;
 
         this.disposables = Commands.map(
             ({ commandId, key, method, options }) => {
@@ -123,6 +123,11 @@ export class CommandCenter {
                 // }
             }
         );
+        this.fileAnnotationsController = new FileAnnotationController(
+            hg,
+            model
+        );
+        this.disposables.push(this.fileAnnotationsController);
     }
 
     @command("hg.refresh", { repository: true })
@@ -1480,6 +1485,17 @@ export class CommandCenter {
         );
     }
 
+    @command("hg.logRev", { repository: true })
+    async logRev(repository: Repository, rev: string): Promise<void> {
+        const commit = await repository.getCommitDetails(rev);
+        const selectedFile = await interaction.presentCommitDetails(
+            commit,
+            undefined,
+            this.createLogMenuAPI(repository)
+        );
+        selectedFile?.run();
+    }
+
     @command("hg.logDefault", { repository: true })
     async logDefault(repository: Repository): Promise<void> {
         interaction.presentLogMenu(
@@ -1599,6 +1615,23 @@ export class CommandCenter {
         );
         if (bookmark) {
             repository.removeBookmark(bookmark.name);
+        }
+    }
+
+    // Toggle line annotations for the current file
+    @command("hg.toggleAnnotations", { repository: true })
+    async toggleAnnotate(_repository: Repository): Promise<void> {
+        const activeEditor = window.activeTextEditor;
+        // TODO: allow annotate of a specific hg rev
+        if (!activeEditor || activeEditor.document.uri.scheme != "file") {
+            return;
+        }
+        try {
+            this.fileAnnotationsController.toggle(activeEditor);
+        } catch (ex) {
+            void window.showErrorMessage(
+                `Unable to toggle file ${activeEditor.document.uri} annotations. See output channel for more details`
+            );
         }
     }
 

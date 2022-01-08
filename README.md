@@ -38,6 +38,8 @@
 
 -   Rebase support.
 
+-   Show annotation for current line
+
 # Feedback & Contributing
 
 -   Please report any bugs, suggestions or documentation requests via the [Github issues](https://github.com/mrcrowl/vscode-hg/issues) (_yes_, I see the irony).
@@ -134,6 +136,10 @@
 -   The server feature is still expiremental, and is therefore not the default.
     `"cli"` &mdash; spawn a new `hg` process per command (default).
     `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_
+
+`hg.annotationEnabled`
+
+-   Enables annotation decorations at end of lines
 
 # Acknowledgements
 

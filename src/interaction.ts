@@ -815,7 +815,7 @@ export namespace interaction {
 
     export async function presentCommitDetails(
         details: CommitDetails,
-        back: RunnableQuickPickItem,
+        back: RunnableQuickPickItem | undefined,
         commands: LogMenuAPI
     ): Promise<RunnableQuickPickItem | undefined> {
         const placeHolder = describeCommitOneLine(details);
@@ -828,10 +828,12 @@ export namespace interaction {
         const backToSelfRunnable = () =>
             presentCommitDetails(details, back, commands);
         const items = [
-            back,
             asLabelItem("Files", undefined, backToSelfRunnable),
             ...filePickItems,
         ];
+        if (back) {
+            items.unshift(back);
+        }
 
         const choice = await window.showQuickPick<RunnableQuickPickItem>(
             items,

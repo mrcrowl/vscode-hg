@@ -342,10 +342,19 @@
                 "command": "hg.unshelveContinue",
                 "title": "%command.unshelveContinue%",
                 "category": "Hg"
+            },
+            {
+                "command": "hg.toggleAnnotations",
+                "title": "%command.toggleAnnotations%",
+                "category": "Hg"
             }
         ],
         "menus": {
             "commandPalette": [
+                {
+                    "command": "hg.toggleAnnotations",
+                    "when": "config.hg.enabled && !hg.missing && hgOpenRepositoryCount != 0"
+                },
                 {
                     "command": "hg.clone",
                     "when": "config.hg.enabled && !hg.missing"
@@ -966,6 +975,11 @@
                         "%config.pushPullScope.default%"
                     ],
                     "default": "all"
+                },
+                "hg.lineAnnotationEnabled": {
+                    "type": "boolean",
+                    "description": "%config.lineAnnotationEnabled%",
+                    "default": false
                 }
             }
         },
@@ -991,6 +1005,7 @@
     },
     "dependencies": {
         "tmp": "0.2.1",
+        "vscode-diff": "^2.0.2",
         "vscode-nls": "^2.0.1"
     },
     "devDependencies": {

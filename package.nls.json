@@ -1,4 +1,5 @@
 {
+    "command.annotate": "Annotate",
     "command.clone": "Clone",
     "command.init": "Initialize Repository (Hg)",
     "command.close": "Close Repository",
@@ -53,6 +54,7 @@
     "command.unshelveKeep": "Unshelve and Keep",
     "command.unshelveAbort": "Abort unshelve",
     "command.unshelveContinue": "Continue unshelve",
+    "command.toggleAnnotations": "Toggle annotations for this file",
     "config.enabled": "Whether Hg is enabled",
     "config.path": "Path to the 'hg' executable (only required if auto-detection fails)",
     "config.autoInOut": "Whether auto-incoming/outgoing counts are enabled",
@@ -77,5 +79,6 @@
     "config.pushPullScope.all": "All branches / bookmarks",
     "config.pushPullScope.current": "Only the current branch / bookmark",
     "config.pushPullScope.default": "Only the default branch / bookmarks on the default branch",
-    "config.useBookmarks": "Use bookmarks instead of branches"
+    "config.useBookmarks": "Use bookmarks instead of branches",
+    "config.lineAnnotationEnabled": "Show hg annotation at the end of the line"
 }

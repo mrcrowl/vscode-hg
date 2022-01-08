@@ -37,6 +37,7 @@ import {
     GetRefsOptions,
     RefType,
     MoveOptions,
+    ILineAnnotation,
 } from "./hg";
 import {
     anyEvent,
@@ -266,6 +267,7 @@ export class Resource implements SourceControlResourceState {
 export const enum Operation {
     Status = "Status",
     Add = "Add",
+    Annotate = "Annotate",
     Commit = "Commit",
     Clean = "Clean",
     Branch = "Branch",
@@ -295,6 +297,7 @@ export const enum Operation {
 
 function isReadOnly(operation: Operation): boolean {
     switch (operation) {
+        case Operation.Annotate:
         case Operation.GetCommitTemplate:
         case Operation.Show:
         case Operation.RollbackDryRun:
@@ -1663,6 +1666,14 @@ export class Repository implements IDisposable, QuickDiffProvider {
             limit: options.limit || 200,
         };
         return this.repository.getLogEntries(opts);
+    }
+
+    @throttle
+    public async annotate(uri: Uri, rev?: string): Promise<ILineAnnotation[]> {
+        return await this.run(Operation.Annotate, () => {
+            const filePath = this.mapFileUriToRepoRelativePath(uri);
+            return this.repository.annotate(filePath, rev);
+        });
     }
 
     @throttle

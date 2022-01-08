@@ -83,6 +83,10 @@ class Config {
             this.pushPullScope
         );
     }
+
+    get lineAnnotationEnabled(): boolean {
+        return this.get("lineAnnotationEnabled", true);
+    }
 }
 
 const typedConfig = new Config();
