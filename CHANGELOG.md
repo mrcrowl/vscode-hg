@@ -1,3 +1,17 @@
+# **v1.8.0**
+
+## What's New
+
+-   Added support for `hg annotate` output [#117](https://github.com/mrcrowl/vscode-hg/issues/117). The `Line Annotation Enabled` setting will show output for `hg annotate` on the currently selected line(s). The `Toggle Annotations for This File` command shows `annotate` output for the whole file.
+-   When files are renamed in VS Code, `hg mv` is run automatically [#139](https://github.com/mrcrowl/vscode-hg/issues/139)
+
+## Bug Fix
+
+-   Fix: status icons not showing
+-   Fix: open non-diff resources with vscode.open [#166](https://github.com/mrcrowl/vscode-hg/issues/166)
+-   Fix: extension respects a user declining dialog asking whether they want to push a new branch
+-   Fix: don't trigger refresh on temp file changes [#173](https://github.com/mrcrowl/vscode-hg/issues/173)
+
 # **v1.7.1**
 
 ## Bug fix
