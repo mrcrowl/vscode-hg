@@ -38,7 +38,7 @@
 
 -   Rebase support.
 
--   Show annotation for current line
+-   Show annotation for current line or for whole file
 
 # Feedback & Contributing
 
@@ -139,7 +139,7 @@
 
 `hg.annotationEnabled`
 
--   Enables annotation decorations at end of lines
+-   Enables `hg annotate` decorations at end of the currently selected lines
 
 # Acknowledgements
 

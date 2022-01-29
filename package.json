@@ -16,7 +16,7 @@
     "bugs": {
         "url": "https://github.com/mrcrowl/vscode-hg/issues"
     },
-    "version": "1.7.1",
+    "version": "1.8.0",
     "engines": {
         "vscode": "^1.30.0"
     },
@@ -29,7 +29,6 @@
         "multi-root ready"
     ],
     "icon": "icon.png",
-    "enableProposedApi": false,
     "categories": [
         "SCM Providers",
         "Other"
