@@ -617,7 +617,7 @@ export class Hg {
             }
 
             if (options.logErrors !== false && result.stderr) {
-                this.log(`${result.stderr}\n`);
+                this.log(`${result.stdout}\n${result.stderr}\n`);
             }
 
             return Promise.reject<IExecutionResult<string>>(
