@@ -137,7 +137,7 @@
     `"cli"` &mdash; spawn a new `hg` process per command (default).
     `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_
 
-`hg.annotationEnabled`
+`hg.lineAnnotationEnabled`
 
 -   Enables `hg annotate` decorations at end of the currently selected lines
 
