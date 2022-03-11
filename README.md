@@ -144,7 +144,10 @@
 # Acknowledgements
 
 ## Core Maintainers
-- [incidentist](https://github.com/incidentist)
-- [hdpolivieira](https://github.com/hdpoliveira)
+
+-   [incidentist](https://github.com/incidentist)
+-   [hdpolivieira](https://github.com/hdpoliveira)
+
 ## Other Contributions
+
 [ajansveld](https://github.com/ajansveld), [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy), [KristjanTammekivi](https://github.com/KristjanTammekivi), [Marcelotsvaz](https://github.com/Marcelotsvaz), [gd4Ark](https://github.com/gd4Ark)
