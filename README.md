@@ -38,7 +38,7 @@
 
 -   Rebase support.
 
--   Show annotation for current line or for whole file
+-   Show annotation for current line or for whole file.
 
 # Feedback & Contributing
 
@@ -137,10 +137,17 @@
     `"cli"` &mdash; spawn a new `hg` process per command (default).
     `"server"` &mdash; run a command server process &nbsp;_i.e. `hg serve --cmdserve`_
 
-`hg.annotationEnabled`
+`hg.lineAnnotationEnabled`
 
--   Enables `hg annotate` decorations at end of the currently selected lines
+-   Enables `hg annotate` decorations at end of the currently selected lines.
 
 # Acknowledgements
 
-[ajansveld](https://github.com/ajansveld), [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy)
+## Core Maintainers
+
+-   [incidentist](https://github.com/incidentist)
+-   [hdpolivieira](https://github.com/hdpoliveira)
+
+## Other Contributions
+
+[ajansveld](https://github.com/ajansveld), [hoffmael](https://github.com/hoffmael), [nioh-wiki](https://github.com/nioh-wiki), [joaomoreno](https://github.com/joaomoreno), [nsgundy](https://github.com/nsgundy), [KristjanTammekivi](https://github.com/KristjanTammekivi), [Marcelotsvaz](https://github.com/Marcelotsvaz), [gd4Ark](https://github.com/gd4Ark)
