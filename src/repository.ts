@@ -605,7 +605,7 @@ export class Repository implements IDisposable, QuickDiffProvider {
         this._sourceControl = scm.createSourceControl(
             "hg",
             "Hg",
-            Uri.parse(repository.root)
+            Uri.file(repository.root)
         );
         this.disposables.push(this._sourceControl);
 
