@@ -1,3 +1,9 @@
+# **v1.9.0**
+
+## Bug Fix
+
+-   Fix: broken gutter diff on Windows [#198](https://github.com/mrcrowl/vscode-hg/issues/198)
+
 # **v1.8.0-v1.8.1**
 
 ## What's New
