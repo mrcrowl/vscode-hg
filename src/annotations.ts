@@ -154,8 +154,11 @@ export class CurrentLineAnnotationProvider extends BaseAnnotationProvider {
         event: TextEditorSelectionChangeEvent
     ): Promise<void> {
         const selections = event.selections.map((x) => x.active.line);
-        const repo = this.model.repositories[0];
         if (event.textEditor.document.uri.scheme != "file") {
+            return;
+        }
+        const repo = this.model.getRepository(event.textEditor.document.uri);
+        if (!repo) {
             return;
         }
         const uncommittedChangeDiffs = await this.diffHeadAndEditorContents(
@@ -260,7 +263,10 @@ export class GutterAnnotationProvider extends BaseAnnotationProvider {
     }
 
     async provideAnnotations(): Promise<void> {
-        const repo = this.model.repositories[0];
+        const repo = this.model.getRepository(this._editor.document.uri);
+        if (!repo) {
+            return;
+        }
         const uncommittedChangeDiffs = await this.diffHeadAndEditorContents(
             this._editor.document,
             repo
