@@ -56,7 +56,13 @@ suite("hg", () => {
         this.enableTimeouts(false);
         fs.writeFileSync(file("text.txt"), "test", "utf8");
 
-        assert.equal(fs.realpathSync(repository.root), cwd);
+        const repoRoot = fs.realpathSync(repository.root);
+        // On Windows, paths may differ in case and short/long name format
+        if (process.platform === "win32") {
+            assert.equal(repoRoot.toLowerCase(), cwd.toLowerCase());
+        } else {
+            assert.equal(repoRoot, cwd);
+        }
 
         await commands.executeCommand("workbench.view.scm");
         await repository.status();
