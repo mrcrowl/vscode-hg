@@ -24,7 +24,9 @@ suite("hg", () => {
     console.info(`Using workspace: ${testWorkspace}`);
 
     const testWorkspaceUri = Uri.file(testWorkspace);
-    const cwd = fs.realpathSync(testWorkspaceUri.fsPath);
+    // Use native realpath to resolve Windows 8.3 short names to long names
+    const realpath = fs.realpathSync.native ?? fs.realpathSync;
+    const cwd = realpath(testWorkspaceUri.fsPath);
 
     let hg: Model;
     let repository: Repository;
@@ -56,13 +58,8 @@ suite("hg", () => {
         this.enableTimeouts(false);
         fs.writeFileSync(file("text.txt"), "test", "utf8");
 
-        const repoRoot = fs.realpathSync(repository.root);
-        // On Windows, paths may differ in case and short/long name format
-        if (process.platform === "win32") {
-            assert.equal(repoRoot.toLowerCase(), cwd.toLowerCase());
-        } else {
-            assert.equal(repoRoot, cwd);
-        }
+        const repoRoot = realpath(repository.root);
+        assert.equal(repoRoot, cwd);
 
         await commands.executeCommand("workbench.view.scm");
         await repository.status();
