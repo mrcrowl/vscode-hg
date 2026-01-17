@@ -1,3 +1,9 @@
+# **v1.9.1**
+
+## Bug Fix
+
+-   Fix: annotations now correctly identify the repository in multi-repo workspaces [#210](https://github.com/mrcrowl/vscode-hg/issues/210)
+
 # **v1.9.0**
 
 ## Bug Fix
