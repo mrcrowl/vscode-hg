@@ -178,7 +178,9 @@ export class HgFinder {
     private findHgDarwin(): Promise<IHg> {
         return this.findTortoiseHgDarwin(
             "/Applications/TortoiseHg.app/Contents/Resources"
-        ).then(undefined, () => this.findHgDarwinUsingWhich());
+        )
+            .then(undefined, () => this.findSpecificHg("/opt/homebrew/bin/hg"))
+            .then(undefined, () => this.findHgDarwinUsingWhich());
     }
 
     private findTortoiseHgDarwin(base: string): Promise<IHg> {
@@ -265,7 +267,9 @@ export class HgFinder {
             child.on("error", e);
             child.on("exit", (code) => {
                 if (!code) {
-                    const output = Buffer.concat(buffers).toString("utf8");
+                    const output = Buffer.concat(
+                        buffers as Uint8Array[]
+                    ).toString("utf8");
                     return c({
                         path,
                         version: parseVersion(output),
@@ -320,13 +324,15 @@ export async function exec(
         new Promise<Buffer>((c) => {
             const buffers: Buffer[] = [];
             on(child.stdout!, "data", (b: Buffer) => buffers.push(b));
-            once(child.stdout!, "close", () => c(Buffer.concat(buffers)));
+            once(child.stdout!, "close", () =>
+                c(Buffer.concat(buffers as Uint8Array[]))
+            );
         }),
         new Promise<string>((c) => {
             const buffers: Buffer[] = [];
             on(child.stderr!, "data", (b: Buffer) => buffers.push(b));
             once(child.stderr!, "close", () =>
-                c(Buffer.concat(buffers).toString("utf8"))
+                c(Buffer.concat(buffers as Uint8Array[]).toString("utf8"))
             );
         }),
     ]) as Promise<[number, Buffer, string]>;

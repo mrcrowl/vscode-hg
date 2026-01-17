@@ -1,8 +1,8 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
-        "target": "es6",
-        "lib": ["es2016"],
+        "target": "ES2018",
+        "lib": ["es2018"],
         "noImplicitThis": true,
         "module": "commonjs",
         "outDir": "out",
